@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Bin Rental",
+    "slug": "binrental-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/images/logo.png",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/images/logo.png",
+        "backgroundColor": "#E6FBBF"
+      },
+      "package": "com.binrental.mobile"
+    },
+    "web": {
+      "favicon": "./src/assets/images/logo.png"
+    }
+  }
+}
