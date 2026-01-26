@@ -11,11 +11,13 @@ import {
   Image,
   Alert,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 
 const LoginScreen: React.FC = () => {
+  const navigation = useNavigation();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
@@ -148,7 +150,10 @@ const LoginScreen: React.FC = () => {
           </TouchableOpacity>
 
           {/* Sign up text */}
-          <TouchableOpacity style={styles.signUpContainer}>
+          <TouchableOpacity
+            style={styles.signUpContainer}
+            onPress={() => navigation.navigate('SignUp' as never)}
+          >
             <Text style={styles.signUpText}>
               <Text style={styles.tapHereBold}>Tap here</Text> if you don't have an account.
             </Text>
