@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../contexts/AuthContext';
-import { fonts } from '../theme/fonts';
-import { themeColors } from '../theme/colors';
+import {LinearGradient} from 'expo-linear-gradient';
+import {useNavigation} from '@react-navigation/native';
+import {useAuth} from '../contexts/AuthContext';
+import {fonts} from '../theme/fonts';
+import {themeColors} from '../theme/colors';
 import BottomNavBar from '../components/BottomNavBar';
 
 // Import SVG images
@@ -22,10 +22,10 @@ import Icon3_1 from '../assets/images/3_1.svg';
 import PlayIcon from '../assets/images/play.svg';
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import Icon20_3 from '../assets/images/20_3.svg';
-const { width } = Dimensions.get('window');
+const {width} = Dimensions.get('window');
 
 const CustomerDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const {user} = useAuth();
   const navigation = useNavigation();
   const userName = user?.name || 'Herper Russo';
 
@@ -34,8 +34,7 @@ const CustomerDashboard: React.FC = () => {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+        showsVerticalScrollIndicator={false}>
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -48,13 +47,15 @@ const CustomerDashboard: React.FC = () => {
         </View>
 
         {/* Order New Bin Button */}
-        <TouchableOpacity style={styles.orderButtonContainer} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.orderButtonContainer}
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('OrderBin' as never)}>
           <LinearGradient
             colors={['#9CCD17', '#009B5F']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.orderButtonGradient}
-          >
+            start={{x: 0, y: 0}}
+            end={{x: 1, y: 0}}
+            style={styles.orderButtonGradient}>
             <View style={styles.orderButtonIconContainer}>
               <BinCollectIcon width={39} height={32} />
             </View>
@@ -68,14 +69,15 @@ const CustomerDashboard: React.FC = () => {
           <View style={styles.trackingCard}>
             <LinearGradient
               colors={['#C0F96F', '#90B93E']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0.7, y: 1 }}
-              style={styles.trackingCardGradient}
-            >
+              start={{x: 0, y: 0}}
+              end={{x: 0.7, y: 1}}
+              style={styles.trackingCardGradient}>
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Tracking</Text>
-                  <TouchableOpacity style={styles.playButtonContainer} activeOpacity={0.7}>
+                  <TouchableOpacity
+                    style={styles.playButtonContainer}
+                    activeOpacity={0.7}>
                     <PlayIcon width={45} height={45} />
                   </TouchableOpacity>
                 </View>
@@ -95,14 +97,15 @@ const CustomerDashboard: React.FC = () => {
             <LinearGradient
               colors={['#A7DB3D', '#D6EF72', '#D8FF3A']}
               locations={[0.1651, 0.6554, 0.8017]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0.7, y: 1 }}
-              style={styles.bookingCardGradient}
-            >
+              start={{x: 0, y: 0}}
+              end={{x: 0.7, y: 1}}
+              style={styles.bookingCardGradient}>
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Bookings</Text>
-                  <TouchableOpacity style={styles.playButtonContainer} activeOpacity={0.7}>
+                  <TouchableOpacity
+                    style={styles.playButtonContainer}
+                    activeOpacity={0.7}>
                     <PlayIcon width={45} height={45} />
                   </TouchableOpacity>
                 </View>
@@ -111,7 +114,12 @@ const CustomerDashboard: React.FC = () => {
                   <Text style={styles.cardStatLabel}>Completed Services</Text>
                 </View>
                 <View style={styles.binCollectOverlayUpsideDown}>
-                  <View style={{ width: 192, height: 128, transform: [{ rotate: '180deg' }] }}>
+                  <View
+                    style={{
+                      width: 192,
+                      height: 128,
+                      transform: [{rotate: '180deg'}],
+                    }}>
                     <BinCollect2 width={192} height={128} />
                   </View>
                 </View>
@@ -124,10 +132,9 @@ const CustomerDashboard: React.FC = () => {
         <View style={styles.paymentsCard}>
           <LinearGradient
             colors={['#29B554', '#6EAD16']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.7, y: 1 }}
-            style={styles.paymentsCardGradient}
-          >
+            start={{x: 0, y: 0}}
+            end={{x: 0.7, y: 1}}
+            style={styles.paymentsCardGradient}>
             <View style={styles.paymentsContent}>
               <View style={styles.paymentsHeader}>
                 <Text style={styles.paymentsTitle}>Payments</Text>
@@ -155,13 +162,14 @@ const CustomerDashboard: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#EAFFCC']}
               locations={[0.2377, 0.6629]}
-              start={{ x: 0.342, y: 0 }}
-              end={{ x: 0.658, y: 1 }}
-              style={styles.recentBookingsCardGradient}
-            >
+              start={{x: 0.342, y: 0}}
+              end={{x: 0.658, y: 1}}
+              style={styles.recentBookingsCardGradient}>
               <View style={styles.recentBookingsHeader}>
                 <Text style={styles.recentBookingsTitle}>Recent Bookings</Text>
-                <TouchableOpacity style={styles.viewAllButton} activeOpacity={0.7}>
+                <TouchableOpacity
+                  style={styles.viewAllButton}
+                  activeOpacity={0.7}>
                   <Text style={styles.viewAllText}>View all</Text>
                   <View style={styles.viewAllIcon}>
                     <PlayIcon width={25} height={25} />
@@ -173,10 +181,14 @@ const CustomerDashboard: React.FC = () => {
               <View style={styles.bookingItem}>
                 <View style={styles.bookingItemContent}>
                   <View style={styles.bookingItemLeft}>
-                    <Text style={styles.bookingItemTitle}>General Waste - 6m³</Text>
+                    <Text style={styles.bookingItemTitle}>
+                      General Waste - 6m³
+                    </Text>
                     <Text style={styles.bookingItemId}>#BCP-78901</Text>
                   </View>
-                  <TouchableOpacity style={styles.bookingViewButton} activeOpacity={0.7}>
+                  <TouchableOpacity
+                    style={styles.bookingViewButton}
+                    activeOpacity={0.7}>
                     <Text style={styles.bookingViewText}>View</Text>
                     <View style={styles.bookingViewIcon}>
                       <PlayIcon width={14.24} height={14.24} />
@@ -189,10 +201,14 @@ const CustomerDashboard: React.FC = () => {
               <View style={styles.bookingItem}>
                 <View style={styles.bookingItemContent}>
                   <View style={styles.bookingItemLeft}>
-                    <Text style={styles.bookingItemTitle}>General Waste - 6m³</Text>
+                    <Text style={styles.bookingItemTitle}>
+                      General Waste - 6m³
+                    </Text>
                     <Text style={styles.bookingItemId}>#BCP-78901</Text>
                   </View>
-                  <TouchableOpacity style={styles.bookingViewButton} activeOpacity={0.7}>
+                  <TouchableOpacity
+                    style={styles.bookingViewButton}
+                    activeOpacity={0.7}>
                     <Text style={styles.bookingViewText}>View</Text>
                     <View style={styles.bookingViewIcon}>
                       <PlayIcon width={14.24} height={14.24} />
@@ -470,7 +486,7 @@ const styles = StyleSheet.create({
     right: -40,
     width: 391,
     height: 218,
-    opacity: 0.80,
+    opacity: 0.8,
     zIndex: 1,
   },
   paymentsImage: {

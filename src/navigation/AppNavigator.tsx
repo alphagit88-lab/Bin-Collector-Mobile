@@ -1,18 +1,22 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { useAuth } from '../contexts/AuthContext';
+import {NavigationContainer} from '@react-navigation/native';
+import {createNativeStackNavigator} from '@react-navigation/native-stack';
+import {useAuth} from '../contexts/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import CustomerDashboard from '../screens/CustomerDashboard';
 import SupplierDashboard from '../screens/SupplierDashboard';
 import AccountScreen from '../screens/AccountScreen';
 import ServiceTrackingScreen from '../screens/ServiceTrackingScreen';
+import BookingsScreen from '../screens/BookingsScreen';
+import OrderBinScreen from '../screens/OrderBinScreen';
+import OrderConfirmationScreen from '../screens/OrderConfirmationScreen';
+import OrderSuccessScreen from '../screens/OrderSuccessScreen';
 
 const Stack = createNativeStackNavigator();
 
 const AppNavigator: React.FC = () => {
-  const { isAuthenticated, user, loading } = useAuth();
+  const {isAuthenticated, user, loading} = useAuth();
 
   if (loading) {
     return null; // Or a loading spinner
@@ -20,7 +24,7 @@ const AppNavigator: React.FC = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{headerShown: false}}>
         {!isAuthenticated ? (
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
@@ -28,14 +32,34 @@ const AppNavigator: React.FC = () => {
           </>
         ) : user?.role === 'customer' ? (
           <>
-            <Stack.Screen name="CustomerDashboard" component={CustomerDashboard} />
-            <Stack.Screen name="ServiceTracking" component={ServiceTrackingScreen} />
+            <Stack.Screen
+              name="CustomerDashboard"
+              component={CustomerDashboard}
+            />
+            <Stack.Screen name="OrderBin" component={OrderBinScreen} />
+            <Stack.Screen
+              name="OrderConfirmation"
+              component={OrderConfirmationScreen}
+            />
+            <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
+            <Stack.Screen name="Bookings" component={BookingsScreen} />
+            <Stack.Screen
+              name="ServiceTracking"
+              component={ServiceTrackingScreen}
+            />
             <Stack.Screen name="Account" component={AccountScreen} />
           </>
         ) : user?.role === 'supplier' ? (
           <>
-            <Stack.Screen name="SupplierDashboard" component={SupplierDashboard} />
-            <Stack.Screen name="ServiceTracking" component={ServiceTrackingScreen} />
+            <Stack.Screen
+              name="SupplierDashboard"
+              component={SupplierDashboard}
+            />
+            <Stack.Screen name="Bookings" component={BookingsScreen} />
+            <Stack.Screen
+              name="ServiceTracking"
+              component={ServiceTrackingScreen}
+            />
             <Stack.Screen name="Account" component={AccountScreen} />
           </>
         ) : (
