@@ -12,10 +12,9 @@ import expo.modules.ReactActivityDelegateWrapper
 
 class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
-    // Set the theme to AppTheme BEFORE onCreate
-    // This ensures proper theming for React Native
-    // The splash screen from AndroidManifest theme will show first,
-    // then transition to app content when React Native loads
+    // Set the theme to AppTheme BEFORE onCreate to support
+    // coloring the background, status bar, and navigation bar.
+    // This is required for expo-splash-screen.
     setTheme(R.style.AppTheme);
     super.onCreate(null)
   }

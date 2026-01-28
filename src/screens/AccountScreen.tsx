@@ -13,6 +13,7 @@ import {useAuth} from '../contexts/AuthContext';
 import {fonts} from '../theme/fonts';
 import {themeColors} from '../theme/colors';
 import BottomNavBar from '../components/BottomNavBar';
+import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 
 // Import SVG icons
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -223,7 +224,11 @@ const AccountScreen: React.FC = () => {
       </ScrollView>
 
       {/* Bottom Navigation */}
-      <BottomNavBar activeTab="account" />
+      {user?.role === 'supplier' ? (
+        <SupplierBottomNavBar activeTab="account" />
+      ) : (
+        <BottomNavBar activeTab="account" />
+      )}
     </View>
   );
 };

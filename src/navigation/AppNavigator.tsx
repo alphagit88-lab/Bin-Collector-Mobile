@@ -6,6 +6,10 @@ import LoginScreen from '../screens/LoginScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import CustomerDashboard from '../screens/CustomerDashboard';
 import SupplierDashboard from '../screens/SupplierDashboard';
+import SupplierJobsScreen from '../screens/SupplierJobsScreen';
+import SupplierEarningsScreen from '../screens/SupplierEarningsScreen';
+import SupplierOperationsScreen from '../screens/SupplierOperationsScreen';
+import SupplierRequestsScreen from '../screens/SupplierRequestsScreen';
 import AccountScreen from '../screens/AccountScreen';
 import ServiceTrackingScreen from '../screens/ServiceTrackingScreen';
 import BookingsScreen from '../screens/BookingsScreen';
@@ -54,6 +58,19 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen
               name="SupplierDashboard"
               component={SupplierDashboard}
+            />
+            <Stack.Screen
+              name="SupplierOperations"
+              component={SupplierOperationsScreen}
+            />
+            <Stack.Screen
+              name="SupplierRequests"
+              component={SupplierRequestsScreen}
+            />
+            <Stack.Screen name="SupplierJobs" component={SupplierJobsScreen} />
+            <Stack.Screen
+              name="SupplierEarnings"
+              component={SupplierEarningsScreen}
             />
             <Stack.Screen name="Bookings" component={BookingsScreen} />
             <Stack.Screen
