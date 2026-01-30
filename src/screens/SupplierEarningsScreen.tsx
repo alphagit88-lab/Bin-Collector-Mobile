@@ -3,7 +3,7 @@ import {View, Text, StyleSheet, ScrollView} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {themeColors} from '../theme/colors';
 import {fonts} from '../theme/fonts';
-import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
 
 const SupplierEarningsScreen: React.FC = () => {
   return (
@@ -37,7 +37,7 @@ const SupplierEarningsScreen: React.FC = () => {
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      <SupplierBottomNavBar activeTab="earnings" />
+      <OperationsBottomNavBar activeTab="payouts" />
     </View>
   );
 };
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bottomSpacing: {
-    height: 100,
+    height: 120,
   },
 });
 

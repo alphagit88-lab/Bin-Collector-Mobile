@@ -14,8 +14,12 @@ export const fonts = {
     bold: 'LeagueSpartan_700Bold',
     extraBold: 'LeagueSpartan_800ExtraBold',
     black: 'LeagueSpartan_900Black',
+    // League Spartan specific aliases
+    leagueSpartanRegular: 'LeagueSpartan_400Regular',
+    leagueSpartanMedium: 'LeagueSpartan_500Medium',
+    leagueSpartanSemiBold: 'LeagueSpartan_600SemiBold',
   },
-  
+
   // Default font
   default: 'LeagueSpartan_400Regular',
 };

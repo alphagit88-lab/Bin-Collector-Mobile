@@ -8,6 +8,7 @@ import {
   Image,
 } from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
+import {useNavigation} from '@react-navigation/native';
 import {themeColors} from '../theme/colors';
 import {fonts} from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
@@ -99,6 +100,7 @@ const categoryLabels: Record<JobCategory, string> = {
 };
 
 const SupplierJobsScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
   const [selectedCategory, setSelectedCategory] =
     useState<JobCategory>('pending');
 
@@ -110,6 +112,26 @@ const SupplierJobsScreen: React.FC = () => {
   const getCategoryCount = (category: JobCategory) => {
     if (category === 'all') return mockJobs.length;
     return mockJobs.filter(job => job.status === category).length;
+  };
+
+  const handleViewJob = (job: Job) => {
+    // Debug: confirm the press fired and the correct job id
+    console.log('SupplierJobsScreen: view pressed for job', job.id);
+
+    // Navigate to JobDetail screen with job data (use plain navigate)
+    navigation.navigate('JobDetail', {
+      job: {
+        orderId: `#1002${job.id}`,
+        binType: job.binType,
+        binSize: job.binSize,
+        total: '$210.00',
+        deliveryDate: 'March 15, 2024',
+        pickupDate: 'March 20, 2024',
+        location: '21-B Chaplin Rd, Toronto',
+        customerName: 'Herper Russo',
+        customerId: '#29123',
+      },
+    });
   };
 
   const renderJobItem = (job: Job, index: number) => (
@@ -126,7 +148,10 @@ const SupplierJobsScreen: React.FC = () => {
       </View>
       <View style={styles.actionColumn}>
         {index === 0 && <Text style={styles.columnHeaderAction}>Action</Text>}
-        <TouchableOpacity style={styles.viewButton} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.viewButton}
+          activeOpacity={0.7}
+          onPress={() => handleViewJob(job)}>
           <LinearGradient
             colors={['#1F1F1F', '#2B2B2B']}
             locations={[0, 1]}

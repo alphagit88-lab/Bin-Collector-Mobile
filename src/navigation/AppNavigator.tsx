@@ -9,7 +9,10 @@ import SupplierDashboard from '../screens/SupplierDashboard';
 import SupplierJobsScreen from '../screens/SupplierJobsScreen';
 import SupplierEarningsScreen from '../screens/SupplierEarningsScreen';
 import SupplierOperationsScreen from '../screens/SupplierOperationsScreen';
+import FleetManagementScreen from '../screens/FleetManagementScreen';
+import SupplierAvailabilityScreen from '../screens/SupplierAvailabilityScreen';
 import SupplierRequestsScreen from '../screens/SupplierRequestsScreen';
+import JobDetailScreen from '../screens/JobDetailScreen';
 import AccountScreen from '../screens/AccountScreen';
 import ServiceTrackingScreen from '../screens/ServiceTrackingScreen';
 import BookingsScreen from '../screens/BookingsScreen';
@@ -64,10 +67,19 @@ const AppNavigator: React.FC = () => {
               component={SupplierOperationsScreen}
             />
             <Stack.Screen
+              name="SupplierAvailability"
+              component={SupplierAvailabilityScreen}
+            />
+            <Stack.Screen
+              name="FleetManagement"
+              component={FleetManagementScreen}
+            />
+            <Stack.Screen
               name="SupplierRequests"
               component={SupplierRequestsScreen}
             />
             <Stack.Screen name="SupplierJobs" component={SupplierJobsScreen} />
+            <Stack.Screen name="JobDetail" component={JobDetailScreen} />
             <Stack.Screen
               name="SupplierEarnings"
               component={SupplierEarningsScreen}
