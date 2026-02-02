@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import SvgImage from '../assets/images/14.svg';
+import { useAuth } from '../contexts/AuthContext';
 
 type SupplierType = 'Commercial' | 'Residential' | 'Commercial/Residential';
 
@@ -28,6 +29,7 @@ const SignUpScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { signup } = useAuth();
 
   const handleSignUp = async () => {
     if (!fullName.trim()) {
@@ -52,11 +54,34 @@ const SignUpScreen: React.FC = () => {
     }
 
     setLoading(true);
-    // TODO: Implement sign-up API call
-    setTimeout(() => {
-      setLoading(false);
-      Alert.alert('Success', 'Account created successfully!');
-    }, 1000);
+
+    // Map UI supplier type to backend enum
+    let backendSupplierType = '';
+    if (userType === 'Supplier') {
+      if (supplierType === 'Commercial') backendSupplierType = 'commercial';
+      else if (supplierType === 'Residential') backendSupplierType = 'residential';
+      else if (supplierType === 'Commercial/Residential') backendSupplierType = 'commercial_residential';
+    }
+
+    const result = await signup({
+      name: fullName,
+      phone: phoneNumber,
+      email: email.trim() || undefined,
+      password: password,
+      role: userType.toLowerCase() as 'customer' | 'supplier',
+      supplierType: userType === 'Supplier' ? backendSupplierType : undefined,
+    });
+
+    setLoading(false);
+
+    if (result.success) {
+      Alert.alert('Success', 'Account created successfully!', [
+        { text: 'OK' } // Navigation will happen automatically due to auth state change if configured, or we can navigate manually/wait for re-render
+      ]);
+      // Assuming AuthContext updates state and main navigator switches to authenticated stack
+    } else {
+      Alert.alert('Sign Up Failed', result.message || 'Please try again later.');
+    }
   };
 
   return (
@@ -99,195 +124,195 @@ const SignUpScreen: React.FC = () => {
 
           {/* Role Selector */}
           <View style={styles.roleSelector}>
-              <TouchableOpacity
-                style={[
-                  styles.roleOption,
-                  styles.roleOptionFirst,
-                  userType === 'Customer' && styles.roleOptionSelected,
-                  userType === 'Customer' && styles.roleOptionSelectedRight,
-                ]}
-                onPress={() => setUserType('Customer')}
-              >
-                <Text
-                  style={[
-                    styles.roleOptionText,
-                    userType === 'Customer' && styles.roleOptionTextSelected,
-                  ]}
-                >
-                  Customer
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.roleOption,
-                  styles.roleOptionLast,
-                  userType === 'Supplier' && styles.roleOptionSelected,
-                  userType === 'Supplier' && styles.roleOptionSelectedLeft,
-                ]}
-                onPress={() => setUserType('Supplier')}
-              >
-                <Text
-                  style={[
-                    styles.roleOptionText,
-                    userType === 'Supplier' && styles.roleOptionTextSelected,
-                  ]}
-                >
-                  Supplier
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Full Name Input */}
-            <View style={styles.inputField}>
-              <Image
-                source={require('../assets/images/image2_25_2.png')}
-                style={styles.inputIcon}
-                resizeMode="contain"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Full Name"
-                placeholderTextColor="#979897"
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-              />
-            </View>
-
-            {/* Phone Number Input */}
-            <View style={styles.inputField}>
-              <Image
-                source={require('../assets/images/image2_25_2.png')}
-                style={styles.inputIcon}
-                resizeMode="contain"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Phone Number"
-                placeholderTextColor="#979897"
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                keyboardType="phone-pad"
-                autoCapitalize="none"
-              />
-            </View>
-
-            {/* Email Address Input (Optional) */}
-            <View style={styles.inputField}>
-              <Image
-                source={require('../assets/images/image2_25_2.png')}
-                style={styles.inputIcon}
-                resizeMode="contain"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Email Address (Optional)"
-                placeholderTextColor="#979897"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            {/* Supplier Type (only shown when Supplier is selected) */}
-            {userType === 'Supplier' && (
-              <View style={styles.supplierTypeContainer}>
-                <Text style={styles.supplierTypeLabel}>Supplier Type</Text>
-                <View style={styles.supplierTypeOptions}>
-                  <TouchableOpacity
-                    style={[
-                      styles.supplierTypeOption,
-                      supplierType === 'Commercial' && styles.supplierTypeOptionSelected,
-                    ]}
-                    onPress={() => setSupplierType('Commercial')}
-                  >
-                    <Text
-                      style={[
-                        styles.supplierTypeOptionText,
-                        supplierType === 'Commercial' && styles.supplierTypeOptionTextSelected,
-                      ]}
-                    >
-                      Commercial
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.supplierTypeOption,
-                      supplierType === 'Residential' && styles.supplierTypeOptionSelected,
-                    ]}
-                    onPress={() => setSupplierType('Residential')}
-                  >
-                    <Text
-                      style={[
-                        styles.supplierTypeOptionText,
-                        supplierType === 'Residential' && styles.supplierTypeOptionTextSelected,
-                      ]}
-                    >
-                      Residential
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.supplierTypeOption,
-                      supplierType === 'Commercial/Residential' && styles.supplierTypeOptionSelected,
-                    ]}
-                    onPress={() => setSupplierType('Commercial/Residential')}
-                  >
-                    <Text
-                      style={[
-                        styles.supplierTypeOptionText,
-                        supplierType === 'Commercial/Residential' && styles.supplierTypeOptionTextSelected,
-                      ]}
-                    >
-                      Commercial/Residential
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* Password Input */}
-            <View style={styles.inputField}>
-              <Image
-                source={require('../assets/images/image3_25_2.png')}
-                style={styles.inputIcon}
-                resizeMode="contain"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#979897"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
-            </View>
-
-            {/* Accept T&C Checkbox */}
-            <View style={styles.checkboxContainer}>
-              <TouchableOpacity
-                style={styles.checkboxTouchable}
-                onPress={() => setAcceptTerms(!acceptTerms)}
-              >
-                <View style={[styles.checkboxBox, acceptTerms && styles.checkboxChecked]}>
-                  {acceptTerms && <View style={styles.checkmark} />}
-                </View>
-              </TouchableOpacity>
-              <Text style={styles.checkboxText}>Accept T&C</Text>
-            </View>
-
-            {/* Sign-up Button */}
             <TouchableOpacity
-              style={[styles.signUpButton, loading && styles.signUpButtonDisabled]}
-              onPress={handleSignUp}
-              disabled={loading}
+              style={[
+                styles.roleOption,
+                styles.roleOptionFirst,
+                userType === 'Customer' && styles.roleOptionSelected,
+                userType === 'Customer' && styles.roleOptionSelectedRight,
+              ]}
+              onPress={() => setUserType('Customer')}
             >
-              <Text style={styles.signUpButtonText}>
-                {loading ? 'Signing up...' : 'Sign-up'}
+              <Text
+                style={[
+                  styles.roleOptionText,
+                  userType === 'Customer' && styles.roleOptionTextSelected,
+                ]}
+              >
+                Customer
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.roleOption,
+                styles.roleOptionLast,
+                userType === 'Supplier' && styles.roleOptionSelected,
+                userType === 'Supplier' && styles.roleOptionSelectedLeft,
+              ]}
+              onPress={() => setUserType('Supplier')}
+            >
+              <Text
+                style={[
+                  styles.roleOptionText,
+                  userType === 'Supplier' && styles.roleOptionTextSelected,
+                ]}
+              >
+                Supplier
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Full Name Input */}
+          <View style={styles.inputField}>
+            <Image
+              source={require('../assets/images/image2_25_2.png')}
+              style={styles.inputIcon}
+              resizeMode="contain"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Full Name"
+              placeholderTextColor="#979897"
+              value={fullName}
+              onChangeText={setFullName}
+              autoCapitalize="words"
+            />
+          </View>
+
+          {/* Phone Number Input */}
+          <View style={styles.inputField}>
+            <Image
+              source={require('../assets/images/image2_25_2.png')}
+              style={styles.inputIcon}
+              resizeMode="contain"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Phone Number"
+              placeholderTextColor="#979897"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+            />
+          </View>
+
+          {/* Email Address Input (Optional) */}
+          <View style={styles.inputField}>
+            <Image
+              source={require('../assets/images/image2_25_2.png')}
+              style={styles.inputIcon}
+              resizeMode="contain"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Email Address (Optional)"
+              placeholderTextColor="#979897"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+
+          {/* Supplier Type (only shown when Supplier is selected) */}
+          {userType === 'Supplier' && (
+            <View style={styles.supplierTypeContainer}>
+              <Text style={styles.supplierTypeLabel}>Supplier Type</Text>
+              <View style={styles.supplierTypeOptions}>
+                <TouchableOpacity
+                  style={[
+                    styles.supplierTypeOption,
+                    supplierType === 'Commercial' && styles.supplierTypeOptionSelected,
+                  ]}
+                  onPress={() => setSupplierType('Commercial')}
+                >
+                  <Text
+                    style={[
+                      styles.supplierTypeOptionText,
+                      supplierType === 'Commercial' && styles.supplierTypeOptionTextSelected,
+                    ]}
+                  >
+                    Commercial
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.supplierTypeOption,
+                    supplierType === 'Residential' && styles.supplierTypeOptionSelected,
+                  ]}
+                  onPress={() => setSupplierType('Residential')}
+                >
+                  <Text
+                    style={[
+                      styles.supplierTypeOptionText,
+                      supplierType === 'Residential' && styles.supplierTypeOptionTextSelected,
+                    ]}
+                  >
+                    Residential
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.supplierTypeOption,
+                    supplierType === 'Commercial/Residential' && styles.supplierTypeOptionSelected,
+                  ]}
+                  onPress={() => setSupplierType('Commercial/Residential')}
+                >
+                  <Text
+                    style={[
+                      styles.supplierTypeOptionText,
+                      supplierType === 'Commercial/Residential' && styles.supplierTypeOptionTextSelected,
+                    ]}
+                  >
+                    Commercial/Residential
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Password Input */}
+          <View style={styles.inputField}>
+            <Image
+              source={require('../assets/images/image3_25_2.png')}
+              style={styles.inputIcon}
+              resizeMode="contain"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Password"
+              placeholderTextColor="#979897"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+          </View>
+
+          {/* Accept T&C Checkbox */}
+          <View style={styles.checkboxContainer}>
+            <TouchableOpacity
+              style={styles.checkboxTouchable}
+              onPress={() => setAcceptTerms(!acceptTerms)}
+            >
+              <View style={[styles.checkboxBox, acceptTerms && styles.checkboxChecked]}>
+                {acceptTerms && <View style={styles.checkmark} />}
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.checkboxText}>Accept T&C</Text>
+          </View>
+
+          {/* Sign-up Button */}
+          <TouchableOpacity
+            style={[styles.signUpButton, loading && styles.signUpButtonDisabled]}
+            onPress={handleSignUp}
+            disabled={loading}
+          >
+            <Text style={styles.signUpButtonText}>
+              {loading ? 'Signing up...' : 'Sign-up'}
+            </Text>
+          </TouchableOpacity>
 
           {/* Login Link */}
           <TouchableOpacity
