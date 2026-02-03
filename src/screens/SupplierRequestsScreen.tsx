@@ -40,6 +40,7 @@ interface Job {
   total_price?: string;
   estimated_price?: string;
   orderItems?: OrderItem[];
+  items?: OrderItem[];
 }
 
 const SupplierRequestsScreen: React.FC = () => {
@@ -51,7 +52,7 @@ const SupplierRequestsScreen: React.FC = () => {
   const fetchPendingRequests = useCallback(async () => {
     try {
       const response = await api.get<{ requests: Job[] }>(ENDPOINTS.BOOKINGS.PENDING);
-      console.log('Pending requests:', response);
+
       if (response.success && response.data) {
         setPendingJobs(response.data.requests);
       } else {
@@ -87,6 +88,7 @@ const SupplierRequestsScreen: React.FC = () => {
         total: job.total_price || job.estimated_price || '$0.00',
         location: job.location,
         status: job.status,
+        orderItems: job.items || job.orderItems || [],
       },
     });
   };

@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
@@ -49,6 +49,7 @@ interface Job {
   total_price?: string;
   estimated_price?: string;
   orderItems?: OrderItem[];
+  items?: OrderItem[];
   start_date: string;
   end_date: string;
   customer_name: string;
@@ -87,9 +88,17 @@ const SupplierJobsScreen: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchJobs();
-  }, [fetchJobs]);
+  const route = useRoute<any>();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (route.params?.initialCategory) {
+        setSelectedCategory(route.params.initialCategory);
+        navigation.setParams({ initialCategory: undefined });
+      }
+      fetchJobs();
+    }, [fetchJobs, route.params])
+  );
 
   useEffect(() => {
     if (socket) {
@@ -140,7 +149,7 @@ const SupplierJobsScreen: React.FC = () => {
         total: job.total_price || job.estimated_price || '$0.00',
         location: job.location,
         status: job.status,
-        orderItems: job.orderItems,
+        orderItems: job.items || job.orderItems || [],
         deliveryDate: new Date(job.start_date).toLocaleDateString(),
         pickupDate: new Date(job.end_date).toLocaleDateString(),
         customerName: job.customer_name,

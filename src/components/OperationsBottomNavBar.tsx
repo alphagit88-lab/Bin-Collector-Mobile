@@ -1,9 +1,9 @@
 import React from 'react';
-import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {SvgProps} from 'react-native-svg';
-import {fonts} from '../theme/fonts';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { SvgProps } from 'react-native-svg';
+import { fonts } from '../theme/fonts';
 
 // Import SVG images - replace with Bin.Collect assets
 import HomeIcon from '../assets/images/Bin.Collect (1) 3.svg';
@@ -55,16 +55,16 @@ const OperationsBottomNavBar: React.FC<OperationsBottomNavBarProps> = ({
           <View style={styles.navItemActiveBackground}>
             <LinearGradient
               colors={['rgba(137, 217, 87, 0.2)', 'rgba(137, 217, 87, 0.2)']}
-              start={{x: 0, y: 0}}
-              end={{x: 0, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
               style={StyleSheet.absoluteFill}
             />
             <LinearGradient
               colors={['#78FF30', '#6DBC00']}
               locations={[0.2487, 0.7225]}
-              start={{x: 0.8, y: 0}}
-              end={{x: 0.2, y: 1}}
-              style={[StyleSheet.absoluteFill, {borderRadius: 42}]}
+              start={{ x: 0.8, y: 0 }}
+              end={{ x: 0.2, y: 1 }}
+              style={[StyleSheet.absoluteFill, { borderRadius: 42 }]}
             />
             <View style={styles.navItemActiveContent}>
               <View style={styles.iconCircleActive}>
@@ -114,13 +114,13 @@ const OperationsBottomNavBar: React.FC<OperationsBottomNavBarProps> = ({
       <View style={styles.bottomNavWrapper}>
         <LinearGradient
           colors={['#FFFFFF', '#FFFFFF']}
-          start={{x: 0, y: 0}}
-          end={{x: 0, y: 1}}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
           style={styles.bottomNav}>
           <LinearGradient
             colors={['rgba(137, 217, 87, 0.2)', 'rgba(137, 217, 87, 0.2)']}
-            start={{x: 0, y: 0}}
-            end={{x: 0, y: 1}}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           />
@@ -140,7 +140,7 @@ const OperationsBottomNavBar: React.FC<OperationsBottomNavBarProps> = ({
               'Payouts',
               PayoutsIcon,
               handlePayoutsPress,
-              {marginRight: -12},
+              { marginRight: -12 },
             )}
           </View>
         </LinearGradient>
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   navItemActiveBackground: {
-    width: 157,
+    width: 130,
     height: 47,
     borderRadius: 42,
     borderWidth: 1,
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 0.1},
+    shadowOffset: { width: 0, height: 0.1 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
     elevation: 3,
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     lineHeight: 13,
     color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: {width: 0, height: 4},
+    textShadowOffset: { width: 0, height: 4 },
     textShadowRadius: 4,
   },
 });

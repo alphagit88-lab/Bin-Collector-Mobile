@@ -11,10 +11,11 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import { showMessage } from 'react-native-flash-message';
 import { useSocket } from '../contexts/SocketContext';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
@@ -36,7 +37,7 @@ const EarningsPlayIcon = () => (
 
 const SupplierDashboard: React.FC = () => {
   const { user } = useAuth();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { socket } = useSocket();
   const [counts, setCounts] = React.useState({
     pending: 0,
@@ -46,7 +47,7 @@ const SupplierDashboard: React.FC = () => {
   });
   const [loading, setLoading] = React.useState(true);
 
-  const fetchCounts = React.useCallback(async () => {
+  const fetchCounts = React.useCallback(async (showNotification = false) => {
     try {
       // Pending requests available to accept
       const pendingResponse = await api.get<{ requests: any[] }>(ENDPOINTS.BOOKINGS.PENDING);
@@ -62,22 +63,37 @@ const SupplierDashboard: React.FC = () => {
         const completed = myJobs.filter((j: any) => j.status === 'completed').length;
 
         setCounts({ pending, confirmed, inProgress, completed });
+
+        // If there are pending requests, notify the user explicitly
+        if (showNotification && pending > 0) {
+          showMessage({
+            message: "Action Required",
+            description: `You have ${pending} pending service request(s) waiting for your quote.`,
+            type: "info",
+            backgroundColor: "#29B554",
+            icon: "info",
+            duration: 4000,
+            onPress: () => navigation.navigate('SupplierRequests' as never),
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching dashboard counts:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [navigation]);
 
-  React.useEffect(() => {
-    fetchCounts();
-  }, [fetchCounts]);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchCounts(true);
+    }, [fetchCounts])
+  );
 
   React.useEffect(() => {
     if (socket) {
       const handleUpdate = () => {
-        fetchCounts();
+        fetchCounts(false); // Don't show toast for background refreshes
       };
 
       socket.on('new_request', handleUpdate);
@@ -216,7 +232,7 @@ const SupplierDashboard: React.FC = () => {
             <Text style={styles.sectionTitle}>Job Management</Text>
             <TouchableOpacity
               style={styles.viewAllButton}
-              onPress={() => navigation.navigate('SupplierJobs' as never)}
+              onPress={() => navigation.navigate('SupplierJobs', { initialCategory: 'all' })}
             >
               <LinearGradient
                 colors={['#424141', '#2D2D2D']}
@@ -253,7 +269,7 @@ const SupplierDashboard: React.FC = () => {
                 {/* Confirmed Bookings */}
                 <TouchableOpacity
                   style={styles.jobCard}
-                  onPress={() => navigation.navigate('SupplierJobs' as never)}
+                  onPress={() => navigation.navigate('SupplierJobs', { initialCategory: 'confirmed' })}
                 >
                   <View style={styles.jobCardContent}>
                     <Text style={[styles.jobNumber, styles.confirmedColor]}>
@@ -272,7 +288,7 @@ const SupplierDashboard: React.FC = () => {
                 {/* In-Progress Jobs */}
                 <TouchableOpacity
                   style={styles.jobCard}
-                  onPress={() => navigation.navigate('SupplierJobs' as never)}
+                  onPress={() => navigation.navigate('SupplierJobs', { initialCategory: 'inProgress' })}
                 >
                   <View style={styles.jobCardContent}>
                     <Text style={[styles.jobNumber, styles.progressColor]}>
@@ -288,7 +304,7 @@ const SupplierDashboard: React.FC = () => {
                 {/* Completed Jobs */}
                 <TouchableOpacity
                   style={styles.jobCard}
-                  onPress={() => navigation.navigate('SupplierJobs' as never)}
+                  onPress={() => navigation.navigate('SupplierJobs', { initialCategory: 'completed' })}
                 >
                   <View style={styles.jobCardContent}>
                     <Text style={[styles.jobNumber, styles.completedColor]}>

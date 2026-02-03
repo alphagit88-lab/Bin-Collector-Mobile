@@ -19,8 +19,8 @@ export const ENDPOINTS = {
         PENDING: '/bookings/supplier/pending',
         ACCEPT: (id: string) => `/bookings/${id}/accept`,
         UPDATE_STATUS: (id: string) => `/bookings/${id}/status`,
-        ORDER_ITEMS: (id: string) => `/bookings/${id}/items`,
-        MARK_READY: (id: string) => `/bookings/${id}/ready`,
+        ORDER_ITEMS: (id: string) => `/bookings/${id}/order-items`,
+        MARK_READY: (id: string) => `/bookings/${id}/ready-to-pickup`,
     },
     USER: {
         PROFILE: '/auth/me', // Same as ME in many cases but can be different

@@ -3,7 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Update this to match your backend URL
 // For Android emulator, use 10.0.2.2 instead of localhost
 // For physical device, use your computer's IP address
-const API_URL = `http://192.168.8.120:5000/api`;
+const API_URL = `https://ran-films-celtic-dir.trycloudflare.com/api`;
+//http://192.168.8.120:5000
 //https://automated-aquarium-bay-adsl.trycloudflare.com
 
 export interface ApiResponse<T> {

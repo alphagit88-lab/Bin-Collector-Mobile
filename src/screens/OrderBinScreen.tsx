@@ -17,9 +17,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import { useAuth } from '../contexts/AuthContext';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import BottomNavBar from '../components/BottomNavBar';
 import { Ionicons } from '@expo/vector-icons';
-import { Alert, ActivityIndicator } from 'react-native';
+import { Alert, ActivityIndicator, Platform } from 'react-native';
 
 // Import SVG images
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -89,6 +91,7 @@ interface BinSize {
 }
 
 const OrderBinScreen: React.FC = () => {
+  const { user } = useAuth();
   const navigation = useNavigation();
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash'>(
     'online',
@@ -106,6 +109,20 @@ const OrderBinScreen: React.FC = () => {
   const [additionalContact, setAdditionalContact] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Date Picker State
+  const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
+  const [showPickupPicker, setShowPickupPicker] = useState(false);
+  const [deliveryDateObj, setDeliveryDateObj] = useState(new Date());
+  const [pickupDateObj, setPickupDateObj] = useState(new Date(Date.now() + 86400000)); // Default to tomorrow
+
+  const formatDateForBackend = (date: Date) => {
+    return date.toISOString().split('T')[0]; // YYYY-MM-DD
+  };
+
+  const formatDateForDisplay = (date: Date) => {
+    return date.toLocaleDateString();
+  };
 
   // Dropdown data
   const [binTypes, setBinTypes] = useState<BinType[]>([]);
@@ -182,14 +199,14 @@ const OrderBinScreen: React.FC = () => {
       ]);
       setDeliveryDate('');
       setPickupDate('');
-      setContactNumber('');
-      setAdditionalContact('');
+      setContactNumber(user?.phone || '');
+      setAdditionalContact(user?.email || '');
       setNotes('');
       setBinSizesMap({});
 
       loadDefaultLocation();
       fetchBinTypes();
-    }, [])
+    }, [user])
   );
 
   const loadDefaultLocation = async () => {
@@ -257,6 +274,30 @@ const OrderBinScreen: React.FC = () => {
       bin_size_name: size.size,
     });
     setSizeModalVisible(false);
+  };
+
+  const onDeliveryDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowDeliveryPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setDeliveryDateObj(selectedDate);
+      setDeliveryDate(formatDateForBackend(selectedDate));
+
+      // If pickup date is before or same as delivery date, move it to next day
+      if (pickupDateObj <= selectedDate) {
+        const nextDay = new Date(selectedDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        setPickupDateObj(nextDay);
+        setPickupDate(formatDateForBackend(nextDay));
+      }
+    }
+  };
+
+  const onPickupDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    setShowPickupPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setPickupDateObj(selectedDate);
+      setPickupDate(formatDateForBackend(selectedDate));
+    }
   };
 
   const handlePlaceOrder = async () => {
@@ -523,19 +564,41 @@ const OrderBinScreen: React.FC = () => {
                 onChangeText={setDeliveryAddress}
               />
               <FormField
-                label="Start Date"
-                placeholder="mm/dd/yyyy"
-                value={deliveryDate}
-                onChangeText={setDeliveryDate}
+                label="Start Date*"
+                placeholder="Select Start Date"
+                value={deliveryDate ? formatDateForDisplay(deliveryDateObj) : ""}
+                onChangeText={() => { }}
+                isDropdown
+                onPress={() => setShowDeliveryPicker(true)}
                 customIcon={<Group101 width={20} height={20} />}
               />
+              {showDeliveryPicker && (
+                <DateTimePicker
+                  value={deliveryDateObj}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={onDeliveryDateChange}
+                  minimumDate={new Date()}
+                />
+              )}
               <FormField
-                label="End date"
-                placeholder="mm/dd/yyyy"
-                value={pickupDate}
-                onChangeText={setPickupDate}
+                label="End date*"
+                placeholder="Select End Date"
+                value={pickupDate ? formatDateForDisplay(pickupDateObj) : ""}
+                onChangeText={() => { }}
+                isDropdown
+                onPress={() => setShowPickupPicker(true)}
                 customIcon={<Group101 width={20} height={20} />}
               />
+              {showPickupPicker && (
+                <DateTimePicker
+                  value={pickupDateObj}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={onPickupDateChange}
+                  minimumDate={new Date(deliveryDateObj.getTime() + 86400000)}
+                />
+              )}
             </LinearGradient>
           </View>
 

@@ -37,6 +37,7 @@ interface Booking {
   start_date: string;
   end_date: string;
   order_items_count: number;
+  items?: any[];
 }
 
 const BookingsScreen: React.FC = () => {
@@ -272,7 +273,14 @@ const BookingsScreen: React.FC = () => {
                           </View>
                           <View style={styles.bookingInfoItem}>
                             <Text style={styles.bookingLabel}>Service</Text>
-                            <Text numberOfLines={1} style={styles.bookingValue}>{booking.bin_type_name}</Text>
+                            {booking.items && booking.items.length > 0 ? (
+                              <Text numberOfLines={1} style={styles.bookingValue}>
+                                {booking.items.length}x {booking.items[0].bin_type_name}
+                                {booking.items.length > 1 ? '...' : ''}
+                              </Text>
+                            ) : (
+                              <Text numberOfLines={1} style={styles.bookingValue}>{booking.bin_type_name}</Text>
+                            )}
                           </View>
                           <View style={styles.bookingInfoItem}>
                             <Text style={styles.bookingLabel}>Dates</Text>

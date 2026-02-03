@@ -2,7 +2,10 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { io, Socket } from 'socket.io-client';
 import { showMessage } from 'react-native-flash-message';
 import { useAuth } from './AuthContext';
-import { API_URL } from '../config/api';
+import { API_URL, api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
+import { navigate } from '../navigation/navigationRef';
+import IncomingRequestModal from '../components/IncomingRequestModal';
 
 interface SocketContextType {
     socket: Socket | null;
@@ -15,6 +18,10 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     const { user, token } = useAuth();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [connected, setConnected] = useState(false);
+
+    // Modal state
+    const [requestModalVisible, setRequestModalVisible] = useState(false);
+    const [incomingRequest, setIncomingRequest] = useState<any>(null);
 
     useEffect(() => {
         if (token && user) {
@@ -36,14 +43,20 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
             // Handle new requests for suppliers
             newSocket.on('new_request', (data) => {
-                showMessage({
-                    message: "New Service Request",
-                    description: data.message || "A new service request is available",
-                    type: "success",
-                    backgroundColor: "#37B112",
-                    icon: "info",
-                    duration: 5000,
-                });
+                console.log('Global Socket: New request received', data);
+                if (user.role === 'supplier') {
+                    setIncomingRequest(data);
+                    setRequestModalVisible(true);
+                } else {
+                    showMessage({
+                        message: "New Service Request",
+                        description: data.message || "A new service request is available",
+                        type: "success",
+                        backgroundColor: "#37B112",
+                        icon: "info",
+                        duration: 5000,
+                    });
+                }
             });
 
             // Handle status updates for customers
@@ -69,9 +82,63 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         }
     }, [token, user]);
 
+    const handleAccept = async (totalPrice: number) => {
+        if (incomingRequest && incomingRequest.request) {
+            const request = incomingRequest.request;
+
+            try {
+                // Call acception endpoint
+                const response = await api.post(ENDPOINTS.BOOKINGS.ACCEPT(request.id), {
+                    total_price: totalPrice
+                });
+
+                if (response.success) {
+                    setRequestModalVisible(false);
+                    setIncomingRequest(null);
+
+                    showMessage({
+                        message: "Success",
+                        description: "Request accepted successfully!",
+                        type: "success",
+                        backgroundColor: "#29B554",
+                    });
+
+                    // Navigate to my jobs screen
+                    navigate('SupplierJobs');
+                } else {
+                    showMessage({
+                        message: "Error",
+                        description: response.message || "Failed to accept request",
+                        type: "danger",
+                    });
+                }
+            } catch (error) {
+                console.error('Accept request error:', error);
+                showMessage({
+                    message: "Error",
+                    description: "An unexpected error occurred",
+                    type: "danger",
+                });
+            }
+        }
+    };
+
+    const handleDecline = () => {
+        setRequestModalVisible(false);
+        setIncomingRequest(null);
+    };
+
     return (
         <SocketContext.Provider value={{ socket, connected }}>
             {children}
+            {user?.role === 'supplier' && (
+                <IncomingRequestModal
+                    visible={requestModalVisible}
+                    requestData={incomingRequest}
+                    onAccept={handleAccept}
+                    onDecline={handleDecline}
+                />
+            )}
         </SocketContext.Provider>
     );
 };

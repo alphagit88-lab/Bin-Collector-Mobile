@@ -17,6 +17,7 @@ import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import BinAssignmentModal from '../components/BinAssignmentModal';
 
 // Import SVG icons
 import BannerImage from '../assets/images/4 1.svg';
@@ -71,6 +72,8 @@ const JobDetailScreen: React.FC = () => {
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [totalPrice, setTotalPrice] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  const [showBinModal, setShowBinModal] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const handleAcceptOrder = async () => {
     if (!totalPrice || parseFloat(totalPrice) <= 0) {
@@ -119,9 +122,34 @@ const JobDetailScreen: React.FC = () => {
     );
   };
 
+  const handleStatusUpdate = async (newStatus: string, binCodes?: string[]) => {
+    setUpdatingStatus(true);
+    try {
+      const payload: any = { status: newStatus };
+      if (binCodes) payload.bin_codes = binCodes;
+
+      const response = await api.put(ENDPOINTS.BOOKINGS.UPDATE_STATUS(jobDetail.id.toString()), payload);
+
+      if (response.success) {
+        Alert.alert('Success', 'Status updated successfully', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      } else {
+        Alert.alert('Error', response.message || 'Failed to update status');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An error occurred while updating status');
+    } finally {
+      setUpdatingStatus(false);
+      setShowBinModal(false);
+    }
+  };
+
   const handleBack = () => {
     navigation.goBack();
   };
+
+  const isPending = jobDetail.status === 'pending';
 
   return (
     <View style={styles.container}>
@@ -162,7 +190,9 @@ const JobDetailScreen: React.FC = () => {
         {/* Pending Requests Section */}
         <View style={styles.sectionContainer}>
           <View style={styles.pendingHeader}>
-            <Text style={styles.pendingTitle}>Pending Requests</Text>
+            <Text style={styles.pendingTitle}>
+              {isPending ? 'Pending Requests' : 'Job Details'}
+            </Text>
             <TouchableOpacity
               style={styles.backButton}
               onPress={handleBack}
@@ -308,38 +338,125 @@ const JobDetailScreen: React.FC = () => {
             </LinearGradient>
 
             {/* Action Buttons */}
-            <View style={styles.actionButtonsContainer}>
-              <TouchableOpacity
-                style={styles.declineButton}
-                onPress={handleDeclineOrder}
-                activeOpacity={0.8}>
-                <Text style={styles.declineButtonText}>Decline</Text>
-              </TouchableOpacity>
+            {isPending && (
+              <View style={styles.actionButtonsContainer}>
+                <TouchableOpacity
+                  style={styles.declineButton}
+                  onPress={handleDeclineOrder}
+                  activeOpacity={0.8}>
+                  <Text style={styles.declineButtonText}>Decline</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.acceptButtonWrapper}
-                onPress={() => setShowAcceptModal(true)}
-                activeOpacity={0.8}>
-                <LinearGradient
-                  colors={[
-                    'rgba(137, 217, 87, 0.2)',
-                    'rgba(137, 217, 87, 0.2)',
-                  ]}
-                  locations={[0, 1]}
-                  style={styles.acceptButtonOverlay}>
+                <TouchableOpacity
+                  style={[styles.acceptButtonWrapper, { marginLeft: 8 }]}
+                  onPress={() => setShowAcceptModal(true)}
+                  activeOpacity={0.8}>
                   <LinearGradient
-                    colors={['#29B554', '#6EAD16']}
-                    locations={[0.2227, 0.7018]}
-                    start={{ x: 0.1, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.acceptButton}>
-                    <Text style={styles.acceptButtonText}>Accept Order</Text>
+                    colors={[
+                      'rgba(137, 217, 87, 0.2)',
+                      'rgba(137, 217, 87, 0.2)',
+                    ]}
+                    locations={[0, 1]}
+                    style={styles.acceptButtonOverlay}>
+                    <LinearGradient
+                      colors={['#29B554', '#6EAD16']}
+                      locations={[0.2227, 0.7018]}
+                      start={{ x: 0.1, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.acceptButton}>
+                      <Text style={styles.acceptButtonText}>Accept Order</Text>
+                    </LinearGradient>
                   </LinearGradient>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Status Update Buttons for Supplier */}
+            {!isPending && (
+              <View style={styles.actionButtonsContainer}>
+                {jobDetail.status === 'confirmed' && (
+                  <TouchableOpacity
+                    style={styles.acceptButtonWrapper}
+                    onPress={() => setShowBinModal(true)}
+                    activeOpacity={0.8}>
+                    <LinearGradient
+                      colors={['#29B554', '#6EAD16']}
+                      style={styles.acceptButton}>
+                      <Text style={styles.acceptButtonText}>Start Delivery (Assign Bins)</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+
+                {jobDetail.status === 'on_delivery' && (
+                  <TouchableOpacity
+                    style={styles.acceptButtonWrapper}
+                    onPress={() => Alert.alert('Confirm', 'Mark this order as delivered?', [
+                      { text: 'Cancel' },
+                      { text: 'Confirm', onPress: () => handleStatusUpdate('delivered') }
+                    ])}
+                    activeOpacity={0.8}>
+                    <LinearGradient
+                      colors={['#29B554', '#6EAD16']}
+                      style={styles.acceptButton}>
+                      <Text style={styles.acceptButtonText}>Mark as Delivered</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+
+                {jobDetail.status === 'ready_to_pickup' && (
+                  <TouchableOpacity
+                    style={styles.acceptButtonWrapper}
+                    onPress={() => Alert.alert('Confirm', 'Start pickup process for this order?', [
+                      { text: 'Cancel' },
+                      { text: 'Confirm', onPress: () => handleStatusUpdate('pickup') }
+                    ])}
+                    activeOpacity={0.8}>
+                    <LinearGradient
+                      colors={['#29B554', '#6EAD16']}
+                      style={styles.acceptButton}>
+                      <Text style={styles.acceptButtonText}>Start Pickup</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+
+                {jobDetail.status === 'pickup' && (
+                  <TouchableOpacity
+                    style={styles.acceptButtonWrapper}
+                    onPress={() => Alert.alert('Confirm', 'Complete this job? Bins will be marked as available.', [
+                      { text: 'Cancel' },
+                      { text: 'Confirm', onPress: () => handleStatusUpdate('completed') }
+                    ])}
+                    activeOpacity={0.8}>
+                    <LinearGradient
+                      colors={['#29B554', '#6EAD16']}
+                      style={styles.acceptButton}>
+                      <Text style={styles.acceptButtonText}>Complete Job</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+
+                {jobDetail.status === 'completed' && (
+                  <View style={styles.acceptButtonWrapper}>
+                    <LinearGradient
+                      colors={['#BCBCBC', '#999999']}
+                      style={styles.acceptButton}>
+                      <Text style={styles.acceptButtonText}>Order Completed</Text>
+                    </LinearGradient>
+                  </View>
+                )}
+              </View>
+            )}
           </LinearGradient>
         </View>
+
+        {/* Bin Assignment Modal */}
+        <BinAssignmentModal
+          visible={showBinModal}
+          orderItems={jobDetail.orderItems || []}
+          onClose={() => setShowBinModal(false)}
+          onSubmit={handleStatusUpdate}
+          isLoading={updatingStatus}
+        />
 
         {/* Accept Modal */}
         <Modal
@@ -384,7 +501,11 @@ const JobDetailScreen: React.FC = () => {
         </Modal>
 
         {/* Job Management Tab Bar */}
-        <View style={styles.jobManagementTab}>
+        {/* Job Management Tab Bar */}
+        <TouchableOpacity
+          style={styles.jobManagementTab}
+          onPress={() => navigation.navigate('SupplierJobs')}
+          activeOpacity={0.8}>
           <LinearGradient
             colors={['#86F442', '#4E8E26']}
             locations={[0, 1]}
@@ -393,7 +514,7 @@ const JobDetailScreen: React.FC = () => {
             style={styles.jobManagementTabGradient}>
             <Text style={styles.jobManagementTabText}>Job Management</Text>
           </LinearGradient>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -617,7 +738,6 @@ const styles = StyleSheet.create({
   },
   acceptButtonWrapper: {
     flex: 1,
-    marginLeft: 8,
   },
   acceptButtonOverlay: {
     borderRadius: 12,
