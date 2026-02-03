@@ -49,15 +49,20 @@ const JobDetailScreen: React.FC = () => {
   const jobDetail = (route.params as any)?.job || mockJobDetail;
 
   const handleAcceptOrder = () => {
-    Alert.alert(
-      'Order Accepted',
-      `You have accepted order ${jobDetail.orderId}`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {},
+    navigation.navigate(
+      'SupplierOrderAccepted' as never,
+      {
+        orderDetails: {
+          orderId: jobDetail.orderId,
+          binType: jobDetail.binType,
+          binSize: jobDetail.binSize,
+          total: jobDetail.total,
+          deliveryDate: jobDetail.deliveryDate,
+          deliveryTime: '9:00 AM - 12:00 PM',
+          collectionDate: jobDetail.pickupDate,
+          collectionTime: '9:00 AM - 12:00 PM',
         },
-      ],
+      } as never,
     );
   };
 

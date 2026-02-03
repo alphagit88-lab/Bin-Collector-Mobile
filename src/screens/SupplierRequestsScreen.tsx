@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
+import {useNavigation} from '@react-navigation/native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {themeColors} from '../theme/colors';
 import {fonts} from '../theme/fonts';
@@ -36,6 +37,25 @@ const pendingJobs: Job[] = [
 ];
 
 const SupplierRequestsScreen: React.FC = () => {
+  const navigation = useNavigation();
+
+  const handleAcceptOrder = (job: Job) => {
+    navigation.navigate(
+      'SupplierOrderAccepted' as never,
+      {
+        orderDetails: {
+          orderId: `#1002${job.id}`,
+          binType: job.binType,
+          binSize: job.binSize,
+          deliveryDate: '15/01/2026',
+          deliveryTime: '9:00 AM - 12:00 PM',
+          collectionDate: '22/01/2026',
+          collectionTime: '9:00 AM - 12:00 PM',
+        },
+      } as never,
+    );
+  };
+
   const renderJobItem = (job: Job, index: number) => (
     <View key={job.id} style={styles.jobRow}>
       <View style={styles.jobColumn}>
@@ -50,7 +70,10 @@ const SupplierRequestsScreen: React.FC = () => {
       </View>
       <View style={styles.actionColumn}>
         {index === 0 && <Text style={styles.columnHeaderAction}>Action</Text>}
-        <TouchableOpacity style={styles.viewButton} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.viewButton}
+          activeOpacity={0.7}
+          onPress={() => handleAcceptOrder(job)}>
           <LinearGradient
             colors={['#1F1F1F', '#2B2B2B']}
             locations={[0, 1]}

@@ -11,7 +11,9 @@ import SupplierEarningsScreen from '../screens/SupplierEarningsScreen';
 import SupplierOperationsScreen from '../screens/SupplierOperationsScreen';
 import FleetManagementScreen from '../screens/FleetManagementScreen';
 import SupplierAvailabilityScreen from '../screens/SupplierAvailabilityScreen';
+import ServiceAreaScreen from '../screens/ServiceAreaScreen';
 import SupplierRequestsScreen from '../screens/SupplierRequestsScreen';
+import SupplierOrderAcceptedScreen from '../screens/SupplierOrderAcceptedScreen';
 import JobDetailScreen from '../screens/JobDetailScreen';
 import AccountScreen from '../screens/AccountScreen';
 import ServiceTrackingScreen from '../screens/ServiceTrackingScreen';
@@ -74,9 +76,14 @@ const AppNavigator: React.FC = () => {
               name="FleetManagement"
               component={FleetManagementScreen}
             />
+            <Stack.Screen name="ServiceArea" component={ServiceAreaScreen} />
             <Stack.Screen
               name="SupplierRequests"
               component={SupplierRequestsScreen}
+            />
+            <Stack.Screen
+              name="SupplierOrderAccepted"
+              component={SupplierOrderAcceptedScreen}
             />
             <Stack.Screen name="SupplierJobs" component={SupplierJobsScreen} />
             <Stack.Screen name="JobDetail" component={JobDetailScreen} />
