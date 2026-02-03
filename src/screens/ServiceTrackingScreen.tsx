@@ -633,6 +633,7 @@ const styles = StyleSheet.create({
   chipsContainer: {
     marginBottom: 16,
     flexDirection: 'row',
+    maxHeight: 40,
   },
   chip: {
     backgroundColor: '#FFFFFF',
@@ -642,6 +643,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
     borderWidth: 1,
     borderColor: '#DDD',
+    height: 40,
   },
   chipActive: {
     backgroundColor: '#29B554',
