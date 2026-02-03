@@ -1,61 +1,126 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  RefreshControl,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {themeColors} from '../theme/colors';
-import {fonts} from '../theme/fonts';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { themeColors } from '../theme/colors';
+import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import { api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
 
 // Shared visual style with SupplierJobsScreen
 import BannerImage from '../assets/images/4 1.svg';
 import TruckIcon from '../assets/images/14_1.svg';
 import ViewArrow from '../assets/images/Ellipse 11.svg';
 
-interface Job {
-  id: string;
-  binType: string;
-  binSize: string;
+interface OrderItem {
+  id: number;
+  bin_type_name: string;
+  bin_size: string;
+  price?: string;
 }
 
-const pendingJobs: Job[] = [
-  {
-    id: '1',
-    binType: 'General Waste',
-    binSize: '6m³ - Medium',
-  },
-  {
-    id: '2',
-    binType: 'Concrete/Dirt',
-    binSize: '6m³ - Medium',
-  },
-];
+interface Job {
+  id: number;
+  request_id: string;
+  bin_type_name: string;
+  bin_size: string;
+  order_items_count: number;
+  location: string;
+  status: string;
+  total_price?: string;
+  estimated_price?: string;
+  orderItems?: OrderItem[];
+}
 
 const SupplierRequestsScreen: React.FC = () => {
+  const navigation = useNavigation<any>();
+  const [pendingJobs, setPendingJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchPendingRequests = useCallback(async () => {
+    try {
+      const response = await api.get<{ requests: Job[] }>(ENDPOINTS.BOOKINGS.PENDING);
+      console.log('Pending requests:', response);
+      if (response.success && response.data) {
+        setPendingJobs(response.data.requests);
+      } else {
+        Alert.alert('Error', response.message || 'Failed to fetch pending requests');
+        if (response.debugInfo) console.log('Debug Info:', response.debugInfo);
+      }
+    } catch (error) {
+      console.error('Error fetching pending requests:', error);
+      Alert.alert('Error', `Failed to fetch pending requests: ${error instanceof Error ? error.message : 'Network error'}`);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPendingRequests();
+  }, [fetchPendingRequests]);
+
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    fetchPendingRequests();
+  }, [fetchPendingRequests]);
+
+  const handleViewJob = (job: Job) => {
+    navigation.navigate('JobDetail', {
+      job: {
+        id: job.id,
+        orderId: job.request_id,
+        binType: job.bin_type_name,
+        binSize: job.bin_size,
+        itemsCount: job.order_items_count,
+        total: job.total_price || job.estimated_price || '$0.00',
+        location: job.location,
+        status: job.status,
+      },
+    });
+  };
+
   const renderJobItem = (job: Job, index: number) => (
     <View key={job.id} style={styles.jobRow}>
       <View style={styles.jobColumn}>
         {index === 0 && <Text style={styles.columnHeader}>Bin Type</Text>}
-        <Text style={styles.jobText}>{job.binType}</Text>
+        <View style={styles.binTypeCell}>
+          <Text style={styles.jobText}>{job.bin_type_name}</Text>
+          {job.order_items_count > 1 && (
+            <View style={styles.moreBadge}>
+              <Text style={styles.moreBadgeText}>+{job.order_items_count - 1} more</Text>
+            </View>
+          )}
+        </View>
       </View>
       <View style={styles.jobColumn}>
         {index === 0 && (
           <Text style={styles.columnHeader}>Bin Size/Capacity</Text>
         )}
-        <Text style={styles.jobText}>{job.binSize}</Text>
+        <Text style={styles.jobText}>{job.bin_size}</Text>
       </View>
       <View style={styles.actionColumn}>
         {index === 0 && <Text style={styles.columnHeaderAction}>Action</Text>}
-        <TouchableOpacity style={styles.viewButton} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.viewButton}
+          activeOpacity={0.7}
+          onPress={() => handleViewJob(job)}>
           <LinearGradient
             colors={['#1F1F1F', '#2B2B2B']}
             locations={[0, 1]}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 1}}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.viewButtonGradient}>
             <Text style={styles.viewButtonText}>View</Text>
             <View style={styles.viewArrow}>
@@ -72,14 +137,17 @@ const SupplierRequestsScreen: React.FC = () => {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#37B112']} />
+        }>
         {/* Header Section - same as Jobs screen */}
         <View style={styles.headerContainer}>
           <LinearGradient
             colors={['#37B112', '#77C40A']}
             locations={[0.2227, 0.5982]}
-            start={{x: 0.1, y: 0}}
-            end={{x: 1, y: 1}}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.headerGradient}>
             <View style={styles.headerContent}>
               <View style={styles.headerTextContainer}>
@@ -98,18 +166,26 @@ const SupplierRequestsScreen: React.FC = () => {
           </LinearGradient>
         </View>
 
-        {/* Pending Requests Card (same UI as design) */}
+        {/* Pending Requests Card */}
         <View style={styles.sectionContainer}>
           <View style={styles.jobsListCard}>
             <LinearGradient
               colors={['#EFF2F0', '#EAFFCC']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.jobsListGradient}>
               <View style={styles.jobsListContainer}>
                 <Text style={styles.sectionTitle}>Pending Requests</Text>
-                {pendingJobs.map((job, index) => renderJobItem(job, index))}
+                {loading && !refreshing ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#37B112" />
+                  </View>
+                ) : pendingJobs.length > 0 ? (
+                  pendingJobs.map((job, index) => renderJobItem(job, index))
+                ) : (
+                  <Text style={styles.emptyText}>No pending requests available</Text>
+                )}
               </View>
             </LinearGradient>
           </View>
@@ -194,7 +270,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.08)',
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
@@ -242,6 +318,22 @@ const styles = StyleSheet.create({
     color: '#242424',
     marginBottom: 4,
   },
+  binTypeCell: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  moreBadge: {
+    backgroundColor: '#37B11220',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginTop: 2,
+  },
+  moreBadgeText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 10,
+    color: '#37B112',
+  },
   viewButton: {
     borderRadius: 20,
     overflow: 'hidden',
@@ -265,6 +357,18 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 16,
+    color: '#666666',
+    textAlign: 'center',
+    paddingVertical: 40,
   },
   bottomSpacing: {
     height: 100,

@@ -9,12 +9,14 @@ export const ENDPOINTS = {
     BINS: {
         TYPES: '/bins/types',
         SIZES: (typeId: number) => `/bins/sizes?binTypeId=${typeId}`,
+        PHYSICAL: '/bins/physical',
+        UPDATE_PHYSICAL: (id: number) => `/bins/physical/${id}`,
     },
     BOOKINGS: {
         CREATE: '/bookings',
         MY_REQUESTS: '/bookings/my-requests',
-        SUPPLIER_REQUESTS: '/bookings/supplier',
-        PENDING: '/bookings/pending',
+        SUPPLIER_REQUESTS: '/bookings/supplier/requests',
+        PENDING: '/bookings/supplier/pending',
         ACCEPT: (id: string) => `/bookings/${id}/accept`,
         UPDATE_STATUS: (id: string) => `/bookings/${id}/status`,
         ORDER_ITEMS: (id: string) => `/bookings/${id}/items`,
@@ -26,5 +28,11 @@ export const ENDPOINTS = {
     },
     SYSTEM: {
         SETTINGS: '/system-settings',
+    },
+    WALLET: {
+        GET: '/wallet',
+        TRANSACTIONS: '/wallet/transactions',
+        REQUEST_PAYOUT: '/wallet/payout',
+        MY_PAYOUTS: '/wallet/payouts',
     }
 };
