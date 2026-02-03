@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,19 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
+  Alert,
+  Modal,
+  TextInput,
+  RefreshControl,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {themeColors} from '../theme/colors';
-import {fonts} from '../theme/fonts';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { themeColors } from '../theme/colors';
+import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
+import { api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
 
 // Header truck/logo SVGs
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -20,60 +27,158 @@ import Svg14 from '../assets/images/14.svg';
 import EditIcon from '../assets/images/35 2.svg';
 import DeleteIcon from '../assets/images/35 3.svg';
 
-const {width: screenWidth} = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 interface BinItem {
-  id: string;
-  binId: string;
-  binType: string;
-  binSize: string;
-  quantity: number;
+  id: number;
+  bin_code: string;
+  bin_type_name: string;
+  bin_size: string;
+  status: string;
+  notes?: string;
+}
+
+interface BinType {
+  id: number;
+  name: string;
+}
+
+interface BinSize {
+  id: number;
+  size: string;
 }
 
 const FleetManagementScreen: React.FC = () => {
   const navigation = useNavigation();
+  const [bins, setBins] = useState<BinItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const bins: BinItem[] = [
-    {
-      id: '1',
-      binId: '#10021',
-      binType: 'General Waste',
-      binSize: '6m³',
-      quantity: 5,
-    },
-    {
-      id: '2',
-      binId: '#10021',
-      binType: 'General Waste',
-      binSize: '6m³',
-      quantity: 5,
-    },
-    {
-      id: '3',
-      binId: '#10021',
-      binType: 'General Waste',
-      binSize: '6m³',
-      quantity: 5,
-    },
-  ];
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [binTypes, setBinTypes] = useState<BinType[]>([]);
+  const [binSizes, setBinSizes] = useState<BinSize[]>([]);
+  const [selectedTypeId, setSelectedTypeId] = useState<string>('');
+  const [selectedSizeId, setSelectedSizeId] = useState<string>('');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const response = await api.get<{ bins: BinItem[] }>(ENDPOINTS.BINS.PHYSICAL);
+      if (response.success && response.bins) {
+        setBins(response.bins || []);
+      }
+    } catch (error) {
+      console.error('Error fetching bins:', error);
+      Alert.alert('Error', 'Failed to fetch fleet data');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  const fetchTypes = async () => {
+    try {
+      const response = await api.get<{ binTypes: BinType[] }>(ENDPOINTS.BINS.TYPES);
+      if (response.success && response.data) {
+        setBinTypes(response.data.binTypes);
+      }
+    } catch (error) {
+      console.error('Error fetching types:', error);
+    }
+  };
+
+  const fetchSizes = async (typeId: number) => {
+    try {
+      const response = await api.get<{ binSizes: BinSize[] }>(ENDPOINTS.BINS.SIZES(typeId));
+      if (response.success && response.data) {
+        setBinSizes(response.data.binSizes);
+      }
+    } catch (error) {
+      console.error('Error fetching sizes:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+    fetchTypes();
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (selectedTypeId) {
+      fetchSizes(parseInt(selectedTypeId));
+    } else {
+      setBinSizes([]);
+    }
+  }, [selectedTypeId]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData();
+  };
 
   const handleBack = () => {
     navigation.goBack();
   };
 
-  const handleAddNewBin = () => {
-    // TODO: Navigate to Add New Bin screen
-    console.log('Add New Bin pressed');
+  const handleAddNewBin = async () => {
+    if (!selectedTypeId || !selectedSizeId) {
+      Alert.alert('Error', 'Please select bin type and size');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await api.post(ENDPOINTS.BINS.PHYSICAL, {
+        bin_type_id: parseInt(selectedTypeId),
+        bin_size_id: parseInt(selectedSizeId),
+        notes: notes || undefined,
+      });
+
+      if (response.success) {
+        Alert.alert('Success', 'Bin added successfully');
+        setShowAddModal(false);
+        setSelectedTypeId('');
+        setSelectedSizeId('');
+        setNotes('');
+        fetchData();
+      } else {
+        Alert.alert('Error', response.message || 'Failed to add bin');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'An error occurred while adding bin');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleEditBin = (binId: string) => {
-    // TODO: Navigate to Edit Bin screen
-    console.log('Edit Bin pressed:', binId);
+  const handleUpdateStatus = (binId: number, status: string) => {
+    Alert.alert(
+      'Update Status',
+      `Mark bin as ${status}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            try {
+              const response = await api.put(ENDPOINTS.BINS.UPDATE_PHYSICAL(binId), { status });
+              if (response.success) {
+                fetchData();
+              } else {
+                Alert.alert('Error', response.message || 'Failed to update status');
+              }
+            } catch (error) {
+              Alert.alert('Error', 'An error occurred while updating status');
+            }
+          }
+        }
+      ]
+    );
   };
 
-  const handleRemoveBin = (binId: string) => {
-    // TODO: Implement remove bin functionality
-    console.log('Remove Bin pressed:', binId);
+  const handleRemoveBin = (binId: number) => {
+    handleUpdateStatus(binId, 'unavailable');
   };
 
   const renderBinCard = (bin: BinItem, index: number) => (
@@ -81,34 +186,37 @@ const FleetManagementScreen: React.FC = () => {
       key={bin.id}
       colors={['#EFF2F0', '#EAFFCC']}
       locations={[0.2377, 0.6629]}
-      start={{x: 0.11, y: 0}}
-      end={{x: 0.89, y: 1}}
+      start={{ x: 0.11, y: 0 }}
+      end={{ x: 0.89, y: 1 }}
       style={styles.binCard}>
       {/* Bin Details Row */}
       <View style={styles.binDetailsRow}>
         <View style={styles.binDetailColumn}>
-          <Text style={styles.binDetailLabel}>Bin ID</Text>
-          <Text style={styles.binDetailValue}>{bin.binId}</Text>
+          <Text style={styles.binDetailLabel}>Bin Code</Text>
+          <Text style={styles.binDetailValue}>{bin.bin_code}</Text>
         </View>
         <View style={styles.binDetailColumn}>
           <Text style={styles.binDetailLabel}>Bin Type</Text>
-          <Text style={styles.binDetailValue}>{bin.binType}</Text>
+          <Text style={styles.binDetailValue}>{bin.bin_type_name}</Text>
         </View>
         <View style={styles.binDetailColumn}>
           <Text style={styles.binDetailLabel}>Bin Size</Text>
-          <Text style={styles.binDetailValue}>{bin.binSize}</Text>
+          <Text style={styles.binDetailValue}>{bin.bin_size}</Text>
         </View>
         <View style={styles.binDetailColumn}>
-          <Text style={styles.binDetailLabel}>Quantity:</Text>
-          <Text style={styles.binDetailValue}>{bin.quantity} Available</Text>
+          <Text style={styles.binDetailLabel}>Status:</Text>
+          <Text style={[styles.binDetailValue, { color: bin.status === 'available' ? '#10B981' : '#EF4444' }]}>
+            {bin.status.charAt(0).toUpperCase() + bin.status.slice(1)}
+          </Text>
         </View>
       </View>
 
       {/* Action Buttons */}
       <View style={styles.actionButtonsRow}>
         <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => handleEditBin(bin.id)}
+          style={[styles.editButton, { backgroundColor: '#CCC', opacity: 0.6 }]}
+          onPress={() => { }}
+          disabled={true}
           activeOpacity={0.8}>
           <View style={styles.buttonIconContainer}>
             <EditIcon width={21} height={17} />
@@ -116,15 +224,27 @@ const FleetManagementScreen: React.FC = () => {
           <Text style={styles.editButtonText}>Edit Bin</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.removeButton}
-          onPress={() => handleRemoveBin(bin.id)}
-          activeOpacity={0.8}>
-          <View style={styles.buttonIconContainer}>
-            <DeleteIcon width={21} height={17} />
-          </View>
-          <Text style={styles.removeButtonText}>Remove</Text>
-        </TouchableOpacity>
+        {bin.status === 'available' ? (
+          <TouchableOpacity
+            style={styles.removeButton}
+            onPress={() => handleRemoveBin(bin.id)}
+            activeOpacity={0.8}>
+            <View style={styles.buttonIconContainer}>
+              <DeleteIcon width={21} height={17} />
+            </View>
+            <Text style={styles.removeButtonText}>Unavailable</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.editButton, { backgroundColor: '#10B981' }]}
+            onPress={() => handleUpdateStatus(bin.id, 'available')}
+            activeOpacity={0.8}>
+            <View style={styles.buttonIconContainer}>
+              <EditIcon width={21} height={17} />
+            </View>
+            <Text style={styles.editButtonText}>Activate</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </LinearGradient>
   );
@@ -134,20 +254,23 @@ const FleetManagementScreen: React.FC = () => {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
         showsVerticalScrollIndicator={false}>
         {/* Header Section with Gradient Background */}
         <View style={styles.headerContainer}>
           <LinearGradient
             colors={['#37B112', '#77C40A']}
             locations={[0.2227, 0.5982]}
-            start={{x: 0.12, y: 0.05}}
-            end={{x: 0.88, y: 0.95}}
+            start={{ x: 0.12, y: 0.05 }}
+            end={{ x: 0.88, y: 0.95 }}
             style={styles.headerGradient}>
             {/* Overlay */}
             <LinearGradient
               colors={['rgba(137,217,87,0.2)', 'rgba(137,217,87,0.2)']}
-              start={{x: 0, y: 0}}
-              end={{x: 0, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
               style={styles.overlayGradient}
               pointerEvents="none"
             />
@@ -175,8 +298,8 @@ const FleetManagementScreen: React.FC = () => {
           <LinearGradient
             colors={['#C0F96F', '#90B93E']}
             locations={[0.2009, 0.7847]}
-            start={{x: 0.146, y: 0}}
-            end={{x: 0.854, y: 1}}
+            start={{ x: 0.146, y: 0 }}
+            end={{ x: 0.854, y: 1 }}
             style={styles.fleetManagementCard}>
             {/* Background pattern overlay */}
             <View style={styles.patternOverlay} />
@@ -190,7 +313,7 @@ const FleetManagementScreen: React.FC = () => {
                 activeOpacity={0.8}>
                 <Text style={styles.backButtonText}>Back</Text>
                 <View style={styles.backArrowCircle}>
-                  <Text style={styles.backArrow}>›</Text>
+                  <Text style={styles.backArrow}> › </Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -198,19 +321,22 @@ const FleetManagementScreen: React.FC = () => {
             {/* Add New Bin Button */}
             <TouchableOpacity
               style={styles.addNewBinButton}
-              onPress={handleAddNewBin}
+              onPress={() => {
+                fetchTypes();
+                setShowAddModal(true);
+              }}
               activeOpacity={0.85}>
               <LinearGradient
                 colors={['rgba(137, 217, 87, 0.2)', 'rgba(137, 217, 87, 0.2)']}
-                start={{x: 0, y: 0}}
-                end={{x: 0, y: 1}}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 0, y: 1 }}
                 style={styles.addNewBinOverlay}
               />
               <LinearGradient
                 colors={['#9CCD17', '#009B5F']}
                 locations={[0, 1]}
-                start={{x: 0, y: 0.5}}
-                end={{x: 1, y: 0.5}}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
                 style={styles.addNewBinGradient}>
                 <View style={styles.addBinIconCircle}>
                   <Text style={styles.addBinPlus}>+</Text>
@@ -226,34 +352,126 @@ const FleetManagementScreen: React.FC = () => {
           <LinearGradient
             colors={['#EFF2F0', '#EAFFCC']}
             locations={[0.2377, 0.6629]}
-            start={{x: 0.11, y: 0}}
-            end={{x: 0.89, y: 1}}
+            start={{ x: 0.11, y: 0 }}
+            end={{ x: 0.89, y: 1 }}
             style={styles.binsListCard}>
             {/* Fleet Management Header */}
             <Text style={styles.binsListTitle}>Fleet Management</Text>
 
             {/* Bins List */}
-            {bins.map((bin, index) => renderBinCard(bin, index))}
+            {loading ? (
+              <ActivityIndicator size="large" color={themeColors.primary} style={{ marginVertical: 40 }} />
+            ) : bins.length === 0 ? (
+              <View style={{ padding: 40, alignItems: 'center' }}>
+                <Text style={{ fontFamily: fonts.family.regular, color: '#666' }}>No bins found</Text>
+              </View>
+            ) : (
+              bins.map((bin, index) => renderBinCard(bin, index))
+            )}
 
             {/* View All Link */}
             <View style={styles.viewAllContainer}>
-              <TouchableOpacity activeOpacity={0.7}>
-                <Text style={styles.viewAllText}>View all</Text>
+              <TouchableOpacity activeOpacity={0.7} onPress={fetchData}>
+                <Text style={styles.viewAllText}>Refresh items</Text>
               </TouchableOpacity>
             </View>
           </LinearGradient>
         </View>
 
-        {/* Job Management Tab */}
-        <View style={styles.jobManagementContainer}>
-          <View style={styles.jobManagementTab}>
-            <View style={styles.jobIconPlaceholder} />
-            <Text style={styles.jobManagementText}>Job Management</Text>
-          </View>
-        </View>
-
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Add Bin Modal */}
+      <Modal
+        visible={showAddModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowAddModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add New Bin</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Bin Type</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
+                {binTypes.map(type => (
+                  <TouchableOpacity
+                    key={type.id}
+                    onPress={() => setSelectedTypeId(type.id.toString())}
+                    style={[
+                      styles.typeChip,
+                      selectedTypeId === type.id.toString() && styles.typeChipSelected
+                    ]}>
+                    <Text style={[
+                      styles.typeChipText,
+                      selectedTypeId === type.id.toString() && styles.typeChipTextSelected
+                    ]}>
+                      {type.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Bin Size</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
+                {binSizes.length === 0 ? (
+                  <Text style={styles.emptyText}>Select type first</Text>
+                ) : (
+                  binSizes.map(size => (
+                    <TouchableOpacity
+                      key={size.id}
+                      onPress={() => setSelectedSizeId(size.id.toString())}
+                      style={[
+                        styles.typeChip,
+                        selectedSizeId === size.id.toString() && styles.typeChipSelected
+                      ]}>
+                      <Text style={[
+                        styles.typeChipText,
+                        selectedSizeId === size.id.toString() && styles.typeChipTextSelected
+                      ]}>
+                        {size.size}
+                      </Text>
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Notes (Optional)</Text>
+              <TextInput
+                style={styles.textArea}
+                multiline
+                numberOfLines={3}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Ex: Located at south gate..."
+                placeholderTextColor="#999"
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowAddModal(false)}>
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={handleAddNewBin}
+                disabled={submitting}>
+                {submitting ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.confirmButtonText}>Add Bin</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <OperationsBottomNavBar activeTab="operations" />
     </View>
@@ -568,6 +786,108 @@ const styles = StyleSheet.create({
 
   bottomSpacing: {
     height: 120,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 20,
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontFamily: fonts.family.medium,
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
+  typeSelector: {
+    flexDirection: 'row',
+  },
+  typeChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: '#F0F0F0',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  typeChipSelected: {
+    backgroundColor: '#37B112',
+    borderColor: '#37B112',
+  },
+  typeChipText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#666',
+  },
+  typeChipTextSelected: {
+    color: '#FFF',
+  },
+  emptyText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  textArea: {
+    backgroundColor: '#F9F9F9',
+    borderRadius: 8,
+    padding: 12,
+    fontFamily: fonts.family.regular,
+    fontSize: 16,
+    color: '#333',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#666',
+  },
+  confirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    backgroundColor: '#37B112',
+    alignItems: 'center',
+  },
+  confirmButtonText: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#FFF',
   },
 });
 

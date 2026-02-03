@@ -8,21 +8,24 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import Svg, {Circle, Path} from 'react-native-svg';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useAuth} from '../contexts/AuthContext';
-import {themeColors} from '../theme/colors';
-import {fonts} from '../theme/fonts';
+import Svg, { Circle, Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '../contexts/AuthContext';
+import { useNavigation } from '@react-navigation/native';
+import { themeColors } from '../theme/colors';
+import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import { useSocket } from '../contexts/SocketContext';
+import { api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
 
 // Import SVG assets
 import BinCollectBg from '../assets/images/Bin.Collect_2.svg';
-import ArrowIcon from '../assets/images/Group 14.svg';
-import EarningsImage from '../assets/images/3_1.svg';
 import HeaderGreetingImage from '../assets/images/14_1.svg';
+import EarningsImage from '../assets/images/3_1.svg';
 import PlayIcon from '../assets/images/play.svg';
 
-const {width: screenWidth} = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 const EarningsPlayIcon = () => (
   <Svg width={45} height={45} viewBox="0 0 45 45" fill="none">
@@ -32,7 +35,60 @@ const EarningsPlayIcon = () => (
 );
 
 const SupplierDashboard: React.FC = () => {
-  const {user} = useAuth();
+  const { user } = useAuth();
+  const navigation = useNavigation();
+  const { socket } = useSocket();
+  const [counts, setCounts] = React.useState({
+    pending: 0,
+    confirmed: 0,
+    inProgress: 0,
+    completed: 0
+  });
+  const [loading, setLoading] = React.useState(true);
+
+  const fetchCounts = React.useCallback(async () => {
+    try {
+      // Pending requests available to accept
+      const pendingResponse = await api.get<{ requests: any[] }>(ENDPOINTS.BOOKINGS.PENDING);
+      // Jobs already assigned to me
+      const myJobsResponse = await api.get<{ requests: any[] }>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS);
+
+      if (pendingResponse.success && myJobsResponse.success) {
+        const pending = pendingResponse.data?.requests?.length || 0;
+        const myJobs = myJobsResponse.data?.requests || [];
+
+        const confirmed = myJobs.filter((j: any) => j.status === 'confirmed').length;
+        const inProgress = myJobs.filter((j: any) => ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(j.status)).length;
+        const completed = myJobs.filter((j: any) => j.status === 'completed').length;
+
+        setCounts({ pending, confirmed, inProgress, completed });
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard counts:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    fetchCounts();
+  }, [fetchCounts]);
+
+  React.useEffect(() => {
+    if (socket) {
+      const handleUpdate = () => {
+        fetchCounts();
+      };
+
+      socket.on('new_request', handleUpdate);
+      socket.on('status_update', handleUpdate);
+
+      return () => {
+        socket.off('new_request', handleUpdate);
+        socket.off('status_update', handleUpdate);
+      };
+    }
+  }, [socket, fetchCounts]);
 
   // Get time-based greeting
   const getGreeting = () => {
@@ -66,8 +122,8 @@ const SupplierDashboard: React.FC = () => {
           {/* Pending Card */}
           <LinearGradient
             colors={['#C0F96F', '#90B93E']}
-            start={{x: 0, y: 0}}
-            end={{x: 0.7, y: 1}}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.7, y: 1 }}
             style={styles.topCardGradient}>
             <View style={styles.topCardContent}>
               <View style={styles.cardHeader}>
@@ -77,7 +133,7 @@ const SupplierDashboard: React.FC = () => {
                 </TouchableOpacity>
               </View>
               <View style={styles.cardStats}>
-                <Text style={styles.topCardNumber}>08</Text>
+                <Text style={styles.topCardNumber}>{counts.pending.toString().padStart(2, '0')}</Text>
                 <Text style={styles.topCardSubtitle}>Pending Quotes</Text>
               </View>
               <View style={styles.binCollectOverlay}>
@@ -90,8 +146,8 @@ const SupplierDashboard: React.FC = () => {
           <LinearGradient
             colors={['#A7DB3D', '#D6EF72', '#D8FF3A']}
             locations={[0.1651, 0.6554, 0.8017]}
-            start={{x: 0, y: 0}}
-            end={{x: 0.7, y: 1}}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.7, y: 1 }}
             style={styles.topCardGradient}>
             <View style={styles.topCardContent}>
               <View style={styles.cardHeader}>
@@ -101,7 +157,7 @@ const SupplierDashboard: React.FC = () => {
                 </TouchableOpacity>
               </View>
               <View style={styles.cardStats}>
-                <Text style={styles.topCardNumber}>07</Text>
+                <Text style={styles.topCardNumber}>{counts.inProgress.toString().padStart(2, '0')}</Text>
                 <Text style={styles.topCardSubtitle}>Active Jobs</Text>
               </View>
               <View style={styles.binCollectOverlayUpsideDown}>
@@ -109,7 +165,7 @@ const SupplierDashboard: React.FC = () => {
                   style={{
                     width: 192,
                     height: 128,
-                    transform: [{rotate: '180deg'}],
+                    transform: [{ rotate: '180deg' }],
                   }}>
                   <BinCollectBg width={192} height={128} />
                 </View>
@@ -122,8 +178,8 @@ const SupplierDashboard: React.FC = () => {
         <View style={styles.earningsCard}>
           <LinearGradient
             colors={['#29B554', '#6EAD16']}
-            start={{x: 0.22, y: 0}}
-            end={{x: 0.7, y: 1}}
+            start={{ x: 0.22, y: 0 }}
+            end={{ x: 0.7, y: 1 }}
             style={styles.earningsGradient}>
             <View style={styles.earningsBackground}>
               <BinCollectBg
@@ -134,8 +190,8 @@ const SupplierDashboard: React.FC = () => {
             </View>
             <LinearGradient
               colors={['rgba(137, 217, 87, 0.2)', 'rgba(137, 217, 87, 0.2)']}
-              start={{x: 0, y: 0}}
-              end={{x: 0, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
               style={styles.earningsOverlay}>
               <View style={styles.earningsContent}>
                 <View style={styles.earningsHeader}>
@@ -144,7 +200,7 @@ const SupplierDashboard: React.FC = () => {
                     <EarningsPlayIcon />
                   </View>
                 </View>
-                <Text style={styles.balanceAmount}>$1,240</Text>
+                <Text style={styles.balanceAmount}>$0</Text>
                 <Text style={styles.balanceLabel}>Available Balance</Text>
               </View>
               <View style={styles.earningsImageContainer}>
@@ -158,11 +214,14 @@ const SupplierDashboard: React.FC = () => {
         <View style={styles.jobManagementSection}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Job Management</Text>
-            <TouchableOpacity style={styles.viewAllButton}>
+            <TouchableOpacity
+              style={styles.viewAllButton}
+              onPress={() => navigation.navigate('SupplierJobs' as never)}
+            >
               <LinearGradient
                 colors={['#424141', '#2D2D2D']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.viewAllGradient}>
                 <Text style={styles.viewAllText}>View all</Text>
                 <PlayIcon width={30} height={30} />
@@ -176,10 +235,13 @@ const SupplierDashboard: React.FC = () => {
               {/* Row 1 */}
               <View style={styles.jobGridRow}>
                 {/* Pending Requests */}
-                <TouchableOpacity style={styles.jobCard}>
+                <TouchableOpacity
+                  style={styles.jobCard}
+                  onPress={() => navigation.navigate('SupplierRequests' as never)}
+                >
                   <View style={styles.jobCardContent}>
                     <Text style={[styles.jobNumber, styles.pendingColor]}>
-                      03
+                      {counts.pending.toString().padStart(2, '0')}
                     </Text>
                     <Text style={styles.jobLabel}>Pending Requests</Text>
                   </View>
@@ -189,10 +251,13 @@ const SupplierDashboard: React.FC = () => {
                 </TouchableOpacity>
 
                 {/* Confirmed Bookings */}
-                <TouchableOpacity style={styles.jobCard}>
+                <TouchableOpacity
+                  style={styles.jobCard}
+                  onPress={() => navigation.navigate('SupplierJobs' as never)}
+                >
                   <View style={styles.jobCardContent}>
                     <Text style={[styles.jobNumber, styles.confirmedColor]}>
-                      08
+                      {counts.confirmed.toString().padStart(2, '0')}
                     </Text>
                     <Text style={styles.jobLabel}>Confirmed Bookings</Text>
                   </View>
@@ -205,10 +270,13 @@ const SupplierDashboard: React.FC = () => {
               {/* Row 2 */}
               <View style={styles.jobGridRow}>
                 {/* In-Progress Jobs */}
-                <TouchableOpacity style={styles.jobCard}>
+                <TouchableOpacity
+                  style={styles.jobCard}
+                  onPress={() => navigation.navigate('SupplierJobs' as never)}
+                >
                   <View style={styles.jobCardContent}>
                     <Text style={[styles.jobNumber, styles.progressColor]}>
-                      02
+                      {counts.inProgress.toString().padStart(2, '0')}
                     </Text>
                     <Text style={styles.jobLabel}>In-Progress Jobs</Text>
                   </View>
@@ -218,10 +286,13 @@ const SupplierDashboard: React.FC = () => {
                 </TouchableOpacity>
 
                 {/* Completed Jobs */}
-                <TouchableOpacity style={styles.jobCard}>
+                <TouchableOpacity
+                  style={styles.jobCard}
+                  onPress={() => navigation.navigate('SupplierJobs' as never)}
+                >
                   <View style={styles.jobCardContent}>
                     <Text style={[styles.jobNumber, styles.completedColor]}>
-                      24
+                      {counts.completed.toString().padStart(2, '0')}
                     </Text>
                     <Text style={styles.jobLabel}>Completed Jobs</Text>
                   </View>

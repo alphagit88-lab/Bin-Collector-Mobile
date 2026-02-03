@@ -1,17 +1,22 @@
-import React, {useState} from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {themeColors} from '../theme/colors';
-import {fonts} from '../theme/fonts';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { themeColors } from '../theme/colors';
+import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import { useSocket } from '../contexts/SocketContext';
+import { api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
 
 // Import SVG icons
 import BannerImage from '../assets/images/4 1.svg';
@@ -26,69 +31,29 @@ type JobCategory =
   | 'cancelled'
   | 'all';
 
-interface Job {
-  id: string;
-  binType: string;
-  binSize: string;
-  status: JobCategory;
+interface OrderItem {
+  id: number;
+  bin_type_name: string;
+  bin_size: string;
+  price?: string;
 }
 
-const mockJobs: Job[] = [
-  {
-    id: '1',
-    binType: 'General Waste',
-    binSize: '6m³ - Medium',
-    status: 'pending',
-  },
-  {
-    id: '2',
-    binType: 'Concrete/Dirt',
-    binSize: '6m³ - Medium',
-    status: 'pending',
-  },
-  {
-    id: '3',
-    binType: 'General Waste',
-    binSize: '4m³ - Small',
-    status: 'confirmed',
-  },
-  {
-    id: '4',
-    binType: 'Green Waste',
-    binSize: '8m³ - Large',
-    status: 'confirmed',
-  },
-  {
-    id: '5',
-    binType: 'Mixed Waste',
-    binSize: '6m³ - Medium',
-    status: 'inProgress',
-  },
-  {
-    id: '6',
-    binType: 'Construction',
-    binSize: '10m³ - XLarge',
-    status: 'inProgress',
-  },
-  {
-    id: '7',
-    binType: 'General Waste',
-    binSize: '4m³ - Small',
-    status: 'completed',
-  },
-  {
-    id: '8',
-    binType: 'Concrete/Dirt',
-    binSize: '6m³ - Medium',
-    status: 'completed',
-  },
-  {
-    id: '9',
-    binType: 'General Waste',
-    binSize: '6m³ - Medium',
-    status: 'cancelled',
-  },
-];
+interface Job {
+  id: number;
+  request_id: string;
+  bin_type_name: string;
+  bin_size: string;
+  order_items_count: number;
+  location: string;
+  status: string;
+  total_price?: string;
+  estimated_price?: string;
+  orderItems?: OrderItem[];
+  start_date: string;
+  end_date: string;
+  customer_name: string;
+  customer_phone: string;
+}
 
 const categoryLabels: Record<JobCategory, string> = {
   pending: 'Pending Requests',
@@ -100,36 +65,86 @@ const categoryLabels: Record<JobCategory, string> = {
 };
 
 const SupplierJobsScreen: React.FC = () => {
+  const { socket } = useSocket();
   const navigation = useNavigation<any>();
-  const [selectedCategory, setSelectedCategory] =
-    useState<JobCategory>('pending');
+  const [selectedCategory, setSelectedCategory] = useState<JobCategory>('all');
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const filteredJobs =
-    selectedCategory === 'all'
-      ? mockJobs
-      : mockJobs.filter(job => job.status === selectedCategory);
+  const fetchJobs = useCallback(async () => {
+    try {
+      const response = await api.get<{ requests: Job[] }>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS);
+      if (response.success && response.data) {
+        setJobs(response.data.requests);
+      }
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      Alert.alert('Error', 'Failed to fetch jobs');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
+
+  useEffect(() => {
+    if (socket) {
+      const handleRefresh = () => {
+        console.log('Refreshing jobs due to socket update...');
+        fetchJobs();
+      };
+
+      socket.on('new_request', handleRefresh);
+      socket.on('status_update', handleRefresh);
+
+      return () => {
+        socket.off('new_request', handleRefresh);
+        socket.off('status_update', handleRefresh);
+      };
+    }
+  }, [socket, fetchJobs]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchJobs();
+  };
+
+  const getFilteredJobs = () => {
+    if (selectedCategory === 'all') return jobs;
+    if (selectedCategory === 'inProgress') {
+      return jobs.filter(j => ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(j.status));
+    }
+    return jobs.filter(j => j.status === selectedCategory);
+  };
 
   const getCategoryCount = (category: JobCategory) => {
-    if (category === 'all') return mockJobs.length;
-    return mockJobs.filter(job => job.status === category).length;
+    if (category === 'all') return jobs.length;
+    if (category === 'inProgress') {
+      return jobs.filter(j => ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(j.status)).length;
+    }
+    return jobs.filter(j => j.status === category).length;
   };
 
   const handleViewJob = (job: Job) => {
-    // Debug: confirm the press fired and the correct job id
-    console.log('SupplierJobsScreen: view pressed for job', job.id);
-
-    // Navigate to JobDetail screen with job data (use plain navigate)
     navigation.navigate('JobDetail', {
       job: {
-        orderId: `#1002${job.id}`,
-        binType: job.binType,
-        binSize: job.binSize,
-        total: '$210.00',
-        deliveryDate: 'March 15, 2024',
-        pickupDate: 'March 20, 2024',
-        location: '21-B Chaplin Rd, Toronto',
-        customerName: 'Herper Russo',
-        customerId: '#29123',
+        id: job.id,
+        orderId: job.request_id,
+        binType: job.bin_type_name,
+        binSize: job.bin_size,
+        itemsCount: job.order_items_count,
+        total: job.total_price || job.estimated_price || '$0.00',
+        location: job.location,
+        status: job.status,
+        orderItems: job.orderItems,
+        deliveryDate: new Date(job.start_date).toLocaleDateString(),
+        pickupDate: new Date(job.end_date).toLocaleDateString(),
+        customerName: job.customer_name,
+        customerId: job.customer_phone,
       },
     });
   };
@@ -138,13 +153,20 @@ const SupplierJobsScreen: React.FC = () => {
     <View key={job.id} style={styles.jobRow}>
       <View style={styles.jobColumn}>
         {index === 0 && <Text style={styles.columnHeader}>Bin Type</Text>}
-        <Text style={styles.jobText}>{job.binType}</Text>
+        <View style={styles.binTypeCell}>
+          <Text style={styles.jobText}>{job.bin_type_name}</Text>
+          {job.order_items_count > 1 && (
+            <View style={styles.moreBadge}>
+              <Text style={styles.moreBadgeText}>+{job.order_items_count - 1} more</Text>
+            </View>
+          )}
+        </View>
       </View>
       <View style={styles.jobColumn}>
         {index === 0 && (
           <Text style={styles.columnHeader}>Bin Size/Capacity</Text>
         )}
-        <Text style={styles.jobText}>{job.binSize}</Text>
+        <Text style={styles.jobText}>{job.bin_size}</Text>
       </View>
       <View style={styles.actionColumn}>
         {index === 0 && <Text style={styles.columnHeaderAction}>Action</Text>}
@@ -155,8 +177,8 @@ const SupplierJobsScreen: React.FC = () => {
           <LinearGradient
             colors={['#1F1F1F', '#2B2B2B']}
             locations={[0, 1]}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 1}}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.viewButtonGradient}>
             <Text style={styles.viewButtonText}>View</Text>
             <View style={styles.viewArrow}>
@@ -188,17 +210,7 @@ const SupplierJobsScreen: React.FC = () => {
   const renderGridCard = (category: JobCategory) => {
     const label = categoryLabels[category];
     // Use design counts to match the provided screenshot (second image)
-    const designCounts: Record<JobCategory, number> = {
-      pending: 3,
-      confirmed: 8,
-      inProgress: 2,
-      completed: 24,
-      cancelled: 1,
-      all: 9,
-    };
-    const count = String(
-      designCounts[category] ?? getCategoryCount(category),
-    ).padStart(2, '0');
+    const count = String(getCategoryCount(category)).padStart(2, '0');
     const color = categoryColor(category);
     const isSelected = selectedCategory === category;
 
@@ -212,14 +224,14 @@ const SupplierJobsScreen: React.FC = () => {
           <LinearGradient
             colors={['#D0FF33', '#C7FFD3']}
             locations={[0.1564, 0.762]}
-            start={{x: 0.2, y: 0}}
-            end={{x: 0.8, y: 1}}
+            start={{ x: 0.2, y: 0 }}
+            end={{ x: 0.8, y: 1 }}
             style={styles.gridCardSelectedBackground}
           />
         )}
         <View style={styles.gridCardContent}>
-          <Text style={[styles.gridCount, {color}]}>{count}</Text>
-          <Text style={[styles.gridLabel, isSelected && {color: '#242424'}]}>
+          <Text style={[styles.gridCount, { color }]}>{count}</Text>
+          <Text style={[styles.gridLabel, isSelected && { color: '#242424' }]}>
             {label}
           </Text>
         </View>
@@ -240,8 +252,8 @@ const SupplierJobsScreen: React.FC = () => {
           <LinearGradient
             colors={['#37B112', '#77C40A']}
             locations={[0.2227, 0.5982]}
-            start={{x: 0.1, y: 0}}
-            end={{x: 1, y: 1}}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.headerGradient}>
             <View style={styles.headerContent}>
               <View style={styles.headerTextContainer}>
@@ -287,15 +299,19 @@ const SupplierJobsScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#EAFFCC']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.jobsListGradient}>
               <View style={styles.jobsListContainer}>
                 <Text style={styles.sectionTitle}>
                   {categoryLabels[selectedCategory]}
                 </Text>
-                {filteredJobs.length > 0 ? (
-                  filteredJobs.map((job, index) => renderJobItem(job, index))
+                {loading && !refreshing ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#37B112" />
+                  </View>
+                ) : getFilteredJobs().length > 0 ? (
+                  getFilteredJobs().map((job: Job, index: number) => renderJobItem(job, index))
                 ) : (
                   <Text style={styles.emptyText}>No jobs in this category</Text>
                 )}
@@ -481,7 +497,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0, 0, 0, 0.08)',
     backgroundColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
@@ -529,6 +545,22 @@ const styles = StyleSheet.create({
     color: '#242424',
     marginBottom: 4,
   },
+  binTypeCell: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
+  moreBadge: {
+    backgroundColor: '#37B11220',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginTop: 2,
+  },
+  moreBadgeText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 10,
+    color: '#37B112',
+  },
   viewButton: {
     borderRadius: 20,
     overflow: 'hidden',
@@ -550,6 +582,11 @@ const styles = StyleSheet.create({
   },
   viewArrow: {
     marginLeft: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingContainer: {
+    paddingVertical: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },

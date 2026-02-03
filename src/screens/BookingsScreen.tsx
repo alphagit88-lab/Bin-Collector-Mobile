@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,18 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {Ionicons} from '@expo/vector-icons';
-import {useAuth} from '../contexts/AuthContext';
-import {fonts} from '../theme/fonts';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSocket } from '../contexts/SocketContext';
+import { useAuth } from '../contexts/AuthContext';
+import { fonts } from '../theme/fonts';
 import BottomNavBar from '../components/BottomNavBar';
+import { api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
 
 // Import SVG images
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -20,19 +25,116 @@ import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import Icon20_3 from '../assets/images/20_3.svg';
 import PlayIcon from '../assets/images/play.svg';
 
-const {width: SCREEN_WIDTH} = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+interface Booking {
+  id: number;
+  request_id: string;
+  bin_type_name: string;
+  bin_size: string;
+  status: string;
+  total_price: string | number;
+  start_date: string;
+  end_date: string;
+  order_items_count: number;
+}
 
 const BookingsScreen: React.FC = () => {
-  const {user} = useAuth();
+  const { user } = useAuth();
+  const { socket } = useSocket();
   const navigation = useNavigation();
-  const userName = user?.name || 'Herper Russo';
+  const userName = user?.name || 'User';
+
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchBookings = useCallback(async () => {
+    try {
+      const response = await api.get<{ requests: Booking[] }>(ENDPOINTS.BOOKINGS.MY_REQUESTS);
+      if (response.success && response.data) {
+        setBookings(response.data.requests);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on('status_update', (data) => {
+        console.log('Booking status updated via socket, refreshing list...');
+        fetchBookings();
+      });
+      return () => {
+        socket.off('status_update');
+      };
+    }
+  }, [socket, fetchBookings]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchBookings();
+    }, [fetchBookings])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchBookings();
+  };
+
+  const activeBookingsCount = bookings.filter(b =>
+    !['completed', 'cancelled'].includes(b.status.toLowerCase())
+  ).length;
+
+  const completedServicesCount = bookings.filter(b =>
+    b.status.toLowerCase() === 'completed'
+  ).length;
+
+  const formatPrice = (price: string | number) => {
+    const num = typeof price === 'string' ? parseFloat(price) : price;
+    return isNaN(num) ? '$0.00' : `$${num.toFixed(2)}`;
+  };
+
+  const formatDateRange = (start: string, end: string) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    return `${startStr} - ${endStr}`;
+  };
+
+  const getStatusDisplay = (status: string) => {
+    return status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
+
+  const getCardColors = (index: number) => {
+    const colorPairs = [
+      ['#B4FFF3', '#D9DCEF'],
+      ['#FFB4B4', '#EFD9D9'],
+      ['#F6FFB4', '#E8EFD9'],
+    ];
+    return colorPairs[index % colorPairs.length];
+  };
 
   return (
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#9CCD17']} />
+        }>
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -40,7 +142,6 @@ const BookingsScreen: React.FC = () => {
             <Text style={styles.userNameText}>{userName}</Text>
           </View>
           <View style={styles.headerRight}>
-            {/* Logo/Profile Icon */}
             <TouchableOpacity
               style={styles.headerIconContainer}
               activeOpacity={0.7}>
@@ -52,11 +153,12 @@ const BookingsScreen: React.FC = () => {
         {/* Order New Bin Button */}
         <TouchableOpacity
           style={styles.orderButtonContainer}
-          activeOpacity={0.8}>
+          activeOpacity={0.8}
+          onPress={() => navigation.navigate('OrderBin' as never)}>
           <LinearGradient
             colors={['#9CCD17', '#009B5F']}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 0}}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
             style={styles.orderButtonGradient}>
             <View style={styles.orderButtonIconContainer}>
               <Ionicons name="add" size={24} color="#FFFFFF" />
@@ -71,24 +173,25 @@ const BookingsScreen: React.FC = () => {
           <View style={styles.trackingCard}>
             <LinearGradient
               colors={['#C0F96F', '#90B93E']}
-              start={{x: 0, y: 0}}
-              end={{x: 0.7, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.7, y: 1 }}
               style={styles.trackingCardGradient}>
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Tracking</Text>
                   <TouchableOpacity
                     style={styles.playButtonContainer}
-                    activeOpacity={0.7}>
+                    activeOpacity={0.7}
+                    onPress={() => { }}>
                     <PlayIcon width={45} height={45} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.cardStats}>
-                  <Text style={styles.cardStatValue}>03</Text>
+                  <Text style={styles.cardStatValue}>{activeBookingsCount.toString().padStart(2, '0')}</Text>
                   <Text style={styles.cardStatLabel}>Active Bookings</Text>
                 </View>
                 <View style={styles.binCollectOverlay}>
-                  <View style={{opacity: 0.34}}>
+                  <View style={{ opacity: 0.34 }}>
                     <BinCollect2 width={192} height={128} />
                   </View>
                 </View>
@@ -101,8 +204,8 @@ const BookingsScreen: React.FC = () => {
             <LinearGradient
               colors={['#A7DB3D', '#D6EF72', '#D8FF3A']}
               locations={[0.1651, 0.6554, 0.8017]}
-              start={{x: 0, y: 0}}
-              end={{x: 0.7, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.7, y: 1 }}
               style={styles.bookingCardGradient}>
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
@@ -114,7 +217,7 @@ const BookingsScreen: React.FC = () => {
                   </View>
                 </View>
                 <View style={styles.cardStats}>
-                  <Text style={styles.cardStatValue}>13</Text>
+                  <Text style={styles.cardStatValue}>{completedServicesCount.toString().padStart(2, '0')}</Text>
                   <Text style={styles.cardStatLabel}>Completed Services</Text>
                 </View>
                 <View style={styles.binCollectOverlayUpsideDown}>
@@ -122,7 +225,7 @@ const BookingsScreen: React.FC = () => {
                     style={{
                       width: 192,
                       height: 128,
-                      transform: [{rotate: '180deg'}],
+                      transform: [{ rotate: '180deg' }],
                       opacity: 0.34,
                     }}>
                     <BinCollect2 width={192} height={128} />
@@ -138,173 +241,112 @@ const BookingsScreen: React.FC = () => {
           <LinearGradient
             colors={['#EFF2F0', '#EAFFCC']}
             locations={[0.2377, 0.6629]}
-            start={{x: 0.85, y: 0}}
-            end={{x: 0.15, y: 1}}
+            start={{ x: 0.85, y: 0 }}
+            end={{ x: 0.15, y: 1 }}
             style={styles.myBookingsCard}>
             <View style={styles.myBookingsHeader}>
               <Text style={styles.myBookingsTitle}>My Bookings</Text>
             </View>
 
-            {/* Booking Card 1 */}
-            <View style={styles.bookingCardItem}>
-              <LinearGradient
-                colors={['#B4FFF3', '#D9DCEF']}
-                locations={[0.2377, 0.6629]}
-                start={{x: 0.85, y: 0}}
-                end={{x: 0.15, y: 1}}
-                style={styles.bookingCardGradientItem}>
-                <View style={styles.bookingCardContent}>
-                  {/* First Row: Booking ID, Service, Dates */}
-                  <View style={styles.bookingInfoRow}>
-                    <View style={styles.bookingInfoItem}>
-                      <Text style={styles.bookingLabel}>Booking ID</Text>
-                      <Text style={styles.bookingValue}>#10021</Text>
-                    </View>
-                    <View style={styles.bookingInfoItem}>
-                      <Text style={styles.bookingLabel}>Service</Text>
-                      <Text style={styles.bookingValue}>General Waste</Text>
-                    </View>
-                    <View style={styles.bookingInfoItem}>
-                      <Text style={styles.bookingLabel}>Dates</Text>
-                      <Text style={styles.bookingValue}>
-                        Mar 15 - Mar 20 2026
-                      </Text>
-                    </View>
-                  </View>
-                  {/* Second Row: Amount, Status */}
-                  <View style={styles.amountStatusRow}>
-                    <View style={styles.amountBox}>
-                      <LinearGradient
-                        colors={[
-                          'rgba(110, 173, 22, 0.2)',
-                          'rgba(201, 226, 101, 0.2)',
-                        ]}
-                        start={{x: 0, y: 0}}
-                        end={{x: 1, y: 0}}
-                        style={styles.amountStatusGradient}>
-                        <View style={styles.amountStatusContent}>
-                          <Text style={styles.bookingLabel}>Amount</Text>
-                          <Text style={styles.bookingValue}>$210.00</Text>
+            {loading && !refreshing ? (
+              <View style={{ paddingVertical: 40 }}>
+                <ActivityIndicator size="large" color="#9CCD17" />
+              </View>
+            ) : bookings.length > 0 ? (
+              bookings.slice(0, 5).map((booking, index) => {
+                const colors = getCardColors(index);
+                return (
+                  <View key={booking.id} style={styles.bookingCardItem}>
+                    <LinearGradient
+                      colors={colors}
+                      locations={[0.2377, 0.6629]}
+                      start={{ x: 0.85, y: 0 }}
+                      end={{ x: 0.15, y: 1 }}
+                      style={styles.bookingCardGradientItem}>
+                      <View style={styles.bookingCardContent}>
+                        {/* First Row: Booking ID, Service, Dates */}
+                        <View style={styles.bookingInfoRow}>
+                          <View style={styles.bookingInfoItem}>
+                            <Text style={styles.bookingLabel}>Booking ID</Text>
+                            <Text style={styles.bookingValue}>#{booking.request_id.slice(-5).toUpperCase()}</Text>
+                          </View>
+                          <View style={styles.bookingInfoItem}>
+                            <Text style={styles.bookingLabel}>Service</Text>
+                            <Text numberOfLines={1} style={styles.bookingValue}>{booking.bin_type_name}</Text>
+                          </View>
+                          <View style={styles.bookingInfoItem}>
+                            <Text style={styles.bookingLabel}>Dates</Text>
+                            <Text style={styles.bookingValue}>
+                              {formatDateRange(booking.start_date, booking.end_date)}
+                            </Text>
+                          </View>
                         </View>
-                      </LinearGradient>
-                    </View>
-                    <View style={styles.statusBox}>
-                      <LinearGradient
-                        colors={[
-                          'rgba(110, 173, 22, 0.2)',
-                          'rgba(201, 226, 101, 0.2)',
-                        ]}
-                        start={{x: 0, y: 0}}
-                        end={{x: 1, y: 0}}
-                        style={styles.amountStatusGradient}>
-                        <View style={styles.amountStatusContent}>
-                          <Text style={styles.bookingLabel}>Status</Text>
-                          <Text style={styles.bookingValue}>Confirmed</Text>
+                        {/* Second Row: Amount, Status */}
+                        <View style={styles.amountStatusRow}>
+                          <View style={styles.amountBox}>
+                            <LinearGradient
+                              colors={[
+                                'rgba(110, 173, 22, 0.1)',
+                                'rgba(201, 226, 101, 0.1)',
+                              ]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                              style={styles.amountStatusGradient}>
+                              <View style={styles.amountStatusContent}>
+                                <Text style={styles.bookingLabel}>Amount</Text>
+                                <Text style={styles.bookingValue}>{formatPrice(booking.total_price)}</Text>
+                              </View>
+                            </LinearGradient>
+                          </View>
+                          <View style={styles.statusBox}>
+                            <LinearGradient
+                              colors={[
+                                'rgba(110, 173, 22, 0.1)',
+                                'rgba(201, 226, 101, 0.1)',
+                              ]}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                              style={styles.amountStatusGradient}>
+                              <View style={styles.amountStatusContent}>
+                                <Text style={styles.bookingLabel}>Status</Text>
+                                <Text style={styles.bookingValue}>{getStatusDisplay(booking.status)}</Text>
+                              </View>
+                            </LinearGradient>
+                          </View>
                         </View>
-                      </LinearGradient>
-                    </View>
+                        {/* Buttons Row */}
+                        <View style={styles.bookingActionsRow}>
+                          <TouchableOpacity
+                            style={styles.viewButtonNew}
+                            activeOpacity={0.7}
+                            onPress={() => { }}>
+                            <PlayIcon width={21} height={17} />
+                            <Text style={styles.viewButtonTextNew}>View</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.trackButtonNew}
+                            activeOpacity={0.7}
+                            onPress={() => { }}>
+                            <PlayIcon width={21} height={17} />
+                            <Text style={styles.trackButtonTextNew}>Track Order</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </LinearGradient>
                   </View>
-                  {/* Buttons Row */}
-                  <View style={styles.bookingActionsRow}>
-                    <TouchableOpacity
-                      style={styles.viewButtonNew}
-                      activeOpacity={0.7}>
-                      <PlayIcon width={21} height={17} />
-                      <Text style={styles.viewButtonTextNew}>View</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.trackButtonNew}
-                      activeOpacity={0.7}>
-                      <PlayIcon width={21} height={17} />
-                      <Text style={styles.trackButtonTextNew}>Track Order</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </LinearGradient>
-            </View>
+                );
+              })
+            ) : (
+              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                <Text style={{ fontFamily: fonts.family.medium, color: '#666' }}>No bookings found</Text>
+              </View>
+            )}
 
-            {/* Booking Card 2 */}
-            <View style={styles.bookingCardItem}>
-              <LinearGradient
-                colors={['#FFB4B4', '#EFD9D9']}
-                locations={[0.2377, 0.6629]}
-                start={{x: 0.85, y: 0}}
-                end={{x: 0.15, y: 1}}
-                style={styles.bookingCardGradientItem}>
-                <View style={styles.bookingCardContent}>
-                  {/* First Row: Booking ID, Service, Dates */}
-                  <View style={styles.bookingInfoRow}>
-                    <View style={styles.bookingInfoItem}>
-                      <Text style={styles.bookingLabel}>Booking ID</Text>
-                      <Text style={styles.bookingValue}>#10021</Text>
-                    </View>
-                    <View style={styles.bookingInfoItem}>
-                      <Text style={styles.bookingLabel}>Service</Text>
-                      <Text style={styles.bookingValue}>General Waste</Text>
-                    </View>
-                    <View style={styles.bookingInfoItem}>
-                      <Text style={styles.bookingLabel}>Dates</Text>
-                      <Text style={styles.bookingValue}>
-                        Mar 15 - Mar 20 2026
-                      </Text>
-                    </View>
-                  </View>
-                  {/* Second Row: Amount, Status */}
-                  <View style={styles.amountStatusRow}>
-                    <View style={styles.amountBox}>
-                      <LinearGradient
-                        colors={[
-                          'rgba(110, 173, 22, 0.2)',
-                          'rgba(201, 226, 101, 0.2)',
-                        ]}
-                        start={{x: 0, y: 0}}
-                        end={{x: 1, y: 0}}
-                        style={styles.amountStatusGradient}>
-                        <View style={styles.amountStatusContent}>
-                          <Text style={styles.bookingLabel}>Amount</Text>
-                          <Text style={styles.bookingValue}>$210.00</Text>
-                        </View>
-                      </LinearGradient>
-                    </View>
-                    <View style={styles.statusBox}>
-                      <LinearGradient
-                        colors={[
-                          'rgba(110, 173, 22, 0.2)',
-                          'rgba(201, 226, 101, 0.2)',
-                        ]}
-                        start={{x: 0, y: 0}}
-                        end={{x: 1, y: 0}}
-                        style={styles.amountStatusGradient}>
-                        <View style={styles.amountStatusContent}>
-                          <Text style={styles.bookingLabel}>Status</Text>
-                          <Text style={styles.bookingValue}>Confirmed</Text>
-                        </View>
-                      </LinearGradient>
-                    </View>
-                  </View>
-                  {/* Buttons Row */}
-                  <View style={styles.bookingActionsRow}>
-                    <TouchableOpacity
-                      style={styles.viewButtonNew}
-                      activeOpacity={0.7}>
-                      <PlayIcon width={21} height={17} />
-                      <Text style={styles.viewButtonTextNew}>View</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.trackButtonNew}
-                      activeOpacity={0.7}>
-                      <PlayIcon width={21} height={17} />
-                      <Text style={styles.trackButtonTextNew}>Track Order</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </LinearGradient>
-            </View>
-
-            {/* View all link */}
-            <TouchableOpacity style={styles.viewAllLink} activeOpacity={0.7}>
-              <Text style={styles.viewAllLinkText}>View all</Text>
-            </TouchableOpacity>
+            {bookings.length > 5 && (
+              <TouchableOpacity style={styles.viewAllLink} activeOpacity={0.7}>
+                <Text style={styles.viewAllLinkText}>View all</Text>
+              </TouchableOpacity>
+            )}
           </LinearGradient>
         </View>
       </ScrollView>

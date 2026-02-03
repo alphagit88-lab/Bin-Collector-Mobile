@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
 
 export interface User {
   id: number;
@@ -8,6 +9,16 @@ export interface User {
   phone: string;
   email: string;
   role: 'customer' | 'supplier' | 'admin';
+  supplierType?: string;
+}
+
+export interface SignupData {
+  name: string;
+  phone: string;
+  email?: string;
+  password: string;
+  role: 'customer' | 'supplier';
+  supplierType?: string;
 }
 
 interface AuthContextType {
@@ -15,6 +26,9 @@ interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (phone: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  signup: (data: SignupData) => Promise<{ success: boolean; message?: string }>;
+  updateProfile: (email: string) => Promise<{ success: boolean; message?: string }>;
+  changePassword: (newPassword: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
 }
@@ -34,7 +48,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const storedToken = await AsyncStorage.getItem('token');
       const storedUser = await AsyncStorage.getItem('user');
-      
+
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
@@ -48,7 +62,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (phone: string, password: string) => {
     try {
-      const response = await api.post<{ user: User; token: string }>('/auth/login', {
+      const response = await api.post<{ user: User; token: string }>(ENDPOINTS.AUTH.LOGIN, {
         phone,
         password,
       });
@@ -71,6 +85,66 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const signup = async (data: SignupData) => {
+    try {
+      const response = await api.post<{ user: User; token: string }>(ENDPOINTS.AUTH.SIGNUP, data);
+
+      if (response.success && response.data) {
+        const { user, token } = response.data;
+        await AsyncStorage.setItem('token', token);
+        await AsyncStorage.setItem('user', JSON.stringify(user));
+        setToken(token);
+        setUser(user);
+        return { success: true };
+      } else {
+        return { success: false, message: response.message || 'Signup failed' };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Signup failed',
+      };
+    }
+  };
+
+  const updateProfile = async (email: string) => {
+    try {
+      const response = await api.put<{ user: User }>(ENDPOINTS.AUTH.UPDATE_PROFILE, { email });
+
+      if (response.success && response.data) {
+        const { user: updatedUser } = response.data;
+        const newUser = { ...user, ...updatedUser };
+        await AsyncStorage.setItem('user', JSON.stringify(newUser));
+        setUser(newUser as User);
+        return { success: true };
+      } else {
+        return { success: false, message: response.message || 'Update failed' };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Update failed',
+      };
+    }
+  };
+
+  const changePassword = async (newPassword: string) => {
+    try {
+      const response = await api.put(ENDPOINTS.AUTH.UPDATE_PASSWORD, { newPassword });
+
+      if (response.success) {
+        return { success: true };
+      } else {
+        return { success: false, message: response.message || 'Change password failed' };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Change password failed',
+      };
+    }
+  };
+
   const logout = async () => {
     try {
       await AsyncStorage.removeItem('token');
@@ -89,6 +163,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         token,
         loading,
         login,
+        signup,
+        updateProfile,
+        changePassword,
         logout,
         isAuthenticated: !!token && !!user,
       }}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,21 +6,50 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {themeColors} from '../theme/colors';
-import {fonts} from '../theme/fonts';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { themeColors } from '../theme/colors';
+import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
+import { api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
 
 // Header truck/logo SVGs
 import Svg14 from '../assets/images/14.svg';
 import Logo14_1 from '../assets/images/14_1.svg';
 
-const {width: screenWidth} = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 const SupplierOperationsScreen: React.FC = () => {
   const navigation = useNavigation();
+  const [fleetCount, setFleetCount] = useState<number>(0);
+  const [loading, setLoading] = useState(false);
+
+  const fetchFleetCount = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get<any>(ENDPOINTS.BINS.PHYSICAL);
+      if (response.success) {
+        // Based on FleetManagementScreen, the bins might be in response.bins
+        const bins = response.bins || response.data?.bins || [];
+        // Only count available bins as "Active Fleets"
+        const activeBins = bins.filter((b: any) => b.status === 'available');
+        setFleetCount(activeBins.length);
+      }
+    } catch (error) {
+      console.error('Error fetching fleet count:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchFleetCount();
+    }, [fetchFleetCount])
+  );
 
   const handleAvailabilityPress = () => {
     navigation.navigate('SupplierAvailability' as never);
@@ -45,8 +74,8 @@ const SupplierOperationsScreen: React.FC = () => {
           <LinearGradient
             colors={['#37B112', '#77C40A']}
             locations={[0.2227, 0.5982]}
-            start={{x: 0.12, y: 0.05}}
-            end={{x: 0.88, y: 0.95}}
+            start={{ x: 0.12, y: 0.05 }}
+            end={{ x: 0.88, y: 0.95 }}
             style={styles.headerGradient}>
             {/* Title and Subtitle */}
             <View style={styles.headerTextContainer}>
@@ -57,8 +86,8 @@ const SupplierOperationsScreen: React.FC = () => {
             {/* subtle translucent overlay */}
             <LinearGradient
               colors={['rgba(137,217,87,0.2)', 'rgba(137,217,87,0.2)']}
-              start={{x: 0, y: 0}}
-              end={{x: 0, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
               style={styles.overlayGradient}
               pointerEvents="none"
             />
@@ -82,13 +111,17 @@ const SupplierOperationsScreen: React.FC = () => {
               onPress={handleFleetManagementPress}>
               <LinearGradient
                 colors={['#B9F38F', '#77C40A']}
-                start={{x: 0, y: 0}}
-                end={{x: 1, y: 1}}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
                 style={styles.largeCardGradient}>
                 <View style={styles.largeCardContent}>
                   <View>
                     <Text style={styles.largeCardLabel}>Fleet Management</Text>
-                    <Text style={styles.largeCardNumber}>03</Text>
+                    {loading ? (
+                      <ActivityIndicator size="small" color="#17360F" style={{ alignSelf: 'flex-start', marginVertical: 10 }} />
+                    ) : (
+                      <Text style={styles.largeCardNumber}>{fleetCount.toString().padStart(2, '0')}</Text>
+                    )}
                     <Text style={styles.largeCardSub}>Active Fleets</Text>
                   </View>
                   <View style={styles.playContainer}>
@@ -107,14 +140,14 @@ const SupplierOperationsScreen: React.FC = () => {
               <LinearGradient
                 colors={['#29B554', '#6EAD16']}
                 locations={[0.2227, 0.7018]}
-                start={{x: 0.88, y: 0}}
-                end={{x: 0.12, y: 1}}
+                start={{ x: 0.88, y: 0 }}
+                end={{ x: 0.12, y: 1 }}
                 style={styles.smallCardGradient}>
                 {/* translucent overlay */}
                 <LinearGradient
                   colors={['rgba(137,217,87,0.2)', 'rgba(137,217,87,0.2)']}
-                  start={{x: 0, y: 0}}
-                  end={{x: 0, y: 1}}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
                   style={styles.smallCardOverlay}
                   pointerEvents="none"
                 />
@@ -139,14 +172,14 @@ const SupplierOperationsScreen: React.FC = () => {
               <LinearGradient
                 colors={['#C0F96F', '#6EAD16']}
                 locations={[0.2227, 0.7018]}
-                start={{x: 0.88, y: 0}}
-                end={{x: 0.12, y: 1}}
+                start={{ x: 0.88, y: 0 }}
+                end={{ x: 0.12, y: 1 }}
                 style={styles.smallCardGradient}>
                 {/* translucent overlay */}
                 <LinearGradient
                   colors={['rgba(137,217,87,0.2)', 'rgba(137,217,87,0.2)']}
-                  start={{x: 0, y: 0}}
-                  end={{x: 0, y: 1}}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
                   style={styles.smallCardOverlay}
                   pointerEvents="none"
                 />

@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {useAuth} from '../contexts/AuthContext';
-import {fonts} from '../theme/fonts';
-import {themeColors} from '../theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../contexts/AuthContext';
+import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 import BottomNavBar from '../components/BottomNavBar';
 
 // Import SVG images
@@ -22,10 +22,10 @@ import Icon3_1 from '../assets/images/3_1.svg';
 import PlayIcon from '../assets/images/play.svg';
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import Icon20_3 from '../assets/images/20_3.svg';
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 const CustomerDashboard: React.FC = () => {
-  const {user} = useAuth();
+  const { user } = useAuth();
   const navigation = useNavigation();
   const userName = user?.name || 'Herper Russo';
 
@@ -53,8 +53,8 @@ const CustomerDashboard: React.FC = () => {
           onPress={() => navigation.navigate('OrderBin' as never)}>
           <LinearGradient
             colors={['#9CCD17', '#009B5F']}
-            start={{x: 0, y: 0}}
-            end={{x: 1, y: 0}}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
             style={styles.orderButtonGradient}>
             <View style={styles.orderButtonIconContainer}>
               <BinCollectIcon width={39} height={32} />
@@ -69,8 +69,8 @@ const CustomerDashboard: React.FC = () => {
           <View style={styles.trackingCard}>
             <LinearGradient
               colors={['#C0F96F', '#90B93E']}
-              start={{x: 0, y: 0}}
-              end={{x: 0.7, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.7, y: 1 }}
               style={styles.trackingCardGradient}>
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
@@ -97,8 +97,8 @@ const CustomerDashboard: React.FC = () => {
             <LinearGradient
               colors={['#A7DB3D', '#D6EF72', '#D8FF3A']}
               locations={[0.1651, 0.6554, 0.8017]}
-              start={{x: 0, y: 0}}
-              end={{x: 0.7, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.7, y: 1 }}
               style={styles.bookingCardGradient}>
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
@@ -118,7 +118,7 @@ const CustomerDashboard: React.FC = () => {
                     style={{
                       width: 192,
                       height: 128,
-                      transform: [{rotate: '180deg'}],
+                      transform: [{ rotate: '180deg' }],
                     }}>
                     <BinCollect2 width={192} height={128} />
                   </View>
@@ -132,8 +132,8 @@ const CustomerDashboard: React.FC = () => {
         <View style={styles.paymentsCard}>
           <LinearGradient
             colors={['#29B554', '#6EAD16']}
-            start={{x: 0, y: 0}}
-            end={{x: 0.7, y: 1}}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0.7, y: 1 }}
             style={styles.paymentsCardGradient}>
             <View style={styles.paymentsContent}>
               <View style={styles.paymentsHeader}>
@@ -162,8 +162,8 @@ const CustomerDashboard: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#EAFFCC']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.342, y: 0}}
-              end={{x: 0.658, y: 1}}
+              start={{ x: 0.342, y: 0 }}
+              end={{ x: 0.658, y: 1 }}
               style={styles.recentBookingsCardGradient}>
               <View style={styles.recentBookingsHeader}>
                 <Text style={styles.recentBookingsTitle}>Recent Bookings</Text>

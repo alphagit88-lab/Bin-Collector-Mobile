@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,19 @@ import {
   TouchableOpacity,
   TextInput,
   Dimensions,
+  Modal,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {fonts} from '../theme/fonts';
-import {themeColors} from '../theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
 import BottomNavBar from '../components/BottomNavBar';
+import { Ionicons } from '@expo/vector-icons';
+import { Alert, ActivityIndicator } from 'react-native';
 
 // Import SVG images
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -25,7 +32,7 @@ import Icon28_2_Commercial from '../assets/images/28 2.svg';
 import Group101 from '../assets/images/Group 101.svg';
 import AddBinIcon from '../assets/images/+ Add Bin.svg';
 
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface FormFieldProps {
   label: string;
@@ -36,15 +43,19 @@ interface FormFieldProps {
   customIcon?: React.ReactNode;
 }
 
-const FormField: React.FC<FormFieldProps> = ({
+const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
   label,
   placeholder,
   value,
   onChangeText,
   isDropdown = false,
   customIcon,
+  onPress,
 }) => (
-  <View style={styles.formField}>
+  <TouchableOpacity
+    activeOpacity={isDropdown ? 0.7 : 1}
+    onPress={isDropdown ? onPress : undefined}
+    style={styles.formField}>
     <Text style={styles.formFieldLabel}>{label}</Text>
     <View style={styles.formFieldInputContainer}>
       <TextInput
@@ -53,6 +64,8 @@ const FormField: React.FC<FormFieldProps> = ({
         placeholderTextColor="#979897"
         value={value}
         onChangeText={onChangeText}
+        editable={!isDropdown}
+        pointerEvents={isDropdown ? 'none' : 'auto'}
       />
       {customIcon && <View style={styles.dropdownIcon}>{customIcon}</View>}
       {isDropdown && !customIcon && (
@@ -61,8 +74,19 @@ const FormField: React.FC<FormFieldProps> = ({
         </View>
       )}
     </View>
-  </View>
+  </TouchableOpacity>
 );
+
+interface BinType {
+  id: number;
+  name: string;
+}
+
+interface BinSize {
+  id: number;
+  bin_type_id: number;
+  size: string;
+}
 
 const OrderBinScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -74,19 +98,220 @@ const OrderBinScreen: React.FC = () => {
   );
 
   // Form state
-  const [binType, setBinType] = useState('');
-  const [binSize, setBinSize] = useState('');
-  const [quantity, setQuantity] = useState('');
+  const [quantity, setQuantity] = useState('1');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [deliveryDate, setDeliveryDate] = useState('');
   const [pickupDate, setPickupDate] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [additionalContact, setAdditionalContact] = useState('');
   const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handlePlaceOrder = () => {
-    // Navigate to order confirmation screen
-    navigation.navigate('OrderConfirmation' as never);
+  // Dropdown data
+  const [binTypes, setBinTypes] = useState<BinType[]>([]);
+  const [binSizesMap, setBinSizesMap] = useState<Record<number, BinSize[]>>({});
+  const [bins, setBins] = useState([
+    {
+      bin_type_id: '',
+      bin_type_name: '',
+      bin_size_id: '',
+      bin_size_name: '',
+      quantity: '1',
+    },
+  ]);
+  const [activeBinIndex, setActiveBinIndex] = useState(0);
+
+  // Modals
+  const [typeModalVisible, setTypeModalVisible] = useState(false);
+  const [sizeModalVisible, setSizeModalVisible] = useState(false);
+
+
+  const addBin = () => {
+    setBins([
+      ...bins,
+      {
+        bin_type_id: '',
+        bin_type_name: '',
+        bin_size_id: '',
+        bin_size_name: '',
+        quantity: '1',
+      },
+    ]);
+  };
+
+  const removeBin = (index: number) => {
+    if (bins.length > 1) {
+      setBins(bins.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateBin = (index: number, updates: Record<string, any>) => {
+    setBins((prevBins) => {
+      const newBins = [...prevBins];
+      newBins[index] = { ...newBins[index], ...updates };
+
+      // If updating bin type, automatically reset size
+      if (updates.bin_type_id !== undefined) {
+        newBins[index].bin_size_id = '';
+        newBins[index].bin_size_name = '';
+      }
+
+      return newBins;
+    });
+  };
+
+  // For backward compatibility and fixing the ReferenceError
+  const binType = bins[0].bin_type_name;
+  const binSize = bins[0].bin_size_name;
+  const setBinType = (val: string) => updateBin(0, { bin_type_name: val });
+  const setBinSize = (val: string) => updateBin(0, { bin_size_name: val });
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Reset form on focus
+      setPaymentMethod('online');
+      setServiceType('residential');
+      setBins([
+        {
+          bin_type_id: '',
+          bin_type_name: '',
+          bin_size_id: '',
+          bin_size_name: '',
+          quantity: '1',
+        },
+      ]);
+      setDeliveryDate('');
+      setPickupDate('');
+      setContactNumber('');
+      setAdditionalContact('');
+      setNotes('');
+      setBinSizesMap({});
+
+      loadDefaultLocation();
+      fetchBinTypes();
+    }, [])
+  );
+
+  const loadDefaultLocation = async () => {
+    try {
+      const savedLocation = await AsyncStorage.getItem('defaultLocation');
+      if (savedLocation) {
+        setDeliveryAddress(savedLocation);
+      } else {
+        setDeliveryAddress('');
+      }
+    } catch (error) {
+      console.error('Error loading default location:', error);
+    }
+  };
+
+  const fetchBinTypes = async () => {
+    try {
+      const response = await api.get<{ binTypes: BinType[] }>(ENDPOINTS.BINS.TYPES);
+      if (response.success && response.data) {
+        setBinTypes(response.data.binTypes);
+      }
+    } catch (error) {
+      console.error('Error fetching bin types:', error);
+    }
+  };
+
+  const fetchBinSizes = async (typeId: number) => {
+    if (binSizesMap[typeId]) return;
+    try {
+      const response = await api.get<{ binSizes: BinSize[] }>(ENDPOINTS.BINS.SIZES(typeId));
+      if (response.success && response.data) {
+        setBinSizesMap((prev) => ({ ...prev, [typeId]: response?.data?.binSizes ?? [] }));
+      }
+    } catch (error) {
+      console.error('Error fetching bin sizes:', error);
+    }
+  };
+
+  const openTypeModal = (index: number) => {
+    setActiveBinIndex(index);
+    setTypeModalVisible(true);
+  };
+
+  const openSizeModal = (index: number) => {
+    const bin = bins[index];
+    if (bin.bin_type_id) {
+      setActiveBinIndex(index);
+      fetchBinSizes(parseInt(bin.bin_type_id));
+      setSizeModalVisible(true);
+    }
+  };
+
+  const selectBinType = (type: BinType) => {
+    updateBin(activeBinIndex, {
+      bin_type_id: type.id,
+      bin_type_name: type.name,
+    });
+    setTypeModalVisible(false);
+    fetchBinSizes(type.id);
+  };
+
+  const selectBinSize = (size: BinSize) => {
+    updateBin(activeBinIndex, {
+      bin_size_id: size.id,
+      bin_size_name: size.size,
+    });
+    setSizeModalVisible(false);
+  };
+
+  const handlePlaceOrder = async () => {
+    // Basic validation
+    if (!deliveryAddress.trim()) {
+      Alert.alert('Error', 'Please enter a delivery address');
+      return;
+    }
+
+    const validBins = bins.filter(b => b.bin_type_id && b.bin_size_id);
+    if (validBins.length === 0) {
+      Alert.alert('Error', 'Please add at least one valid bin (Type & Size)');
+      return;
+    }
+
+    if (!deliveryDate || !pickupDate) {
+      Alert.alert('Error', 'Please select both start and end dates');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        service_category: serviceType,
+        bins: validBins.map(b => ({
+          bin_type_id: parseInt(b.bin_type_id),
+          bin_size_id: parseInt(b.bin_size_id),
+          quantity: parseInt(b.quantity) || 1,
+        })),
+        location: deliveryAddress,
+        start_date: deliveryDate,
+        end_date: pickupDate,
+        payment_method: paymentMethod,
+        contact_number: contactNumber,
+        contact_email: additionalContact,
+        instructions: notes,
+      };
+
+      const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, payload);
+
+      if (response.success) {
+        Alert.alert(
+          'Success',
+          'Your order has been placed successfully!',
+          [{ text: 'OK', onPress: () => navigation.navigate('Bookings' as never) }]
+        );
+      } else {
+        Alert.alert('Error', response.message || 'Failed to place order');
+      }
+    } catch (error) {
+      console.error('Booking error:', error);
+      Alert.alert('Error', 'Something went wrong while placing your order');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -99,8 +324,8 @@ const OrderBinScreen: React.FC = () => {
         <View style={styles.headerBanner}>
           <LinearGradient
             colors={['#29B554', '#6EAD16']}
-            start={{x: 0.22, y: 0}}
-            end={{x: 0.7, y: 1}}
+            start={{ x: 0.22, y: 0 }}
+            end={{ x: 0.7, y: 1 }}
             style={styles.headerBannerGradient}>
             <View style={styles.headerContent}>
               <View style={styles.headerTextContainer}>
@@ -135,8 +360,8 @@ const OrderBinScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.34, y: 0}}
-              end={{x: 0.66, y: 1}}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
               <Text style={styles.paymentMethodTitle}>
                 Select Service Category*
@@ -155,8 +380,8 @@ const OrderBinScreen: React.FC = () => {
                         : ['#F3FFE2', '#E5EFD1']
                     }
                     locations={[0.2009, 0.7847]}
-                    start={{x: 0.27, y: 0}}
-                    end={{x: 0.73, y: 1}}
+                    start={{ x: 0.27, y: 0 }}
+                    end={{ x: 0.73, y: 1 }}
                     style={styles.paymentOptionGradient}>
                     <View style={styles.paymentOptionContent}>
                       <View style={styles.paymentIconContainer}>
@@ -166,7 +391,7 @@ const OrderBinScreen: React.FC = () => {
                         style={[
                           styles.paymentOptionText,
                           serviceType === 'residential' &&
-                            styles.paymentOptionTextActive,
+                          styles.paymentOptionTextActive,
                         ]}>
                         Residential
                       </Text>
@@ -189,8 +414,8 @@ const OrderBinScreen: React.FC = () => {
                         : ['#F3FFE2', '#E5EFD1']
                     }
                     locations={[0.2009, 0.7847]}
-                    start={{x: 0.27, y: 0}}
-                    end={{x: 0.73, y: 1}}
+                    start={{ x: 0.27, y: 0 }}
+                    end={{ x: 0.73, y: 1 }}
                     style={styles.paymentOptionGradient}>
                     <View style={styles.paymentOptionContent}>
                       <View style={styles.paymentIconContainer}>
@@ -200,7 +425,7 @@ const OrderBinScreen: React.FC = () => {
                         style={[
                           styles.paymentOptionText,
                           serviceType === 'commercial' &&
-                            styles.paymentOptionTextActive,
+                          styles.paymentOptionTextActive,
                         ]}>
                         Commercial
                       </Text>
@@ -219,54 +444,67 @@ const OrderBinScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.34, y: 0}}
-              end={{x: 0.66, y: 1}}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
               <View style={styles.binSectionHeader}>
                 <Text style={styles.formSectionTitleSmall}>Bins *</Text>
                 <TouchableOpacity
                   style={styles.addBinButton}
-                  activeOpacity={0.7}>
+                  activeOpacity={0.7}
+                  onPress={addBin}>
                   <LinearGradient
                     colors={['#29B554', '#6EAD16']}
                     locations={[0.2227, 0.7018]}
-                    start={{x: 0.7, y: 0}}
-                    end={{x: 0, y: 0.8}}
+                    start={{ x: 0.7, y: 0 }}
+                    end={{ x: 0, y: 0.8 }}
                     style={styles.addBinButtonGradient}>
                     <AddBinIcon width={79} height={14} />
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.binFormContainer}>
-                <LinearGradient
-                  colors={['#EFF2F0', '#F8FFEE']}
-                  locations={[0.2377, 0.6629]}
-                  start={{x: 0.34, y: 0}}
-                  end={{x: 0.66, y: 1}}
-                  style={styles.binFormGradient}>
-                  <FormField
-                    label="Bin Type*"
-                    placeholder="Select Bin Type"
-                    value={binType}
-                    onChangeText={setBinType}
-                    isDropdown
-                  />
-                  <FormField
-                    label="Bin Size*"
-                    placeholder="Select Bin Size"
-                    value={binSize}
-                    onChangeText={setBinSize}
-                    isDropdown
-                  />
-                  <FormField
-                    label="Quantity*"
-                    placeholder="Enter Quantity"
-                    value={quantity}
-                    onChangeText={setQuantity}
-                  />
-                </LinearGradient>
-              </View>
+              {bins.map((bin, index) => (
+                <View key={index} style={[styles.binFormContainer, index > 0 && { marginTop: 12 }]}>
+                  <LinearGradient
+                    colors={['#EFF2F0', '#F8FFEE']}
+                    locations={[0.2377, 0.6629]}
+                    start={{ x: 0.34, y: 0 }}
+                    end={{ x: 0.66, y: 1 }}
+                    style={styles.binFormGradient}>
+                    {bins.length > 1 && (
+                      <TouchableOpacity
+                        style={styles.removeBinButton}
+                        onPress={() => removeBin(index)}
+                      >
+                        <Ionicons name="close-circle" size={24} color="#EF4444" />
+                      </TouchableOpacity>
+                    )}
+                    <FormField
+                      label="Bin Type*"
+                      placeholder="Select Bin Type"
+                      value={bin.bin_type_name}
+                      onChangeText={() => { }}
+                      isDropdown
+                      onPress={() => openTypeModal(index)}
+                    />
+                    <FormField
+                      label="Bin Size*"
+                      placeholder={bin.bin_type_id ? "Select Bin Size" : "Select Type First"}
+                      value={bin.bin_size_name}
+                      onChangeText={() => { }}
+                      isDropdown
+                      onPress={() => openSizeModal(index)}
+                    />
+                    <FormField
+                      label="Quantity*"
+                      placeholder="Enter Quantity"
+                      value={bin.quantity}
+                      onChangeText={(val) => updateBin(index, { quantity: val })}
+                    />
+                  </LinearGradient>
+                </View>
+              ))}
             </LinearGradient>
           </View>
 
@@ -275,8 +513,8 @@ const OrderBinScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.34, y: 0}}
-              end={{x: 0.66, y: 1}}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
               <FormField
                 label="Location*"
@@ -306,8 +544,8 @@ const OrderBinScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.34, y: 0}}
-              end={{x: 0.66, y: 1}}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
               <FormField
                 label="Mobile Number"
@@ -329,8 +567,8 @@ const OrderBinScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.34, y: 0}}
-              end={{x: 0.66, y: 1}}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
               <Text style={styles.instructionsLabel}>Instructions</Text>
               <View style={styles.notesContainer}>
@@ -352,8 +590,8 @@ const OrderBinScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.34, y: 0}}
-              end={{x: 0.66, y: 1}}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
               <Text style={styles.paymentMethodTitle}>Payment Method*</Text>
 
@@ -370,8 +608,8 @@ const OrderBinScreen: React.FC = () => {
                         : ['#F3FFE2', '#E5EFD1']
                     }
                     locations={[0.2009, 0.7847]}
-                    start={{x: 0.27, y: 0}}
-                    end={{x: 0.73, y: 1}}
+                    start={{ x: 0.27, y: 0 }}
+                    end={{ x: 0.73, y: 1 }}
                     style={styles.paymentOptionGradient}>
                     <View style={styles.paymentOptionContent}>
                       <View style={styles.paymentIconContainer}>
@@ -381,7 +619,7 @@ const OrderBinScreen: React.FC = () => {
                         style={[
                           styles.paymentOptionText,
                           paymentMethod === 'online' &&
-                            styles.paymentOptionTextActive,
+                          styles.paymentOptionTextActive,
                         ]}>
                         Online Payment
                       </Text>
@@ -404,8 +642,8 @@ const OrderBinScreen: React.FC = () => {
                         : ['#F3FFE2', '#E5EFD1']
                     }
                     locations={[0.2009, 0.7847]}
-                    start={{x: 0.27, y: 0}}
-                    end={{x: 0.73, y: 1}}
+                    start={{ x: 0.27, y: 0 }}
+                    end={{ x: 0.73, y: 1 }}
                     style={styles.paymentOptionGradient}>
                     <View style={styles.paymentOptionContent}>
                       <View style={styles.paymentIconContainer}>
@@ -415,7 +653,7 @@ const OrderBinScreen: React.FC = () => {
                         style={[
                           styles.paymentOptionText,
                           paymentMethod === 'cash' &&
-                            styles.paymentOptionTextActive,
+                          styles.paymentOptionTextActive,
                         ]}>
                         Cash on Delivery
                       </Text>
@@ -440,10 +678,14 @@ const OrderBinScreen: React.FC = () => {
             onPress={handlePlaceOrder}>
             <LinearGradient
               colors={['#29B554', '#6EAD16']}
-              start={{x: 0.22, y: 0}}
-              end={{x: 0.7, y: 1}}
+              start={{ x: 0.22, y: 0 }}
+              end={{ x: 0.7, y: 1 }}
               style={styles.placeOrderButtonGradient}>
-              <Text style={styles.placeOrderButtonText}>Next</Text>
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.placeOrderButtonText}>Next</Text>
+              )}
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -451,6 +693,80 @@ const OrderBinScreen: React.FC = () => {
 
       {/* Bottom Navigation */}
       <BottomNavBar activeTab="orderBin" />
+
+      {/* Bin Type Selection Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={typeModalVisible}
+        onRequestClose={() => setTypeModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setTypeModalVisible(false)}
+        >
+          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => setTypeModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#373934" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Select Bin Type</Text>
+            <ScrollView style={styles.optionsList}>
+              {binTypes.map((type) => (
+                <TouchableOpacity
+                  key={type.id}
+                  style={styles.optionItem}
+                  onPress={() => selectBinType(type)}
+                >
+                  <Text style={[styles.optionText, bins[activeBinIndex]?.bin_type_id === type.id.toString() && styles.selectedOptionText]}>{type.name}</Text>
+                </TouchableOpacity>
+              ))}
+              {binTypes.length === 0 && <Text style={styles.noDataText}>No bin types available</Text>}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Bin Size Selection Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={sizeModalVisible}
+        onRequestClose={() => setSizeModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setSizeModalVisible(false)}
+        >
+          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => setSizeModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#373934" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Select Bin Size</Text>
+            <ScrollView style={styles.optionsList}>
+              {binSizesMap[parseInt(bins[activeBinIndex]?.bin_type_id)]?.map((size) => (
+                <TouchableOpacity
+                  key={size.id}
+                  style={styles.optionItem}
+                  onPress={() => selectBinSize(size)}
+                >
+                  <Text style={[styles.optionText, bins[activeBinIndex]?.bin_size_id === size.id.toString() && styles.selectedOptionText]}>{size.size}</Text>
+                </TouchableOpacity>
+              ))}
+              {(!bins[activeBinIndex]?.bin_type_id || !binSizesMap[parseInt(bins[activeBinIndex]?.bin_type_id)]?.length) && (
+                <Text style={styles.noDataText}>No sizes available for this type</Text>
+              )}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -610,7 +926,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 2,
     elevation: 2,
@@ -643,7 +959,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 2,
     elevation: 2,
@@ -737,6 +1053,67 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.bold,
     fontSize: 18,
     color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 20,
+    color: '#373934',
+    marginBottom: 20,
+  },
+  closeIcon: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    zIndex: 1,
+    padding: 5,
+  },
+  optionsList: {
+    width: '100%',
+  },
+  optionItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  optionText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 16,
+    color: '#414141',
+  },
+  selectedOptionText: {
+    color: '#9AD346',
+    fontFamily: fonts.family.semiBold,
+  },
+  noDataText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#979897',
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  removeBinButton: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    zIndex: 10,
   },
 });
 

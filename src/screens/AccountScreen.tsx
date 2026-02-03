@@ -7,11 +7,17 @@ import {
   ScrollView,
   Image,
   Alert,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useAuth} from '../contexts/AuthContext';
-import {fonts} from '../theme/fonts';
-import {themeColors} from '../theme/colors';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '../contexts/AuthContext';
+import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 import BottomNavBar from '../components/BottomNavBar';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 
@@ -28,13 +34,21 @@ import BinCollectDelete from '../assets/images/Bin.Collect_2.svg';
 import Group14 from '../assets/images/Group 14.svg';
 import ArrowIcon from '../assets/images/20 1.svg';
 
+const USA_STATES = [
+  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
+  'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
+  'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
+  'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
+  'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
+];
+
 interface SettingsItemProps {
   icon: React.ReactNode;
   label: string;
   onPress?: () => void;
 }
 
-const SettingsItem: React.FC<SettingsItemProps> = ({icon, label, onPress}) => (
+const SettingsItem: React.FC<SettingsItemProps> = ({ icon, label, onPress }) => (
   <TouchableOpacity
     style={styles.settingsItem}
     onPress={onPress}
@@ -50,16 +64,97 @@ const SettingsItem: React.FC<SettingsItemProps> = ({icon, label, onPress}) => (
 );
 
 const AccountScreen: React.FC = () => {
-  const {user, logout} = useAuth();
+  const { user, logout, updateProfile, changePassword } = useAuth();
   const userName = user?.name || 'Herper Russo';
   const userId = `BIN_User${user?.id || '1299'}`;
+
+  // Modals state
+  const [emailModalVisible, setEmailModalVisible] = React.useState(false);
+  const [locationModalVisible, setLocationModalVisible] = React.useState(false);
+  const [passwordModalVisible, setPasswordModalVisible] = React.useState(false);
+
+  // Input state
+  const [newEmail, setNewEmail] = React.useState('');
+  const [defaultLocation, setDefaultLocation] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+
+  // Load default location on mount
+  React.useEffect(() => {
+    loadDefaultLocation();
+  }, []);
+
+  const loadDefaultLocation = async () => {
+    try {
+      const location = await AsyncStorage.getItem('defaultLocation');
+      if (location) setDefaultLocation(location);
+    } catch (error) {
+      console.error('Error loading location:', error);
+    }
+  };
+
+  const handleUpdateEmail = async () => {
+    if (!newEmail.trim()) {
+      Alert.alert('Error', 'Please enter a valid email');
+      return;
+    }
+    setLoading(true);
+    const result = await updateProfile(newEmail);
+    setLoading(false);
+    if (result.success) {
+      setEmailModalVisible(false);
+      Alert.alert('Success', 'Email updated successfully');
+      setNewEmail('');
+    } else {
+      Alert.alert('Error', result.message || 'Failed to update email');
+    }
+  };
+
+  const handleUpdateLocation = async (location: string) => {
+    try {
+      await AsyncStorage.setItem('defaultLocation', location);
+      setDefaultLocation(location);
+      setLocationModalVisible(false);
+      Alert.alert('Success', 'Default location updated');
+    } catch (error) {
+      console.error('Error saving location:', error);
+      Alert.alert('Error', 'Failed to save location');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+    if (newPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+    setLoading(true);
+    const result = await changePassword(newPassword);
+    setLoading(false);
+    if (result.success) {
+      setPasswordModalVisible(false);
+      Alert.alert('Success', 'Password changed successfully');
+      setNewPassword('');
+      setConfirmPassword('');
+    } else {
+      Alert.alert('Error', result.message || 'Failed to change password');
+    }
+  };
 
   const handleLogout = async () => {
     Alert.alert(
       'Logout',
       'Are you sure you want to logout?',
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Logout',
           style: 'destructive',
@@ -68,7 +163,7 @@ const AccountScreen: React.FC = () => {
           },
         },
       ],
-      {cancelable: true},
+      { cancelable: true },
     );
   };
 
@@ -77,7 +172,7 @@ const AccountScreen: React.FC = () => {
       'Delete Profile',
       'Are you sure you want to delete your profile? This action cannot be undone.',
       [
-        {text: 'Cancel', style: 'cancel'},
+        { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
           style: 'destructive',
@@ -87,7 +182,7 @@ const AccountScreen: React.FC = () => {
           },
         },
       ],
-      {cancelable: true},
+      { cancelable: true },
     );
   };
 
@@ -112,8 +207,8 @@ const AccountScreen: React.FC = () => {
         <View style={styles.mainCard}>
           <LinearGradient
             colors={['#EFF2F0', '#F8FFEE']}
-            start={{x: 0.23, y: 0}}
-            end={{x: 0.66, y: 1}}
+            start={{ x: 0.23, y: 0 }}
+            end={{ x: 0.66, y: 1 }}
             style={styles.innerCard}>
             {/* Profile Header Section */}
             <View style={styles.profileHeader}>
@@ -121,8 +216,8 @@ const AccountScreen: React.FC = () => {
               <View style={styles.avatarContainer}>
                 <LinearGradient
                   colors={['#6EAD16', '#E1FFB7']}
-                  start={{x: 0, y: 0}}
-                  end={{x: 0, y: 1}}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
                   style={styles.avatarGradient}>
                   <View style={styles.avatarInner}>
                     <Text style={styles.avatarText}>
@@ -143,18 +238,21 @@ const AccountScreen: React.FC = () => {
             <View style={styles.settingsSection}>
               <SettingsItem
                 icon={<Icon11_1 width={42} height={42} />}
-                label="Add Email"
-                onPress={() => console.log('Add Email')}
+                label={user?.email ? "Change Email" : "Add Email"}
+                onPress={() => {
+                  setNewEmail(user?.email || '');
+                  setEmailModalVisible(true);
+                }}
               />
               <SettingsItem
                 icon={<Icon11_2 width={35} height={35} />}
-                label="Add Default Location"
-                onPress={() => console.log('Add Default Location')}
+                label={defaultLocation ? "Change Default Location" : "Add Default Location"}
+                onPress={() => setLocationModalVisible(true)}
               />
               <SettingsItem
                 icon={<Icon11_3 width={30} height={30} />}
                 label="Change Password"
-                onPress={() => console.log('Change Password')}
+                onPress={() => setPasswordModalVisible(true)}
               />
             </View>
 
@@ -192,8 +290,8 @@ const AccountScreen: React.FC = () => {
             activeOpacity={0.8}>
             <LinearGradient
               colors={['#FAD7D7', '#F9D9D9']}
-              start={{x: 0.66, y: 0.24}}
-              end={{x: 0.24, y: 0.66}}
+              start={{ x: 0.66, y: 0.24 }}
+              end={{ x: 0.24, y: 0.66 }}
               style={styles.deleteProfileGradient}>
               <View style={styles.settingsItemLeft}>
                 <View style={styles.deleteIconContainer}>
@@ -214,8 +312,8 @@ const AccountScreen: React.FC = () => {
             activeOpacity={0.8}>
             <LinearGradient
               colors={['#9CCD17', '#009B5F']}
-              start={{x: 0, y: 0}}
-              end={{x: 1, y: 0}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
               style={styles.logoutButtonGradient}>
               <Text style={styles.logoutButtonText}>Log Out</Text>
             </LinearGradient>
@@ -229,6 +327,125 @@ const AccountScreen: React.FC = () => {
       ) : (
         <BottomNavBar activeTab="account" />
       )}
+
+      {/* Email Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={emailModalVisible}
+        onRequestClose={() => setEmailModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setEmailModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => setEmailModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#373934" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>{user?.email ? 'Change Email' : 'Add Email'}</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter email"
+              value={newEmail}
+              onChangeText={setNewEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={[styles.modalButton, loading && { opacity: 0.7 }]}
+              onPress={handleUpdateEmail}
+              disabled={loading}
+            >
+              <Text style={styles.modalButtonText}>{loading ? 'Updating...' : (user?.email ? 'Update Email' : 'Add Email')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Location Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={locationModalVisible}
+        onRequestClose={() => setLocationModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setLocationModalVisible(false)}
+        >
+          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => setLocationModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#373934" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Select Default Location</Text>
+            <ScrollView style={styles.statesList}>
+              {USA_STATES.map((state) => (
+                <TouchableOpacity
+                  key={state}
+                  style={styles.stateItem}
+                  onPress={() => handleUpdateLocation(state)}
+                >
+                  <Text style={[styles.stateText, defaultLocation === state && styles.selectedStateText]}>{state}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Password Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={passwordModalVisible}
+        onRequestClose={() => setPasswordModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setPasswordModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.closeIcon}
+              onPress={() => setPasswordModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#373934" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>Change Password</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="New Password"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Confirm New Password"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry
+            />
+            <TouchableOpacity
+              style={[styles.modalButton, loading && { opacity: 0.7 }]}
+              onPress={handleChangePassword}
+              disabled={loading}
+            >
+              <Text style={styles.modalButtonText}>{loading ? 'Updating...' : 'Change Password'}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -430,6 +647,80 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 20,
+    color: '#373934',
+    marginBottom: 20,
+  },
+  modalInput: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    fontFamily: fonts.family.regular,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  modalButton: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#9AD346',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  modalButtonText: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  statesList: {
+    width: '100%',
+  },
+  stateItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  stateText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 16,
+    color: '#414141',
+  },
+  selectedStateText: {
+    color: '#9AD346',
+    fontFamily: fonts.family.semiBold,
+  },
+  closeIcon: {
+    position: 'absolute',
+    top: 15,
+    right: 15,
+    zIndex: 1,
+    padding: 5,
   },
 });
 
