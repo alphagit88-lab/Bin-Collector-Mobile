@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
@@ -68,9 +68,11 @@ const SupplierRequestsScreen: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchPendingRequests();
-  }, [fetchPendingRequests]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchPendingRequests();
+    }, [fetchPendingRequests])
+  );
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);

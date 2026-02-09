@@ -345,7 +345,7 @@ const OrderBinScreen: React.FC = () => {
           [{ text: 'OK', onPress: () => navigation.navigate('Bookings' as never) }]
         );
       } else {
-        Alert.alert('Error', response.message || 'Failed to place order');
+        Alert.alert('Sorry', response.message || 'Failed to place order');
       }
     } catch (error) {
       console.error('Booking error:', error);

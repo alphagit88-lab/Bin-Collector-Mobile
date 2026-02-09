@@ -88,11 +88,17 @@ const JobDetailScreen: React.FC = () => {
       });
 
       if (response.success) {
-        Alert.alert(
-          'Success',
-          'Order accepted and confirmed!',
-          [{ text: 'OK', onPress: () => navigation.navigate('SupplierJobs') }]
-        );
+        // Navigate to the success screen with order details
+        navigation.navigate('SupplierOrderAccepted', {
+          orderDetails: {
+            orderId: jobDetail.orderId,
+            binType: jobDetail.binType,
+            binSize: jobDetail.binSize,
+            deliveryDate: jobDetail.deliveryDate,
+            collectionDate: jobDetail.pickupDate,
+            // You might want to pass times if available, or they will fallback to defaults/empty in the screen
+          },
+        });
       } else {
         Alert.alert('Error', response.message || 'Failed to accept order');
       }

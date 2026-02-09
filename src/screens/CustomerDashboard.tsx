@@ -6,13 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import BottomNavBar from '../components/BottomNavBar';
+import { api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
 
 // Import SVG images
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -22,19 +26,88 @@ import Icon3_1 from '../assets/images/3_1.svg';
 import PlayIcon from '../assets/images/play.svg';
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import Icon20_3 from '../assets/images/20_3.svg';
+
 const { width } = Dimensions.get('window');
+
+interface Booking {
+  id: number;
+  request_id: string;
+  bin_type_name: string;
+  bin_size: string;
+  status: string;
+  total_price: string | number;
+  estimated_price?: string | number;
+  start_date: string;
+  end_date: string;
+  order_items_count: number;
+  items?: any[];
+}
 
 const CustomerDashboard: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation();
-  const userName = user?.name || 'Herper Russo';
+  const userName = user?.name || 'Customer';
+
+  const [bookings, setBookings] = React.useState<Booking[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [refreshing, setRefreshing] = React.useState(false);
+
+  const fetchBookings = React.useCallback(async () => {
+    try {
+      const response = await api.get<{ requests: Booking[] }>(ENDPOINTS.BOOKINGS.MY_REQUESTS);
+      if (response.success && response.data) {
+        setBookings(response.data.requests);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchBookings();
+    }, [fetchBookings])
+  );
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchBookings();
+  };
+
+  const activeBookingsCount = bookings.filter(b =>
+    !['completed', 'cancelled'].includes(b.status.toLowerCase())
+  ).length;
+
+  const completedServicesCount = bookings.filter(b =>
+    b.status.toLowerCase() === 'completed'
+  ).length;
+
+  const totalSpent = bookings
+    .filter(b => b.status.toLowerCase() !== 'cancelled')
+    .reduce((sum, b) => {
+      const price = parseFloat(b.total_price as string || b.estimated_price as string || '0');
+      return sum + (isNaN(price) ? 0 : price);
+    }, 0);
+
+  const formatPrice = (price: number) => {
+    return `$${price.toFixed(2)}`;
+  };
+
+  const getStatusDisplay = (status: string) => {
+    return status.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
 
   return (
     <View style={styles.container}>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#9CCD17']} />}
+      >
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -77,12 +150,14 @@ const CustomerDashboard: React.FC = () => {
                   <Text style={styles.cardTitle}>Tracking</Text>
                   <TouchableOpacity
                     style={styles.playButtonContainer}
-                    activeOpacity={0.7}>
+                    activeOpacity={0.7}
+                    onPress={() => navigation.navigate('ServiceTracking' as never)}
+                  >
                     <PlayIcon width={45} height={45} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.cardStats}>
-                  <Text style={styles.cardStatValue}>03</Text>
+                  <Text style={styles.cardStatValue}>{activeBookingsCount.toString().padStart(2, '0')}</Text>
                   <Text style={styles.cardStatLabel}>Active Bookings</Text>
                 </View>
                 <View style={styles.binCollectOverlay}>
@@ -105,12 +180,14 @@ const CustomerDashboard: React.FC = () => {
                   <Text style={styles.cardTitle}>Bookings</Text>
                   <TouchableOpacity
                     style={styles.playButtonContainer}
-                    activeOpacity={0.7}>
+                    activeOpacity={0.7}
+                    onPress={() => navigation.navigate('Bookings' as never)}
+                  >
                     <PlayIcon width={45} height={45} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.cardStats}>
-                  <Text style={styles.cardStatValue}>13</Text>
+                  <Text style={styles.cardStatValue}>{completedServicesCount.toString().padStart(2, '0')}</Text>
                   <Text style={styles.cardStatLabel}>Completed Services</Text>
                 </View>
                 <View style={styles.binCollectOverlayUpsideDown}>
@@ -119,6 +196,7 @@ const CustomerDashboard: React.FC = () => {
                       width: 192,
                       height: 128,
                       transform: [{ rotate: '180deg' }],
+                      opacity: 0.34,
                     }}>
                     <BinCollect2 width={192} height={128} />
                   </View>
@@ -149,7 +227,7 @@ const CustomerDashboard: React.FC = () => {
                 <BinCollect2 width={391} height={218} />
               </View>
               <View style={styles.paymentsBottomText}>
-                <Text style={styles.paymentsAmount}>$1,240</Text>
+                <Text style={styles.paymentsAmount}>{formatPrice(totalSpent)}</Text>
                 <Text style={styles.paymentsLabel}>Total Spent</Text>
               </View>
             </View>
@@ -169,7 +247,8 @@ const CustomerDashboard: React.FC = () => {
                 <Text style={styles.recentBookingsTitle}>Recent Bookings</Text>
                 <TouchableOpacity
                   style={styles.viewAllButton}
-                  activeOpacity={0.7}>
+                  activeOpacity={0.7}
+                  onPress={() => navigation.navigate('Bookings' as never)}>
                   <Text style={styles.viewAllText}>View all</Text>
                   <View style={styles.viewAllIcon}>
                     <PlayIcon width={25} height={25} />
@@ -177,45 +256,36 @@ const CustomerDashboard: React.FC = () => {
                 </TouchableOpacity>
               </View>
 
-              {/* Booking Item 1 */}
-              <View style={styles.bookingItem}>
-                <View style={styles.bookingItemContent}>
-                  <View style={styles.bookingItemLeft}>
-                    <Text style={styles.bookingItemTitle}>
-                      General Waste - 6m³
-                    </Text>
-                    <Text style={styles.bookingItemId}>#BCP-78901</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.bookingViewButton}
-                    activeOpacity={0.7}>
-                    <Text style={styles.bookingViewText}>View</Text>
-                    <View style={styles.bookingViewIcon}>
-                      <PlayIcon width={14.24} height={14.24} />
+              {loading ? (
+                <ActivityIndicator size="small" color="#9CCD17" style={{ marginVertical: 20 }} />
+              ) : bookings.length > 0 ? (
+                bookings.slice(0, 3).map((booking) => (
+                  <View key={booking.id} style={styles.bookingItem}>
+                    <View style={styles.bookingItemContent}>
+                      <View style={styles.bookingItemLeft}>
+                        <Text style={styles.bookingItemTitle}>
+                          {booking.items && booking.items.length > 0
+                            ? `${booking.items[0].bin_type_name} - ${booking.items[0].bin_size}`
+                            : `${booking.bin_type_name} - ${booking.bin_size}`}
+                        </Text>
+                        <Text style={styles.bookingItemId}>#{booking.request_id}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.bookingViewButton}
+                        activeOpacity={0.7}
+                        onPress={() => (navigation as any).navigate('ServiceTracking', { requestId: booking.id })}
+                      >
+                        <Text style={styles.bookingViewText}>View</Text>
+                        <View style={styles.bookingViewIcon}>
+                          <PlayIcon width={14.24} height={14.24} />
+                        </View>
+                      </TouchableOpacity>
                     </View>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Booking Item 2 */}
-              <View style={styles.bookingItem}>
-                <View style={styles.bookingItemContent}>
-                  <View style={styles.bookingItemLeft}>
-                    <Text style={styles.bookingItemTitle}>
-                      General Waste - 6m³
-                    </Text>
-                    <Text style={styles.bookingItemId}>#BCP-78901</Text>
                   </View>
-                  <TouchableOpacity
-                    style={styles.bookingViewButton}
-                    activeOpacity={0.7}>
-                    <Text style={styles.bookingViewText}>View</Text>
-                    <View style={styles.bookingViewIcon}>
-                      <PlayIcon width={14.24} height={14.24} />
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                ))
+              ) : (
+                <Text style={{ textAlign: 'center', marginVertical: 10, color: '#666' }}>No recent bookings</Text>
+              )}
             </LinearGradient>
           </View>
         </View>

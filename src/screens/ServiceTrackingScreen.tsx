@@ -55,10 +55,19 @@ const ServiceTrackingScreen: React.FC = () => {
       if (response.success && response.data) {
         // Filter for active requests (not cancelled, maybe mostly active)
         // The web frontend filtered !['completed', 'cancelled']
-        const active = (response.data.requests || []).filter(
-          (r: any) => !['cancelled', 'completed'].includes(r.status)
-        );
+        const active = (response.data.requests || []);
         setRequests(active);
+
+        // Check for route params first
+        const state = navigation.getState();
+        const routeParams = (state?.routes?.find(r => r.name === 'ServiceTracking')?.params as any);
+        if (routeParams?.requestId) {
+          const target = active.find((r: any) => r.id === routeParams.requestId);
+          if (target) {
+            setSelectedRequest(target);
+            return;
+          }
+        }
 
         // Select the first one if none selected or if selected is no longer active
         if (active.length > 0) {

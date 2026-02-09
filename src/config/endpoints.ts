@@ -34,5 +34,9 @@ export const ENDPOINTS = {
         TRANSACTIONS: '/wallet/transactions',
         REQUEST_PAYOUT: '/wallet/payout',
         MY_PAYOUTS: '/wallet/payouts',
+    },
+    SUPPLIER: {
+        AVAILABILITY: '/supplier/availability',
+        SERVICE_AREAS: '/supplier/service-areas',
     }
 };

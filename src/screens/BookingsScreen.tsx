@@ -8,6 +8,7 @@ import {
   Dimensions,
   ActivityIndicator,
   RefreshControl,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -34,6 +35,7 @@ interface Booking {
   bin_size: string;
   status: string;
   total_price: string | number;
+  estimated_price?: string | number;
   start_date: string;
   end_date: string;
   order_items_count: number;
@@ -49,6 +51,8 @@ const BookingsScreen: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -302,7 +306,7 @@ const BookingsScreen: React.FC = () => {
                               style={styles.amountStatusGradient}>
                               <View style={styles.amountStatusContent}>
                                 <Text style={styles.bookingLabel}>Amount</Text>
-                                <Text style={styles.bookingValue}>{formatPrice(booking.total_price)}</Text>
+                                <Text style={styles.bookingValue}>{formatPrice(booking.total_price || booking.estimated_price || 0)}</Text>
                               </View>
                             </LinearGradient>
                           </View>
@@ -327,14 +331,17 @@ const BookingsScreen: React.FC = () => {
                           <TouchableOpacity
                             style={styles.viewButtonNew}
                             activeOpacity={0.7}
-                            onPress={() => { }}>
+                            onPress={() => {
+                              setSelectedBooking(booking);
+                              setDetailsModalVisible(true);
+                            }}>
                             <PlayIcon width={21} height={17} />
                             <Text style={styles.viewButtonTextNew}>View</Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={styles.trackButtonNew}
                             activeOpacity={0.7}
-                            onPress={() => { }}>
+                            onPress={() => (navigation as any).navigate('ServiceTracking', { requestId: booking.id })}>
                             <PlayIcon width={21} height={17} />
                             <Text style={styles.trackButtonTextNew}>Track Order</Text>
                           </TouchableOpacity>
@@ -361,6 +368,95 @@ const BookingsScreen: React.FC = () => {
 
       {/* Bottom Navigation */}
       <BottomNavBar activeTab="bookings" />
+
+      {/* Booking Details Modal */}
+      <Modal
+        visible={detailsModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setDetailsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Booking Details</Text>
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setDetailsModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody}>
+              {selectedBooking && (
+                <>
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>Order ID</Text>
+                    <Text style={styles.modalValue}>#{selectedBooking.request_id}</Text>
+                  </View>
+
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>Status</Text>
+                    <Text style={styles.modalValue}>{getStatusDisplay(selectedBooking.status)}</Text>
+                  </View>
+
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>Date Range</Text>
+                    <Text style={styles.modalValue}>{formatDateRange(selectedBooking.start_date, selectedBooking.end_date)}</Text>
+                  </View>
+
+                  <View style={styles.modalRow}>
+                    <Text style={styles.modalLabel}>Total Amount</Text>
+                    <Text style={styles.modalValue}>{formatPrice(selectedBooking.total_price || selectedBooking.estimated_price || 0)}</Text>
+                  </View>
+
+                  <Text style={styles.modalSectionTitle}>Items</Text>
+                  {selectedBooking.items && selectedBooking.items.length > 0 ? (
+                    selectedBooking.items.map((item, index) => (
+                      <View key={index} style={styles.orderItemContainer}>
+                        <View style={styles.modalRow}>
+                          <Text style={styles.modalLabel}>Bin Type</Text>
+                          <Text style={styles.modalValue}>{item.bin_type_name}</Text>
+                        </View>
+                        <View style={styles.modalRow}>
+                          <Text style={styles.modalLabel}>Size</Text>
+                          <Text style={styles.modalValue}>{item.bin_size}</Text>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={styles.orderItemContainer}>
+                      <View style={styles.modalRow}>
+                        <Text style={styles.modalLabel}>Bin Type</Text>
+                        <Text style={styles.modalValue}>{selectedBooking.bin_type_name}</Text>
+                      </View>
+                      <View style={styles.modalRow}>
+                        <Text style={styles.modalLabel}>Size</Text>
+                        <Text style={styles.modalValue}>{selectedBooking.bin_size}</Text>
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.closeButtonContainer}
+              onPress={() => setDetailsModalVisible(false)}
+            >
+              <LinearGradient
+                colors={['#9CCD17', '#009B5F']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.closeButtonGradient}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -686,6 +782,86 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 19,
     color: '#FFFFFF',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: '100%',
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 20,
+    color: '#333',
+  },
+  modalCloseButton: {
+    padding: 5,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  modalLabel: {
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#666',
+    flex: 1,
+  },
+  modalValue: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+    textAlign: 'right',
+  },
+  modalSectionTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#333',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  orderItemContainer: {
+    backgroundColor: '#F9F9F9',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  closeButtonContainer: {
+    margin: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  closeButtonGradient: {
+    padding: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
   },
 });
 

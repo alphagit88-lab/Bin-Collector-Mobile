@@ -59,6 +59,10 @@ const SupplierOperationsScreen: React.FC = () => {
     navigation.navigate('FleetManagement' as never);
   };
 
+  const handleServiceAreaPress = () => {
+    navigation.navigate('ServiceArea' as never);
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView
@@ -129,7 +133,10 @@ const SupplierOperationsScreen: React.FC = () => {
               </LinearGradient>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.smallCard} activeOpacity={0.85}>
+            <TouchableOpacity
+              style={styles.smallCard}
+              activeOpacity={0.85}
+              onPress={handleServiceAreaPress}>
               <LinearGradient
                 colors={['#29B554', '#6EAD16']}
                 locations={[0.2227, 0.7018]}

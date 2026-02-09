@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   navItemText: {
     fontFamily: fonts.family.medium,
-    fontSize: 14,
+    fontSize: 12,
     lineHeight: 13,
     color: '#504A4A',
     textAlign: 'center',
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   // removed absolute positioning styles — layout uses flexbox now
   navItemTextActive: {
     fontFamily: fonts.family.semiBold,
-    fontSize: 14,
+    fontSize: 12,
     lineHeight: 13,
     color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.25)',

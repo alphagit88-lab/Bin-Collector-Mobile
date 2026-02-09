@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,63 +6,159 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
+  Alert,
+  Platform,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {themeColors} from '../theme/colors';
-import {fonts} from '../theme/fonts';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { themeColors } from '../theme/colors';
+import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
+import { api } from '../config/api';
+import { ENDPOINTS } from '../config/endpoints';
 
 // Header truck/logo SVGs
 import Logo14_1 from '../assets/images/14_1.svg';
+import Svg14 from '../assets/images/3_1.svg';
 
-const {width: screenWidth} = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 interface DaySchedule {
   day: string;
-  enabled: boolean;
+  isClosed: boolean;
   startTime: string;
   endTime: string;
-  isClosed?: boolean;
 }
+
+const DEFAULT_SCHEDULE: DaySchedule[] = [
+  { day: 'Monday', isClosed: false, startTime: '07:00 AM', endTime: '05:00 PM' },
+  { day: 'Tuesday', isClosed: false, startTime: '07:00 AM', endTime: '05:00 PM' },
+  { day: 'Wednesday', isClosed: false, startTime: '07:00 AM', endTime: '05:00 PM' },
+  { day: 'Thursday', isClosed: false, startTime: '07:00 AM', endTime: '05:00 PM' },
+  { day: 'Friday', isClosed: false, startTime: '07:00 AM', endTime: '05:00 PM' },
+  { day: 'Saturday', isClosed: false, startTime: '07:00 AM', endTime: '03:00 PM' },
+  { day: 'Sunday', isClosed: true, startTime: '09:00 AM', endTime: '05:00 PM' },
+];
 
 const SupplierAvailabilityScreen: React.FC = () => {
   const navigation = useNavigation();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [schedule, setSchedule] = useState<DaySchedule[]>(DEFAULT_SCHEDULE);
 
-  const [schedule, setSchedule] = useState<DaySchedule[]>([
-    {day: 'Monday', enabled: true, startTime: '07:00 AM', endTime: '05:00 PM'},
-    {day: 'Tuesday', enabled: true, startTime: '07:00 AM', endTime: '05:00 PM'},
-    {
-      day: 'Wednesday',
-      enabled: true,
-      startTime: '07:00 AM',
-      endTime: '05:00 PM',
-    },
-    {
-      day: 'Thursday',
-      enabled: true,
-      startTime: '07:00 AM',
-      endTime: '05:00 PM',
-    },
-    {day: 'Friday', enabled: true, startTime: '07:00 AM', endTime: '05:00 PM'},
-    {
-      day: 'Saturday',
-      enabled: true,
-      startTime: '07:00 AM',
-      endTime: '03:00 PM',
-    },
-    {day: 'Sunday', enabled: false, startTime: '', endTime: '', isClosed: true},
-  ]);
+  // Time picker state
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'start' | 'end'>('start');
+  const [activeDayIndex, setActiveDayIndex] = useState<number | null>(null);
+  const [tempDate, setTempDate] = useState(new Date());
 
-  const toggleDay = (index: number) => {
+  const fetchAvailability = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get<{ availability: DaySchedule[] }>(ENDPOINTS.SUPPLIER.AVAILABILITY);
+      if (response.success && response.data?.availability && response.data.availability.length > 0) {
+        // Merge with default schedule to ensure all days are present
+        const fetchedSchedule = response.data.availability;
+        const mergedSchedule = DEFAULT_SCHEDULE.map(defaultDay => {
+          const found = fetchedSchedule.find(f => f.day === defaultDay.day);
+          return found ? { ...found } : { ...defaultDay };
+        });
+        setSchedule(mergedSchedule);
+      }
+    } catch (error) {
+      console.error('Error fetching availability:', error);
+      Alert.alert('Error', 'Failed to load availability settings.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchAvailability();
+    }, [fetchAvailability])
+  );
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      const response = await api.post(ENDPOINTS.SUPPLIER.AVAILABILITY, { schedule });
+      if (response.success) {
+        Alert.alert('Success', 'Availability updated successfully.');
+      } else {
+        Alert.alert('Error', response.message || 'Failed to update availability.');
+      }
+    } catch (error) {
+      console.error('Error saving availability:', error);
+      Alert.alert('Error', 'An error occurred while saving.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleClosed = (index: number) => {
     const newSchedule = [...schedule];
-    newSchedule[index].enabled = !newSchedule[index].enabled;
+    newSchedule[index].isClosed = !newSchedule[index].isClosed;
     setSchedule(newSchedule);
+  };
+
+  const openTimePicker = (index: number, mode: 'start' | 'end') => {
+    setActiveDayIndex(index);
+    setPickerMode(mode);
+
+    // Parse current time string to Date object for the picker
+    const timeStr = mode === 'start' ? schedule[index].startTime : schedule[index].endTime;
+    const date = new Date();
+    // Default format "HH:MM AM/PM"
+    const [time, period] = timeStr.split(' ');
+    if (time && period) {
+      let [hours, minutes] = time.split(':').map(Number);
+      if (period === 'PM' && hours !== 12) hours += 12;
+      if (period === 'AM' && hours === 12) hours = 0;
+      date.setHours(hours, minutes, 0, 0);
+    }
+
+    setTempDate(date);
+    setShowPicker(true);
+  };
+
+  const handleTimeChange = (event: any, selectedDate?: Date) => {
+    setShowPicker(Platform.OS === 'ios'); // On Android, close immediately
+    if (selectedDate && activeDayIndex !== null) {
+      const hours = selectedDate.getHours();
+      const minutes = selectedDate.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      let displayHours = hours % 12;
+      displayHours = displayHours ? displayHours : 12; // the hour '0' should be '12'
+      const displayMinutes = minutes < 10 ? `0${minutes}` : minutes;
+      const timeString = `${displayHours.toString().padStart(2, '0')}:${displayMinutes} ${ampm}`;
+
+      const newSchedule = [...schedule];
+      if (pickerMode === 'start') {
+        newSchedule[activeDayIndex].startTime = timeString;
+      } else {
+        newSchedule[activeDayIndex].endTime = timeString;
+      }
+      setSchedule(newSchedule);
+    } else {
+      // Cancelled
+      setShowPicker(false);
+    }
   };
 
   const handleBack = () => {
     navigation.goBack();
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.loadingContainer]}>
+        <ActivityIndicator size="large" color={themeColors.primary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -75,14 +171,14 @@ const SupplierAvailabilityScreen: React.FC = () => {
           <LinearGradient
             colors={['#37B112', '#77C40A']}
             locations={[0.2227, 0.5982]}
-            start={{x: 0.12, y: 0.05}}
-            end={{x: 0.88, y: 0.95}}
+            start={{ x: 0.12, y: 0.05 }}
+            end={{ x: 0.88, y: 0.95 }}
             style={styles.headerGradient}>
             {/* subtle translucent overlay */}
             <LinearGradient
               colors={['rgba(137,217,87,0.2)', 'rgba(137,217,87,0.2)']}
-              start={{x: 0, y: 0}}
-              end={{x: 0, y: 1}}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
               style={styles.overlayGradient}
               pointerEvents="none"
             />
@@ -93,9 +189,12 @@ const SupplierAvailabilityScreen: React.FC = () => {
               <Text style={styles.headerSubtitle}>Edit service coverage</Text>
             </View>
 
-            {/* Decorative Image (truck/logo) */}
             <View style={styles.decorativeImageContainer}>
               <Logo14_1 width={148} height={63} />
+            </View>
+
+            <View style={styles.headerSvgContainer} pointerEvents="none">
+              <Svg14 width={screenWidth - 4} height={177} />
             </View>
           </LinearGradient>
         </View>
@@ -105,8 +204,8 @@ const SupplierAvailabilityScreen: React.FC = () => {
           <LinearGradient
             colors={['#C0F96F', '#90B93E']}
             locations={[0.2009, 0.7847]}
-            start={{x: 0.15, y: 0.1}}
-            end={{x: 0.85, y: 0.9}}
+            start={{ x: 0.15, y: 0.1 }}
+            end={{ x: 0.85, y: 0.9 }}
             style={styles.availabilityCard}>
             <Text style={styles.availabilityTitle}>
               Availability Management
@@ -130,11 +229,15 @@ const SupplierAvailabilityScreen: React.FC = () => {
           <LinearGradient
             colors={['#EFF2F0', '#EAFFCC']}
             locations={[0.2377, 0.6629]}
-            start={{x: 0.11, y: 0}}
-            end={{x: 0.89, y: 1}}
+            start={{ x: 0.11, y: 0 }}
+            end={{ x: 0.89, y: 1 }}
             style={styles.scheduleCard}>
             {/* Set operating hours Title */}
             <Text style={styles.scheduleTitle}>Set operating hours</Text>
+
+            <View style={styles.legendContainer}>
+              <Text style={styles.legendText}>(Check to open, Uncheck to close)</Text>
+            </View>
 
             {/* Schedule Rows */}
             {schedule.map((item, index) => (
@@ -143,14 +246,15 @@ const SupplierAvailabilityScreen: React.FC = () => {
                 <TouchableOpacity
                   style={styles.checkbox}
                   activeOpacity={0.7}
-                  onPress={() => toggleDay(index)}>
+                  onPress={() => toggleClosed(index)}>
                   <LinearGradient
                     colors={['#EFF2F0', '#EAFFCC']}
                     locations={[0.2377, 0.6629]}
-                    start={{x: 0.11, y: 0}}
-                    end={{x: 0.89, y: 1}}
+                    start={{ x: 0.11, y: 0 }}
+                    end={{ x: 0.89, y: 1 }}
                     style={styles.checkboxGradient}>
-                    {item.enabled && <Text style={styles.checkmark}>✓</Text>}
+                    {/* Render Checkmark if NOT closed */}
+                    {!item.isClosed && <Text style={styles.checkmark}>✓</Text>}
                   </LinearGradient>
                 </TouchableOpacity>
 
@@ -163,39 +267,77 @@ const SupplierAvailabilityScreen: React.FC = () => {
                     <LinearGradient
                       colors={['#EFF2F0', '#EAFFCC']}
                       locations={[0.2377, 0.6629]}
-                      start={{x: 0.11, y: 0}}
-                      end={{x: 0.89, y: 1}}
+                      start={{ x: 0.11, y: 0 }}
+                      end={{ x: 0.89, y: 1 }}
                       style={styles.closedBox}>
                       <Text style={styles.timeText}>Closed</Text>
                     </LinearGradient>
                   </View>
                 ) : (
                   <View style={styles.timeContainer}>
-                    <LinearGradient
-                      colors={['#EFF2F0', '#EAFFCC']}
-                      locations={[0.2377, 0.6629]}
-                      start={{x: 0.11, y: 0}}
-                      end={{x: 0.89, y: 1}}
-                      style={styles.timeBox}>
-                      <Text style={styles.timeText}>{item.startTime}</Text>
-                    </LinearGradient>
-                    <LinearGradient
-                      colors={['#EFF2F0', '#EAFFCC']}
-                      locations={[0.2377, 0.6629]}
-                      start={{x: 0.11, y: 0}}
-                      end={{x: 0.89, y: 1}}
-                      style={styles.timeBox}>
-                      <Text style={styles.timeText}>{item.endTime}</Text>
-                    </LinearGradient>
+                    <TouchableOpacity onPress={() => openTimePicker(index, 'start')}>
+                      <LinearGradient
+                        colors={['#EFF2F0', '#EAFFCC']}
+                        locations={[0.2377, 0.6629]}
+                        start={{ x: 0.11, y: 0 }}
+                        end={{ x: 0.89, y: 1 }}
+                        style={styles.timeBox}>
+                        <Text style={styles.timeText}>{item.startTime}</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={() => openTimePicker(index, 'end')}>
+                      <LinearGradient
+                        colors={['#EFF2F0', '#EAFFCC']}
+                        locations={[0.2377, 0.6629]}
+                        start={{ x: 0.11, y: 0 }}
+                        end={{ x: 0.89, y: 1 }}
+                        style={styles.timeBox}>
+                        <Text style={styles.timeText}>{item.endTime}</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
             ))}
+
+            {/* Save Button */}
+            <TouchableOpacity
+              style={styles.saveButton}
+              activeOpacity={0.8}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              <LinearGradient
+                colors={['#29B554', '#6EAD16']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.saveButtonGradient}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save Changes</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
           </LinearGradient>
         </View>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Date Time Picker Modal (Android/iOS handled) */}
+      {showPicker && (
+        <DateTimePicker
+          value={tempDate}
+          mode="time"
+          is24Hour={false}
+          display="default"
+          onChange={handleTimeChange}
+        />
+      )}
 
       <OperationsBottomNavBar activeTab="operations" />
     </View>
@@ -206,6 +348,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: themeColors.background,
+  },
+  loadingContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   scrollView: {
     flex: 1,
@@ -256,6 +402,16 @@ const styles = StyleSheet.create({
     top: 9,
     width: 148,
     height: 63,
+    zIndex: 2,
+  },
+  headerSvgContainer: {
+    position: 'absolute',
+    left: 2,
+    top: 64,
+    width: 430 - 4,
+    height: 177,
+    borderRadius: 12,
+    overflow: 'hidden',
     zIndex: 2,
   },
   availabilityCardContainer: {
@@ -326,7 +482,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#242424',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 5,
+  },
+  legendContainer: {
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  legendText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#666',
   },
   scheduleRow: {
     flexDirection: 'row',
@@ -366,7 +531,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   timeBox: {
-    width: 113,
+    width: 100,
     height: 37,
     borderRadius: 9,
     borderWidth: 1,
@@ -386,13 +551,29 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   closedBox: {
-    width: 228,
+    width: 203,
     height: 37,
     borderRadius: 9,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  saveButton: {
+    marginTop: 20,
+    height: 50,
+    borderRadius: 25,
+    overflow: 'hidden',
+  },
+  saveButtonGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 18,
+    color: '#FFFFFF',
   },
   bottomSpacing: {
     height: 120,

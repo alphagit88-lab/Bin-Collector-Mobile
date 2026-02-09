@@ -1,8 +1,8 @@
 import React from 'react';
-import {View, Text, StyleSheet, TouchableOpacity} from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {fonts} from '../theme/fonts';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { fonts } from '../theme/fonts';
 
 // Import SVG images
 import Icon1 from '../assets/images/1 235.svg';
@@ -25,8 +25,8 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
       <View style={styles.bottomNavGradient}>
         <LinearGradient
           colors={['rgba(137, 217, 87, 0.2)', 'rgba(137, 217, 87, 0.2)']}
-          start={{x: 0, y: 0}}
-          end={{x: 0, y: 1}}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
         <View style={styles.bottomNavContent}>
@@ -46,16 +46,16 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
                     'rgba(137, 217, 87, 0.2)',
                     'rgba(137, 217, 87, 0.2)',
                   ]}
-                  start={{x: 0, y: 0}}
-                  end={{x: 0, y: 1}}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
                   style={StyleSheet.absoluteFill}
                 />
                 <LinearGradient
                   colors={['#78FF30', '#6DBC00']}
                   locations={[0.2487, 0.7225]}
-                  start={{x: 0.8, y: 0}}
-                  end={{x: 0.2, y: 1}}
-                  style={[StyleSheet.absoluteFill, {borderRadius: 18}]}
+                  start={{ x: 0.8, y: 0 }}
+                  end={{ x: 0.2, y: 1 }}
+                  style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
                 />
                 <View style={styles.navItemActiveContent}>
                   <View style={styles.navIconContainerActive}>
@@ -88,16 +88,16 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
                     'rgba(137, 217, 87, 0.2)',
                     'rgba(137, 217, 87, 0.2)',
                   ]}
-                  start={{x: 0, y: 0}}
-                  end={{x: 0, y: 1}}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
                   style={StyleSheet.absoluteFill}
                 />
                 <LinearGradient
                   colors={['#78FF30', '#6DBC00']}
                   locations={[0.2487, 0.7225]}
-                  start={{x: 0.8, y: 0}}
-                  end={{x: 0.2, y: 1}}
-                  style={[StyleSheet.absoluteFill, {borderRadius: 18}]}
+                  start={{ x: 0.8, y: 0 }}
+                  end={{ x: 0.2, y: 1 }}
+                  style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
                 />
                 <View style={styles.navItemActiveContent}>
                   <View style={styles.navIconContainerActive}>
@@ -130,16 +130,16 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
                     'rgba(137, 217, 87, 0.2)',
                     'rgba(137, 217, 87, 0.2)',
                   ]}
-                  start={{x: 0, y: 0}}
-                  end={{x: 0, y: 1}}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
                   style={StyleSheet.absoluteFill}
                 />
                 <LinearGradient
                   colors={['#78FF30', '#6DBC00']}
                   locations={[0.2487, 0.7225]}
-                  start={{x: 0.8, y: 0}}
-                  end={{x: 0.2, y: 1}}
-                  style={[StyleSheet.absoluteFill, {borderRadius: 18}]}
+                  start={{ x: 0.8, y: 0 }}
+                  end={{ x: 0.2, y: 1 }}
+                  style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
                 />
                 <View style={styles.navItemActiveContent}>
                   <View style={styles.navIconContainerActive}>
@@ -172,16 +172,16 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
                     'rgba(137, 217, 87, 0.2)',
                     'rgba(137, 217, 87, 0.2)',
                   ]}
-                  start={{x: 0, y: 0}}
-                  end={{x: 0, y: 1}}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
                   style={StyleSheet.absoluteFill}
                 />
                 <LinearGradient
                   colors={['#78FF30', '#6DBC00']}
                   locations={[0.2487, 0.7225]}
-                  start={{x: 0.8, y: 0}}
-                  end={{x: 0.2, y: 1}}
-                  style={[StyleSheet.absoluteFill, {borderRadius: 18}]}
+                  start={{ x: 0.8, y: 0 }}
+                  end={{ x: 0.2, y: 1 }}
+                  style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
                 />
                 <View style={styles.navItemActiveContent}>
                   <View style={styles.navIconContainerActive}>
@@ -214,16 +214,16 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
                     'rgba(137, 217, 87, 0.2)',
                     'rgba(137, 217, 87, 0.2)',
                   ]}
-                  start={{x: 0, y: 0}}
-                  end={{x: 0, y: 1}}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
                   style={StyleSheet.absoluteFill}
                 />
                 <LinearGradient
                   colors={['#78FF30', '#6DBC00']}
                   locations={[0.2487, 0.7225]}
-                  start={{x: 0.8, y: 0}}
-                  end={{x: 0.2, y: 1}}
-                  style={[StyleSheet.absoluteFill, {borderRadius: 18}]}
+                  start={{ x: 0.8, y: 0 }}
+                  end={{ x: 0.2, y: 1 }}
+                  style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
                 />
                 <View style={styles.navItemActiveContent}>
                   <View style={styles.navIconContainerActive}>
@@ -324,14 +324,14 @@ const styles = StyleSheet.create({
   },
   navItemText: {
     fontFamily: fonts.family.medium,
-    fontSize: 14,
+    fontSize: 12,
     lineHeight: 13,
     color: '#504A4A',
     textAlign: 'center',
   },
   navItemTextActive: {
     fontFamily: fonts.family.medium,
-    fontSize: 14,
+    fontSize: 12,
     lineHeight: 13,
     color: '#FFFFFF',
     textAlign: 'center',
