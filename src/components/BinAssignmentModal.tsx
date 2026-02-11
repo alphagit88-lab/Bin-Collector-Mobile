@@ -3,17 +3,18 @@ import {
     View,
     Text,
     StyleSheet,
-    Modal,
     TouchableOpacity,
     ScrollView,
     ActivityIndicator,
     Alert,
 } from 'react-native';
+import AppModal from './AppModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import toast from '../utils/toast';
 
 interface OrderItem {
     id: number;
@@ -60,7 +61,7 @@ const BinAssignmentModal: React.FC<BinAssignmentModalProps> = ({
             }
         } catch (error) {
             console.error('Error fetching bins:', error);
-            Alert.alert('Error', 'Failed to load available bins.');
+            toast.error('Error', 'Failed to load available bins.');
         } finally {
             setLoadingBins(false);
         }
@@ -78,7 +79,7 @@ const BinAssignmentModal: React.FC<BinAssignmentModalProps> = ({
         // Check if all items have assignments
         const assignedCount = Object.keys(assignments).length;
         if (assignedCount < orderItems.length) {
-            Alert.alert('Incomplete', 'Please assign a bin to every item before starting delivery.');
+            toast.info('Incomplete', 'Please assign a bin to every item before starting delivery.');
             return;
         }
 
@@ -116,7 +117,7 @@ const BinAssignmentModal: React.FC<BinAssignmentModalProps> = ({
         );
 
         return (
-            <Modal
+            <AppModal
                 visible={true}
                 transparent={true}
                 animationType="fade"
@@ -156,12 +157,12 @@ const BinAssignmentModal: React.FC<BinAssignmentModalProps> = ({
                         </TouchableOpacity>
                     </View>
                 </View>
-            </Modal>
+            </AppModal>
         );
     };
 
     return (
-        <Modal
+        <AppModal
             visible={visible}
             transparent={true}
             animationType="slide"
@@ -229,7 +230,7 @@ const BinAssignmentModal: React.FC<BinAssignmentModalProps> = ({
                 </View>
             </View>
             {renderBinPicker()}
-        </Modal>
+        </AppModal>
     );
 };
 
@@ -291,7 +292,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F9F9F9',
     },
     selectButtonActive: {
-        borderColor: themeColors.primary,
+        borderColor: themeColors.primarySemiDark,
         backgroundColor: 'rgba(41, 181, 84, 0.1)',
     },
     selectButtonText: {
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     selectButtonTextActive: {
-        color: themeColors.primary,
+        color: themeColors.black,
     },
     footer: {
         flexDirection: 'row',

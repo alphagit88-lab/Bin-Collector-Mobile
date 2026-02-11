@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation, useRoute} from '@react-navigation/native';
-import {fonts} from '../theme/fonts';
-import {themeColors} from '../theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 
 // Import SVG images
@@ -20,7 +20,7 @@ import Icon35_1 from '../assets/images/35 1.svg';
 import Icon35_2 from '../assets/images/35 2.svg';
 import Icon36_1 from '../assets/images/36 1.svg';
 
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface OrderDetails {
   orderId?: string;
@@ -66,8 +66,8 @@ const SupplierOrderAcceptedScreen: React.FC = () => {
           <LinearGradient
             colors={['#37B112', '#77C40A']}
             locations={[0.2227, 0.5982]}
-            start={{x: 0.1, y: 0}}
-            end={{x: 1, y: 1}}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 1, y: 1 }}
             style={styles.headerGradient}>
             <View style={styles.headerContent}>
               <View style={styles.headerTextContainer}>
@@ -93,8 +93,8 @@ const SupplierOrderAcceptedScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#EAFFCC']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.34, y: 0}}
-              end={{x: 0.66, y: 1}}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
               style={styles.successCardGradient}>
               {/* Success Image */}
               <View style={styles.successImageContainer}>
@@ -116,8 +116,8 @@ const SupplierOrderAcceptedScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#EAFFCC']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.34, y: 0}}
-              end={{x: 0.66, y: 1}}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
               style={styles.orderDetailsGradient}>
               <Text style={styles.orderDetailsTitle}>Order Details</Text>
 
@@ -193,8 +193,8 @@ const SupplierOrderAcceptedScreen: React.FC = () => {
                   <LinearGradient
                     colors={['rgba(137, 217, 87, 0.2)', '#29B554', '#6EAD16']}
                     locations={[0, 0.2227, 0.7018]}
-                    start={{x: 0.5, y: 0}}
-                    end={{x: 0.5, y: 1}}
+                    start={{ x: 0.5, y: 0 }}
+                    end={{ x: 0.5, y: 1 }}
                     style={styles.jobsButtonGradient}>
                     <Icon35_1 width={41} height={33} />
                     <Text style={styles.jobsButtonText}>Jobs</Text>
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   },
   dashboardButtonText: {
     fontFamily: fonts.family.medium,
-    fontSize: 20,
+    fontSize: 16,
     lineHeight: 18,
     color: '#FFFFFF',
   },
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   },
   jobsButtonText: {
     fontFamily: fonts.family.medium,
-    fontSize: 20,
+    fontSize: 16,
     lineHeight: 18,
     color: '#FFFFFF',
   },

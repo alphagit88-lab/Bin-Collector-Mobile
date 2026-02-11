@@ -34,7 +34,7 @@ const OperationsBottomNavBar: React.FC<OperationsBottomNavBarProps> = ({
   };
 
   const handleJobManagementPress = () => {
-    navigation.navigate('JobDetail' as never);
+    navigation.navigate('SupplierJobs' as never);
   };
 
   const renderNavItem = (
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   navItemActiveBackground: {
-    width: 130,
+    width: 115,
     height: 47,
     borderRadius: 42,
     borderWidth: 1,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   navItemText: {
     fontFamily: fonts.family.medium,
-    fontSize: 12,
+    fontSize: 11,
     lineHeight: 13,
     color: '#504A4A',
     textAlign: 'center',
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   // removed absolute positioning styles — layout uses flexbox now
   navItemTextActive: {
     fontFamily: fonts.family.semiBold,
-    fontSize: 12,
+    fontSize: 11,
     lineHeight: 13,
     color: '#FFFFFF',
     textShadowColor: 'rgba(0, 0, 0, 0.25)',

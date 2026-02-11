@@ -16,6 +16,7 @@ import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import SvgImage from '../assets/images/14.svg';
 import { useAuth } from '../contexts/AuthContext';
+import toast from '../utils/toast';
 
 type SupplierType = 'Commercial' | 'Residential' | 'Commercial/Residential';
 
@@ -33,23 +34,23 @@ const SignUpScreen: React.FC = () => {
 
   const handleSignUp = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Error', 'Please enter your full name');
+      toast.error('Error', 'Please enter your full name');
       return;
     }
     if (!phoneNumber.trim()) {
-      Alert.alert('Error', 'Please enter your phone number');
+      toast.error('Error', 'Please enter your phone number');
       return;
     }
     if (userType === 'Supplier' && !supplierType) {
-      Alert.alert('Error', 'Please select a supplier type');
+      toast.error('Error', 'Please select a supplier type');
       return;
     }
     if (!password.trim()) {
-      Alert.alert('Error', 'Please enter a password');
+      toast.error('Error', 'Please enter a password');
       return;
     }
     if (!acceptTerms) {
-      Alert.alert('Error', 'Please accept the Terms & Conditions');
+      toast.error('Error', 'Please accept the Terms & Conditions');
       return;
     }
 
@@ -75,12 +76,9 @@ const SignUpScreen: React.FC = () => {
     setLoading(false);
 
     if (result.success) {
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK' } // Navigation will happen automatically due to auth state change if configured, or we can navigate manually/wait for re-render
-      ]);
-      // Assuming AuthContext updates state and main navigator switches to authenticated stack
+      toast.success('Success', 'Account created successfully!');
     } else {
-      Alert.alert('Sign Up Failed', result.message || 'Please try again later.');
+      toast.error('Sign Up Failed', result.message || 'Please try again later.');
     }
   };
 

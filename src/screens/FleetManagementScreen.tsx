@@ -7,8 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
   ActivityIndicator,
-  Alert,
-  Modal,
+  Alert, // Keeping Alert for confirmation dialog
   TextInput,
   RefreshControl,
 } from 'react-native';
@@ -17,8 +16,11 @@ import { useNavigation } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
+import AppModal from '../components/AppModal';
+import AppConfirmModal from '../components/AppConfirmModal';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import toast from '../utils/toast'; // Added toast import
 
 // Header truck/logo SVGs
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -61,6 +63,10 @@ const FleetManagementScreen: React.FC = () => {
   const [selectedSizeId, setSelectedSizeId] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [fetchingSizes, setFetchingSizes] = useState(false);
+  const [statusLoading, setStatusLoading] = useState<number | null>(null);
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [pendingUpdate, setPendingUpdate] = useState<{ binId: number; status: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -70,7 +76,7 @@ const FleetManagementScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching bins:', error);
-      Alert.alert('Error', 'Failed to fetch fleet data');
+      toast.error('Error', 'Failed to fetch fleet data');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -89,6 +95,7 @@ const FleetManagementScreen: React.FC = () => {
   };
 
   const fetchSizes = async (typeId: number) => {
+    setFetchingSizes(true);
     try {
       const response = await api.get<{ binSizes: BinSize[] }>(ENDPOINTS.BINS.SIZES(typeId));
       if (response.success && response.data) {
@@ -96,6 +103,8 @@ const FleetManagementScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching sizes:', error);
+    } finally {
+      setFetchingSizes(false);
     }
   };
 
@@ -106,9 +115,11 @@ const FleetManagementScreen: React.FC = () => {
 
   useEffect(() => {
     if (selectedTypeId) {
+      setSelectedSizeId(''); // Clear previous size selection when type changes
       fetchSizes(parseInt(selectedTypeId));
     } else {
       setBinSizes([]);
+      setSelectedSizeId('');
     }
   }, [selectedTypeId]);
 
@@ -122,8 +133,10 @@ const FleetManagementScreen: React.FC = () => {
   };
 
   const handleAddNewBin = async () => {
-    if (!selectedTypeId || !selectedSizeId) {
-      Alert.alert('Error', 'Please select bin type and size');
+    const typeNeedsSize = binSizes.length > 0;
+
+    if (!selectedTypeId || (typeNeedsSize && !selectedSizeId)) {
+      toast.error('Validation Error', `Please select bin type${typeNeedsSize ? ' and size' : ''}`);
       return;
     }
 
@@ -131,50 +144,47 @@ const FleetManagementScreen: React.FC = () => {
     try {
       const response = await api.post(ENDPOINTS.BINS.PHYSICAL, {
         bin_type_id: parseInt(selectedTypeId),
-        bin_size_id: parseInt(selectedSizeId),
+        bin_size_id: selectedSizeId ? parseInt(selectedSizeId) : null,
         notes: notes || undefined,
       });
 
       if (response.success) {
-        Alert.alert('Success', 'Bin added successfully');
+        toast.success('Success', 'Bin added successfully');
         setShowAddModal(false);
         setSelectedTypeId('');
         setSelectedSizeId('');
         setNotes('');
         fetchData();
       } else {
-        Alert.alert('Error', response.message || 'Failed to add bin');
+        toast.error('Error', response.message || 'Failed to add bin');
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while adding bin');
+      toast.error('Error', 'An error occurred while adding bin');
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleUpdateStatus = (binId: number, status: string) => {
-    Alert.alert(
-      'Update Status',
-      `Mark bin as ${status}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            try {
-              const response = await api.put(ENDPOINTS.BINS.UPDATE_PHYSICAL(binId), { status });
-              if (response.success) {
-                fetchData();
-              } else {
-                Alert.alert('Error', response.message || 'Failed to update status');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'An error occurred while updating status');
-            }
-          }
-        }
-      ]
-    );
+    setPendingUpdate({ binId, status });
+    setConfirmVisible(true);
+  };
+
+  const executeStatusUpdate = async () => {
+    if (!pendingUpdate) return;
+    const { binId, status } = pendingUpdate;
+    setConfirmVisible(false);
+
+    try {
+      const response = await api.put(ENDPOINTS.BINS.UPDATE_PHYSICAL(binId), { status });
+      if (response.success) {
+        fetchData();
+      } else {
+        toast.error('Error', response.message || 'Failed to update status');
+      }
+    } catch (error) {
+      toast.error('Error', 'An error occurred while updating status');
+    }
   };
 
   const handleRemoveBin = (binId: number) => {
@@ -206,7 +216,7 @@ const FleetManagementScreen: React.FC = () => {
         <View style={styles.binDetailColumn}>
           <Text style={styles.binDetailLabel}>Status:</Text>
           <Text style={[styles.binDetailValue, { color: bin.status === 'available' ? '#10B981' : '#EF4444' }]}>
-            {bin.status.charAt(0).toUpperCase() + bin.status.slice(1)}
+            {bin.status.replace(/_/g, ' ').charAt(0).toUpperCase() + bin.status.replace(/_/g, ' ').slice(1)}
           </Text>
         </View>
       </View>
@@ -214,7 +224,7 @@ const FleetManagementScreen: React.FC = () => {
       {/* Action Buttons */}
       <View style={styles.actionButtonsRow}>
         <TouchableOpacity
-          style={[styles.editButton, { backgroundColor: '#CCC', opacity: 0.6 }]}
+          style={[styles.editButton, { backgroundColor: '#CCC' }]}
           onPress={() => { }}
           disabled={true}
           activeOpacity={0.8}>
@@ -236,8 +246,9 @@ const FleetManagementScreen: React.FC = () => {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.editButton, { backgroundColor: '#10B981' }]}
+            style={[styles.editButton, { backgroundColor: bin.status === 'unavailable' ? '#10B981' : '#CCC' }]}
             onPress={() => handleUpdateStatus(bin.id, 'available')}
+            disabled={bin.status !== 'unavailable'}
             activeOpacity={0.8}>
             <View style={styles.buttonIconContainer}>
               <EditIcon width={21} height={17} />
@@ -382,7 +393,7 @@ const FleetManagementScreen: React.FC = () => {
       </ScrollView>
 
       {/* Add Bin Modal */}
-      <Modal
+      <AppModal
         visible={showAddModal}
         transparent={true}
         animationType="slide"
@@ -413,31 +424,33 @@ const FleetManagementScreen: React.FC = () => {
               </ScrollView>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Bin Size</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
-                {binSizes.length === 0 ? (
-                  <Text style={styles.emptyText}>Select type first</Text>
-                ) : (
-                  binSizes.map(size => (
-                    <TouchableOpacity
-                      key={size.id}
-                      onPress={() => setSelectedSizeId(size.id.toString())}
-                      style={[
-                        styles.typeChip,
-                        selectedSizeId === size.id.toString() && styles.typeChipSelected
-                      ]}>
-                      <Text style={[
-                        styles.typeChipText,
-                        selectedSizeId === size.id.toString() && styles.typeChipTextSelected
-                      ]}>
-                        {size.size}
-                      </Text>
-                    </TouchableOpacity>
-                  ))
-                )}
-              </ScrollView>
-            </View>
+            {(!selectedTypeId || (selectedTypeId && binSizes.length > 0)) && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Bin Size</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
+                  {binSizes.length === 0 ? (
+                    <Text style={styles.emptyText}>Select type first</Text>
+                  ) : (
+                    binSizes.map(size => (
+                      <TouchableOpacity
+                        key={size.id}
+                        onPress={() => setSelectedSizeId(size.id.toString())}
+                        style={[
+                          styles.typeChip,
+                          selectedSizeId === size.id.toString() && styles.typeChipSelected
+                        ]}>
+                        <Text style={[
+                          styles.typeChipText,
+                          selectedSizeId === size.id.toString() && styles.typeChipTextSelected
+                        ]}>
+                          {size.size}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  )}
+                </ScrollView>
+              </View>
+            )}
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Notes (Optional)</Text>
@@ -459,10 +472,10 @@ const FleetManagementScreen: React.FC = () => {
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.confirmButton}
+                style={[styles.confirmButton, (submitting || fetchingSizes) && { opacity: 0.7 }]}
                 onPress={handleAddNewBin}
-                disabled={submitting}>
-                {submitting ? (
+                disabled={submitting || fetchingSizes}>
+                {submitting || fetchingSizes ? (
                   <ActivityIndicator color="#FFF" size="small" />
                 ) : (
                   <Text style={styles.confirmButtonText}>Add Bin</Text>
@@ -471,7 +484,15 @@ const FleetManagementScreen: React.FC = () => {
             </View>
           </View>
         </View>
-      </Modal>
+      </AppModal>
+
+      <AppConfirmModal
+        visible={confirmVisible}
+        title="Update Status"
+        message={`Are you sure you want to mark this bin as ${pendingUpdate?.status}?`}
+        onConfirm={executeStatusUpdate}
+        onCancel={() => setConfirmVisible(false)}
+      />
 
       <OperationsBottomNavBar activeTab="operations" />
     </View>

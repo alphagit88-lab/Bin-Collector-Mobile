@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     height: 246,
     borderRadius: 9,
-    overflow: 'visible',
+    overflow: 'hidden',
   },
   paymentsCardGradient: {
     flex: 1,
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
   },
   paymentsImageContainer: {
     position: 'absolute',
-    right: -19,
+    left: 180,
     bottom: -4,
     width: 210,
     height: 168,

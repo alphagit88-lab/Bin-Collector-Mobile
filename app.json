@@ -10,17 +10,38 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.binrental.mobile"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/images/logo.png",
         "backgroundColor": "#E6FBBF"
       },
-      "package": "com.binrental.mobile"
+      "package": "com.binrental.mobile",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./src/assets/images/logo.png"
-    }
+    },
+    "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with suppliers.",
+          "cameraPermission": "The app accesses your camera to let you take photos of bin placements."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ]
+    ]
   }
 }

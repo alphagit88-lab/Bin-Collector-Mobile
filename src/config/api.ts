@@ -3,9 +3,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Update this to match your backend URL
 // For Android emulator, use 10.0.2.2 instead of localhost
 // For physical device, use your computer's IP address
-const API_URL = `https://automated-aquarium-bay-adsl.trycloudflare.com/api`;
+const BASE_URL = `https://relating-bizrate-sunny-belongs.trycloudflare.com`;
+const API_URL = `${BASE_URL}/api`;
 //http://192.168.8.120:5000
-//https://automated-aquarium-bay-adsl.trycloudflare.com
+//https://relating-bizrate-sunny-belongs.trycloudflare.com
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -33,9 +34,13 @@ class ApiClient {
     const token = await this.getAuthToken();
 
     const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
       ...(options.headers as Record<string, string> | undefined),
     };
+
+    // Only set application/json if not FormData
+    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -75,9 +80,10 @@ class ApiClient {
   }
 
   async post<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
+    const isFormData = body instanceof FormData;
     return this.request<T>(endpoint, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
     });
   }
 
@@ -94,4 +100,4 @@ class ApiClient {
 }
 
 export const api = new ApiClient();
-export { API_URL };
+export { API_URL, BASE_URL };

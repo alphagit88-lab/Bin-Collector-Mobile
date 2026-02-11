@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   Dimensions,
   Alert,
-  Modal,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
@@ -17,8 +16,11 @@ import { WebView } from 'react-native-webview';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
+import AppModal from '../components/AppModal';
+import AppConfirmModal from '../components/AppConfirmModal';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import toast from '../utils/toast';
 
 // Header truck/logo SVGs
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -109,7 +111,7 @@ interface ServiceZoneData {
 
 const ServiceAreaScreen: React.FC = () => {
   const navigation = useNavigation();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [serviceZones, setServiceZones] = useState<ServiceZoneData[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [addingZone, setAddingZone] = useState(false);
@@ -118,6 +120,8 @@ const ServiceAreaScreen: React.FC = () => {
   const [newCountry, setNewCountry] = useState('');
   const [newCity, setNewCity] = useState('');
   const [newRadius, setNewRadius] = useState('');
+  const [confirmVisible, setConfirmVisible] = useState(false);
+  const [zoneToDelete, setZoneToDelete] = useState<string | null>(null);
 
   const fetchServiceAreas = useCallback(async () => {
     try {
@@ -134,7 +138,7 @@ const ServiceAreaScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching service areas:', error);
-      Alert.alert('Error', 'Failed to load service areas.');
+      toast.error('Error', 'Failed to load service areas.');
     } finally {
       setLoading(false);
     }
@@ -156,7 +160,7 @@ const ServiceAreaScreen: React.FC = () => {
 
   const submitNewServiceArea = async () => {
     if (!newCountry.trim() || !newCity.trim() || !newRadius.trim()) {
-      Alert.alert('Validation Error', 'Please fill in all fields.');
+      toast.error('Validation Error', 'Please fill in all fields.');
       return;
     }
 
@@ -174,32 +178,43 @@ const ServiceAreaScreen: React.FC = () => {
         setNewCity('');
         setNewRadius('');
         fetchServiceAreas();
-        Alert.alert('Success', 'Service area added successfully.');
+        toast.success('Success', 'Service area added successfully.');
       } else {
-        Alert.alert('Error', response.message || 'Failed to add service area.');
+        toast.error('Error', response.message || 'Failed to add service area.');
       }
     } catch (error) {
       console.error('Error adding service area:', error);
-      Alert.alert('Error', 'An error occurred while adding service area.');
+      toast.error('Error', 'An error occurred while adding service area.');
     } finally {
       setAddingZone(false);
     }
   };
 
-  const handleRemoveZone = async (id: string) => {
+  const handleRemoveZone = (id: string) => {
+    setZoneToDelete(id);
+    setConfirmVisible(true);
+  };
+
+  const executeRemoveZone = async () => {
+    if (!zoneToDelete) return;
+    const id = zoneToDelete;
+    setConfirmVisible(false);
+
     try {
       setLoading(true);
       const response = await api.delete(`${ENDPOINTS.SUPPLIER.SERVICE_AREAS}/${id}`);
       if (response.success) {
         setServiceZones(serviceZones.filter(zone => zone.id !== id));
+        toast.success('Success', 'Service area removed successfully.');
       } else {
-        Alert.alert('Error', response.message || 'Failed to remove service area.');
+        toast.error('Error', response.message || 'Failed to remove service area.');
       }
     } catch (error) {
       console.error('Error removing service area:', error);
-      Alert.alert('Error', 'An error occurred while removing service area.');
+      toast.error('Error', 'An error occurred while removing service area.');
     } finally {
       setLoading(false);
+      setZoneToDelete(null);
     }
   };
 
@@ -367,7 +382,7 @@ const ServiceAreaScreen: React.FC = () => {
       </ScrollView>
 
       {/* Add New Service Area Modal */}
-      <Modal
+      <AppModal
         animationType="slide"
         transparent={true}
         visible={modalVisible}
@@ -422,7 +437,20 @@ const ServiceAreaScreen: React.FC = () => {
             </View>
           </View>
         </View>
-      </Modal>
+      </AppModal>
+
+      <AppConfirmModal
+        visible={confirmVisible}
+        title="Remove Service Area"
+        message="Are you sure you want to remove this service area?"
+        confirmText="Remove"
+        isDestructive={true}
+        onConfirm={executeRemoveZone}
+        onCancel={() => {
+          setConfirmVisible(false);
+          setZoneToDelete(null);
+        }}
+      />
 
       <OperationsBottomNavBar activeTab="operations" />
     </View>

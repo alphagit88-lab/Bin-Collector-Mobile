@@ -15,10 +15,10 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
-import { showMessage } from 'react-native-flash-message';
 import { useSocket } from '../contexts/SocketContext';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import toast from '../utils/toast';
 
 // Import SVG assets
 import BinCollectBg from '../assets/images/Bin.Collect_2.svg';
@@ -45,6 +45,7 @@ const SupplierDashboard: React.FC = () => {
     inProgress: 0,
     completed: 0
   });
+  const [wallet, setWallet] = React.useState<{ balance: string; pending_balance: string; total_earned: string } | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   const fetchCounts = React.useCallback(async (showNotification = false) => {
@@ -53,6 +54,8 @@ const SupplierDashboard: React.FC = () => {
       const pendingResponse = await api.get<{ requests: any[] }>(ENDPOINTS.BOOKINGS.PENDING);
       // Jobs already assigned to me
       const myJobsResponse = await api.get<{ requests: any[] }>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS);
+      // Wallet data
+      const walletResponse = await api.get<{ wallet: any }>(ENDPOINTS.WALLET.GET);
 
       if (pendingResponse.success && myJobsResponse.success) {
         const pending = pendingResponse.data?.requests?.length || 0;
@@ -64,17 +67,17 @@ const SupplierDashboard: React.FC = () => {
 
         setCounts({ pending, confirmed, inProgress, completed });
 
+        if (walletResponse.success && walletResponse.data?.wallet) {
+          setWallet(walletResponse.data.wallet);
+        }
+
         // If there are pending requests, notify the user explicitly
         if (showNotification && pending > 0) {
-          showMessage({
-            message: "Action Required",
-            description: `You have ${pending} pending service request(s) waiting for your quote.`,
-            type: "info",
-            backgroundColor: "#29B554",
-            icon: "info",
-            duration: 4000,
-            onPress: () => navigation.navigate('SupplierRequests' as never),
-          });
+          toast.info(
+            "Action Required",
+            `You have ${pending} pending service request(s) waiting for your quote.`,
+            () => navigation.navigate('SupplierRequests' as never)
+          );
         }
       }
     } catch (error) {
@@ -92,8 +95,12 @@ const SupplierDashboard: React.FC = () => {
 
   React.useEffect(() => {
     if (socket) {
-      const handleUpdate = () => {
+      const handleUpdate = (data?: any) => {
         fetchCounts(false); // Don't show toast for background refreshes
+
+        if (data && data.status === 'ready_to_pickup') {
+          toast.info('New Update', data.message || 'A bin is ready for pickup!');
+        }
       };
 
       socket.on('new_request', handleUpdate);
@@ -191,7 +198,11 @@ const SupplierDashboard: React.FC = () => {
         </View>
 
         {/* Payouts & Earnings Section */}
-        <View style={styles.earningsCard}>
+        <TouchableOpacity
+          style={styles.earningsCard}
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('SupplierEarnings' as never)}
+        >
           <LinearGradient
             colors={['#29B554', '#6EAD16']}
             start={{ x: 0.22, y: 0 }}
@@ -216,7 +227,7 @@ const SupplierDashboard: React.FC = () => {
                     <EarningsPlayIcon />
                   </View>
                 </View>
-                <Text style={styles.balanceAmount}>$0</Text>
+                <Text style={styles.balanceAmount}>${wallet ? parseFloat(wallet.balance).toFixed(2) : '0.00'}</Text>
                 <Text style={styles.balanceLabel}>Available Balance</Text>
               </View>
               <View style={styles.earningsImageContainer}>
@@ -224,7 +235,7 @@ const SupplierDashboard: React.FC = () => {
               </View>
             </LinearGradient>
           </LinearGradient>
-        </View>
+        </TouchableOpacity>
 
         {/* Job Management Section */}
         <View style={styles.jobManagementSection}>
@@ -520,7 +531,7 @@ const styles = StyleSheet.create({
   },
   earningsImageContainer: {
     position: 'absolute',
-    right: -22,
+    left: 180,
     top: 59,
   },
   jobManagementSection: {

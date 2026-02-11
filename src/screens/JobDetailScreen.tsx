@@ -6,18 +6,23 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Modal,
   TextInput,
   ActivityIndicator,
+  Image,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import AppModal from '../components/AppModal';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import BinAssignmentModal from '../components/BinAssignmentModal';
+import AppConfirmModal from '../components/AppConfirmModal';
+import toast from '../utils/toast';
+import { BASE_URL } from '../config/api';
 
 // Import SVG icons
 import BannerImage from '../assets/images/4 1.svg';
@@ -43,6 +48,7 @@ interface JobDetail {
   customerId: string;
   status: string;
   orderItems?: OrderItem[];
+  attachment_url?: string;
 }
 
 const mockJobDetail: JobDetail = {
@@ -72,12 +78,20 @@ const JobDetailScreen: React.FC = () => {
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [totalPrice, setTotalPrice] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    onConfirm: () => { },
+    isDestructive: false,
+  });
   const [showBinModal, setShowBinModal] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const handleAcceptOrder = async () => {
     if (!totalPrice || parseFloat(totalPrice) <= 0) {
-      Alert.alert('Error', 'Please enter a valid price');
+      toast.error('Error', 'Please enter a valid price');
       return;
     }
 
@@ -100,10 +114,10 @@ const JobDetailScreen: React.FC = () => {
           },
         });
       } else {
-        Alert.alert('Error', response.message || 'Failed to accept order');
+        toast.error('Error', response.message || 'Failed to accept order');
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while accepting the order');
+      toast.error('Error', 'An error occurred while accepting the order');
     } finally {
       setSubmitting(false);
       setShowAcceptModal(false);
@@ -111,21 +125,17 @@ const JobDetailScreen: React.FC = () => {
   };
 
   const handleDeclineOrder = () => {
-    Alert.alert(
-      'Decline Order',
-      `Are you sure you want to decline order ${jobDetail.orderId}?`,
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Decline',
-          style: 'destructive',
-          onPress: () => navigation.goBack(),
-        },
-      ],
-    );
+    setConfirmModal({
+      visible: true,
+      title: 'Decline Order',
+      message: `Are you sure you want to decline order ${jobDetail.orderId}?`,
+      confirmText: 'Decline',
+      isDestructive: true,
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, visible: false }));
+        navigation.goBack();
+      },
+    });
   };
 
   const handleStatusUpdate = async (newStatus: string, binCodes?: string[]) => {
@@ -137,14 +147,13 @@ const JobDetailScreen: React.FC = () => {
       const response = await api.put(ENDPOINTS.BOOKINGS.UPDATE_STATUS(jobDetail.id.toString()), payload);
 
       if (response.success) {
-        Alert.alert('Success', 'Status updated successfully', [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]);
+        toast.success('Success', 'Status updated successfully');
+        navigation.goBack();
       } else {
-        Alert.alert('Error', response.message || 'Failed to update status');
+        toast.error('Error', response.message || 'Failed to update status');
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while updating status');
+      toast.error('Error', 'An error occurred while updating status');
     } finally {
       setUpdatingStatus(false);
       setShowBinModal(false);
@@ -343,6 +352,28 @@ const JobDetailScreen: React.FC = () => {
               </Text>
             </LinearGradient>
 
+            {/* Attachment Section */}
+            {jobDetail.attachment_url && (
+              <LinearGradient
+                colors={['#EFF2F0', '#EAFFCC']}
+                locations={[0.2377, 0.6629]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.detailCardFull}>
+                <Text style={styles.detailLabel}>Attachment</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    // Logic to view full image could go here
+                  }}>
+                  <Image
+                    source={{ uri: `${BASE_URL}${jobDetail.attachment_url}` }}
+                    style={styles.attachmentPreview}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              </LinearGradient>
+            )}
+
             {/* Action Buttons */}
             {isPending && (
               <View style={styles.actionButtonsContainer}>
@@ -396,10 +427,17 @@ const JobDetailScreen: React.FC = () => {
                 {jobDetail.status === 'on_delivery' && (
                   <TouchableOpacity
                     style={styles.acceptButtonWrapper}
-                    onPress={() => Alert.alert('Confirm', 'Mark this order as delivered?', [
-                      { text: 'Cancel' },
-                      { text: 'Confirm', onPress: () => handleStatusUpdate('delivered') }
-                    ])}
+                    onPress={() => setConfirmModal({
+                      visible: true,
+                      title: 'Confirm',
+                      message: 'Mark this order as delivered?',
+                      confirmText: 'Confirm',
+                      onConfirm: () => {
+                        setConfirmModal(prev => ({ ...prev, visible: false }));
+                        handleStatusUpdate('delivered');
+                      },
+                      isDestructive: false,
+                    })}
                     activeOpacity={0.8}>
                     <LinearGradient
                       colors={['#29B554', '#6EAD16']}
@@ -412,10 +450,17 @@ const JobDetailScreen: React.FC = () => {
                 {jobDetail.status === 'ready_to_pickup' && (
                   <TouchableOpacity
                     style={styles.acceptButtonWrapper}
-                    onPress={() => Alert.alert('Confirm', 'Start pickup process for this order?', [
-                      { text: 'Cancel' },
-                      { text: 'Confirm', onPress: () => handleStatusUpdate('pickup') }
-                    ])}
+                    onPress={() => setConfirmModal({
+                      visible: true,
+                      title: 'Confirm',
+                      message: 'Start pickup process for this order?',
+                      confirmText: 'Confirm',
+                      onConfirm: () => {
+                        setConfirmModal(prev => ({ ...prev, visible: false }));
+                        handleStatusUpdate('pickup');
+                      },
+                      isDestructive: false,
+                    })}
                     activeOpacity={0.8}>
                     <LinearGradient
                       colors={['#29B554', '#6EAD16']}
@@ -428,10 +473,17 @@ const JobDetailScreen: React.FC = () => {
                 {jobDetail.status === 'pickup' && (
                   <TouchableOpacity
                     style={styles.acceptButtonWrapper}
-                    onPress={() => Alert.alert('Confirm', 'Complete this job? Bins will be marked as available.', [
-                      { text: 'Cancel' },
-                      { text: 'Confirm', onPress: () => handleStatusUpdate('completed') }
-                    ])}
+                    onPress={() => setConfirmModal({
+                      visible: true,
+                      title: 'Confirm',
+                      message: 'Complete this job? Bins will be marked as available.',
+                      confirmText: 'Confirm',
+                      onConfirm: () => {
+                        setConfirmModal(prev => ({ ...prev, visible: false }));
+                        handleStatusUpdate('completed');
+                      },
+                      isDestructive: false,
+                    })}
                     activeOpacity={0.8}>
                     <LinearGradient
                       colors={['#29B554', '#6EAD16']}
@@ -465,7 +517,7 @@ const JobDetailScreen: React.FC = () => {
         />
 
         {/* Accept Modal */}
-        <Modal
+        <AppModal
           visible={showAcceptModal}
           transparent={true}
           animationType="fade"
@@ -504,7 +556,7 @@ const JobDetailScreen: React.FC = () => {
               </View>
             </View>
           </View>
-        </Modal>
+        </AppModal>
 
         {/* Job Management Tab Bar */}
         {/* Job Management Tab Bar */}
@@ -522,11 +574,21 @@ const JobDetailScreen: React.FC = () => {
           </LinearGradient>
         </TouchableOpacity>
 
+        <AppConfirmModal
+          visible={confirmModal.visible}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmText={confirmModal.confirmText}
+          isDestructive={confirmModal.isDestructive}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+        />
+
         <View style={styles.bottomSpacing} />
-      </ScrollView>
+      </ScrollView >
 
       <SupplierBottomNavBar activeTab="requests" />
-    </View>
+    </View >
   );
 };
 
@@ -716,6 +778,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 15,
     color: '#242424',
+  },
+  attachmentPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    marginTop: 8,
+    backgroundColor: '#f0f0f0',
   },
   orderItemRow: {
     width: '100%',

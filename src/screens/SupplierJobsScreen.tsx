@@ -15,8 +15,10 @@ import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 import { useSocket } from '../contexts/SocketContext';
-import { api } from '../config/api';
+import { api, BASE_URL } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import { Image } from 'react-native';
+import toast from '../utils/toast';
 
 // Import SVG icons
 import BannerImage from '../assets/images/4 1.svg';
@@ -54,6 +56,7 @@ interface Job {
   end_date: string;
   customer_name: string;
   customer_phone: string;
+  attachment_url?: string;
 }
 
 const categoryLabels: Record<JobCategory, string> = {
@@ -81,7 +84,7 @@ const SupplierJobsScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching jobs:', error);
-      Alert.alert('Error', 'Failed to fetch jobs');
+      toast.error('Error', 'Failed to fetch jobs');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -102,9 +105,13 @@ const SupplierJobsScreen: React.FC = () => {
 
   useEffect(() => {
     if (socket) {
-      const handleRefresh = () => {
+      const handleRefresh = (data?: any) => {
         console.log('Refreshing jobs due to socket update...');
         fetchJobs();
+
+        if (data && data.status === 'ready_to_pickup') {
+          toast.info('New Update', data.message || 'A bin is ready for pickup!');
+        }
       };
 
       socket.on('new_request', handleRefresh);
@@ -154,6 +161,7 @@ const SupplierJobsScreen: React.FC = () => {
         pickupDate: new Date(job.end_date).toLocaleDateString(),
         customerName: job.customer_name,
         customerId: job.customer_phone,
+        attachment_url: job.attachment_url,
       },
     });
   };
@@ -290,10 +298,6 @@ const SupplierJobsScreen: React.FC = () => {
             <View style={styles.gridRow}>
               {renderGridCard('pending')}
               {renderGridCard('confirmed')}
-            </View>
-            <View style={styles.gridRow}>
-              {renderGridCard('inProgress')}
-              {renderGridCard('completed')}
             </View>
             <View style={styles.gridRow}>
               {renderGridCard('inProgress')}

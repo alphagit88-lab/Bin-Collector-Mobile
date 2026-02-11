@@ -8,6 +8,7 @@ import { AuthProvider } from './src/contexts/AuthContext';
 import { SocketProvider } from './src/contexts/SocketContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import FlashMessage from 'react-native-flash-message';
+import { subscribeToForegroundNotifications } from './src/utils/fcmNotifications';
 
 // Explicitly hide Expo splash screen immediately - we only use native splash
 // This prevents Expo from showing its splash screen at all
@@ -30,6 +31,10 @@ const App: React.FC = () => {
   useEffect(() => {
     // Ensure Expo splash is hidden on mount
     SplashScreen.hideAsync().catch(() => { });
+
+    // Listen for foreground FCM messages
+    const unsubscribe = subscribeToForegroundNotifications();
+    return () => unsubscribe();
   }, []);
 
   if (!fontsLoaded) {

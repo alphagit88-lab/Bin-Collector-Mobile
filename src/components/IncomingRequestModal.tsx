@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    Modal,
     TouchableOpacity,
     Dimensions,
     Image,
@@ -12,9 +11,10 @@ import {
     ScrollView,
     Platform,
 } from 'react-native';
+import AppModal from './AppModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '../theme/fonts';
-import LocationIcon from '../assets/images/Ellipse 11.svg'; // Using as a dot or indicator
+import { BASE_URL } from '../config/api';
 
 const MiddleImage = require('../assets/images/image1_25_2.png');
 
@@ -57,7 +57,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
     const [totalPrice, setTotalPrice] = React.useState<string>('');
 
     return (
-        <Modal
+        <AppModal
             animationType="fade"
             transparent={true}
             visible={visible}
@@ -91,6 +91,17 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                             keyboardShouldPersistTaps="handled"
                         >
                             <View style={styles.detailsContainer}>
+                                {request.attachment_url ? (
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.infoLabel}>Attachment:</Text>
+                                        <Image
+                                            source={{ uri: `${BASE_URL}${request.attachment_url}` }}
+                                            style={styles.attachmentPreview}
+                                            resizeMode="cover"
+                                        />
+                                    </View>
+                                ) : null}
+
                                 {request.items && request.items.length > 0 ? (
                                     // Group items by type and size
                                     Object.values(request.items.reduce((acc: any, item: any) => {
@@ -160,6 +171,8 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                                     </View>
                                 ) : null}
 
+                                <View style={styles.divider} />
+
                                 {/* Price Input Section */}
                                 <View style={styles.priceInputContainer}>
                                     <Text style={styles.priceLabel}>Your Quote (Total Price) *</Text>
@@ -206,7 +219,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                     </View>
                 </LinearGradient>
             </KeyboardAvoidingView>
-        </Modal>
+        </AppModal>
     );
 };
 
@@ -321,6 +334,13 @@ const styles = StyleSheet.create({
         color: '#333',
         borderWidth: 1,
         borderColor: '#DDDDDD',
+    },
+    attachmentPreview: {
+        width: '100%',
+        height: 150,
+        borderRadius: 12,
+        marginTop: 8,
+        backgroundColor: '#F0F0F0',
     },
     actionsContainer: {
         flexDirection: 'row',

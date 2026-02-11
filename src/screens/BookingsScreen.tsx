@@ -8,7 +8,6 @@ import {
   Dimensions,
   ActivityIndicator,
   RefreshControl,
-  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -17,8 +16,10 @@ import { useSocket } from '../contexts/SocketContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fonts } from '../theme/fonts';
 import BottomNavBar from '../components/BottomNavBar';
-import { api } from '../config/api';
+import { api, BASE_URL } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import AppModal from '../components/AppModal';
+import { Image } from 'react-native';
 
 // Import SVG images
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -40,6 +41,7 @@ interface Booking {
   end_date: string;
   order_items_count: number;
   items?: any[];
+  attachment_url?: string;
 }
 
 const BookingsScreen: React.FC = () => {
@@ -370,7 +372,7 @@ const BookingsScreen: React.FC = () => {
       <BottomNavBar activeTab="bookings" />
 
       {/* Booking Details Modal */}
-      <Modal
+      <AppModal
         visible={detailsModalVisible}
         transparent={true}
         animationType="fade"
@@ -388,7 +390,7 @@ const BookingsScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody}>
+            <ScrollView contentContainerStyle={styles.modalScrollContent}>
               {selectedBooking && (
                 <>
                   <View style={styles.modalRow}>
@@ -437,6 +439,17 @@ const BookingsScreen: React.FC = () => {
                       </View>
                     </View>
                   )}
+
+                  {selectedBooking.attachment_url && (
+                    <View style={styles.modalAttachmentSection}>
+                      <Text style={styles.modalSectionTitle}>Attachment</Text>
+                      <Image
+                        source={{ uri: `${BASE_URL}${selectedBooking.attachment_url}` }}
+                        style={styles.modalAttachmentPreview}
+                        resizeMode="cover"
+                      />
+                    </View>
+                  )}
                 </>
               )}
             </ScrollView>
@@ -456,7 +469,7 @@ const BookingsScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+      </AppModal>
     </View>
   );
 };
@@ -814,7 +827,7 @@ const styles = StyleSheet.create({
   modalCloseButton: {
     padding: 5,
   },
-  modalBody: {
+  modalScrollContent: {
     padding: 20,
   },
   modalRow: {
@@ -829,11 +842,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalValue: {
-    fontFamily: fonts.family.semiBold,
-    fontSize: 14,
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    lineHeight: 18,
     color: '#333',
     flex: 1,
     textAlign: 'right',
+  },
+  modalAttachmentSection: {
+    marginTop: 5,
+  },
+  modalAttachmentPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    marginTop: 10,
+    backgroundColor: '#F5F5F5',
   },
   modalSectionTitle: {
     fontFamily: fonts.family.bold,

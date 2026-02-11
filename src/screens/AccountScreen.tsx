@@ -7,11 +7,12 @@ import {
   ScrollView,
   Image,
   Alert,
-  Modal,
   TextInput,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import AppModal from '../components/AppModal';
+import AppConfirmModal from '../components/AppConfirmModal';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +21,7 @@ import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import BottomNavBar from '../components/BottomNavBar';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import toast from '../utils/toast';
 
 // Import SVG icons
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -79,6 +81,14 @@ const AccountScreen: React.FC = () => {
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+  const [confirmModal, setConfirmModal] = React.useState({
+    visible: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    onConfirm: () => { },
+    isDestructive: false,
+  });
 
   // Load default location on mount
   React.useEffect(() => {
@@ -96,7 +106,7 @@ const AccountScreen: React.FC = () => {
 
   const handleUpdateEmail = async () => {
     if (!newEmail.trim()) {
-      Alert.alert('Error', 'Please enter a valid email');
+      toast.error('Error', 'Please enter a valid email');
       return;
     }
     setLoading(true);
@@ -104,10 +114,10 @@ const AccountScreen: React.FC = () => {
     setLoading(false);
     if (result.success) {
       setEmailModalVisible(false);
-      Alert.alert('Success', 'Email updated successfully');
+      toast.success('Success', 'Email updated successfully');
       setNewEmail('');
     } else {
-      Alert.alert('Error', result.message || 'Failed to update email');
+      toast.error('Error', result.message || 'Failed to update email');
     }
   };
 
@@ -116,24 +126,24 @@ const AccountScreen: React.FC = () => {
       await AsyncStorage.setItem('defaultLocation', location);
       setDefaultLocation(location);
       setLocationModalVisible(false);
-      Alert.alert('Success', 'Default location updated');
+      toast.success('Success', 'Default location updated');
     } catch (error) {
       console.error('Error saving location:', error);
-      Alert.alert('Error', 'Failed to save location');
+      toast.error('Error', 'Failed to save location');
     }
   };
 
   const handleChangePassword = async () => {
     if (!newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      toast.error('Error', 'Please fill in all fields');
       return;
     }
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      toast.error('Error', 'Password must be at least 6 characters');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      toast.error('Error', 'Passwords do not match');
       return;
     }
     setLoading(true);
@@ -141,49 +151,40 @@ const AccountScreen: React.FC = () => {
     setLoading(false);
     if (result.success) {
       setPasswordModalVisible(false);
-      Alert.alert('Success', 'Password changed successfully');
+      toast.success('Success', 'Password changed successfully');
       setNewPassword('');
       setConfirmPassword('');
     } else {
-      Alert.alert('Error', result.message || 'Failed to change password');
+      toast.error('Error', result.message || 'Failed to change password');
     }
   };
 
   const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-          },
-        },
-      ],
-      { cancelable: true },
-    );
+    setConfirmModal({
+      visible: true,
+      title: 'Logout',
+      message: 'Are you sure you want to logout?',
+      confirmText: 'Logout',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, visible: false }));
+        await logout();
+      },
+      isDestructive: true,
+    });
   };
 
   const handleDeleteProfile = () => {
-    Alert.alert(
-      'Delete Profile',
-      'Are you sure you want to delete your profile? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            // Handle delete profile logic
-            console.log('Delete profile');
-          },
-        },
-      ],
-      { cancelable: true },
-    );
+    setConfirmModal({
+      visible: true,
+      title: 'Delete Profile',
+      message: 'Are you sure you want to delete your profile? This action cannot be undone.',
+      confirmText: 'Delete',
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, visible: false }));
+        console.log('Delete profile');
+      },
+      isDestructive: true,
+    });
   };
 
   return (
@@ -322,6 +323,16 @@ const AccountScreen: React.FC = () => {
       </ScrollView>
 
       {/* Bottom Navigation */}
+      <AppConfirmModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        isDestructive={confirmModal.isDestructive}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+      />
+
       {user?.role === 'supplier' ? (
         <SupplierBottomNavBar activeTab="account" />
       ) : (
@@ -329,7 +340,7 @@ const AccountScreen: React.FC = () => {
       )}
 
       {/* Email Modal */}
-      <Modal
+      <AppModal
         animationType="fade"
         transparent={true}
         visible={emailModalVisible}
@@ -365,10 +376,10 @@ const AccountScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
-      </Modal>
+      </AppModal>
 
       {/* Location Modal */}
-      <Modal
+      <AppModal
         animationType="slide"
         transparent={true}
         visible={locationModalVisible}
@@ -400,10 +411,10 @@ const AccountScreen: React.FC = () => {
             </ScrollView>
           </View>
         </TouchableOpacity>
-      </Modal>
+      </AppModal>
 
       {/* Password Modal */}
-      <Modal
+      <AppModal
         animationType="fade"
         transparent={true}
         visible={passwordModalVisible}
@@ -445,7 +456,7 @@ const AccountScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
-      </Modal>
+      </AppModal>
     </View>
   );
 };

@@ -15,27 +15,35 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
+import toast from '../utils/toast';
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation();
-  const [phone, setPhone] = useState('');
+  const { login, rememberedPhone } = useAuth();
+  const [phone, setPhone] = useState(rememberedPhone || '');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(!!rememberedPhone);
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+
+  React.useEffect(() => {
+    if (rememberedPhone) {
+      setPhone(rememberedPhone);
+      setRememberMe(true);
+    }
+  }, [rememberedPhone]);
 
   const handleLogin = async () => {
     if (!phone.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter both phone number and password');
+      toast.error('Error', 'Please enter both phone number and password');
       return;
     }
 
     setLoading(true);
-    const result = await login(phone, password);
+    const result = await login(phone, password, rememberMe);
     setLoading(false);
 
     if (!result.success) {
-      Alert.alert('Login Failed', result.message || 'Invalid credentials');
+      toast.error('Login Failed', result.message || 'Invalid credentials');
     }
   };
 
@@ -231,11 +239,12 @@ const styles = StyleSheet.create({
   },
   middleImageContainer: {
     width: '100%',
+    marginTop: 10,
+    aspectRatio: 750 / 383,
   },
   middleImage: {
     width: '100%',
-    marginTop: -60,
-    marginBottom: -85,
+    height: '100%',
   },
   formSection: {
     width: '100%',

@@ -6,16 +6,17 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Modal,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
+import AppModal from '../components/AppModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import toast from '../utils/toast';
 
 interface Wallet {
   balance: string;
@@ -46,9 +47,9 @@ const SupplierEarningsScreen: React.FC = () => {
   const fetchWalletData = async () => {
     setLoading(true);
     try {
-      const walletRes = await api.get<Wallet>(ENDPOINTS.WALLET.GET);
+      const walletRes = await api.get<{ wallet: Wallet }>(ENDPOINTS.WALLET.GET);
       if (walletRes.success && walletRes.data) {
-        setWallet(walletRes.data);
+        setWallet(walletRes.data.wallet);
       }
 
       const payoutsRes = await api.get<{ payouts: Payout[] }>(ENDPOINTS.WALLET.MY_PAYOUTS);
@@ -65,12 +66,12 @@ const SupplierEarningsScreen: React.FC = () => {
   const handleRequestPayout = async () => {
     const amount = parseFloat(payoutAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      toast.error('Error', 'Please enter a valid amount');
       return;
     }
 
     if (wallet && amount > parseFloat(wallet.balance)) {
-      Alert.alert('Error', 'Insufficient balance');
+      toast.error('Error', 'Insufficient balance');
       return;
     }
 
@@ -82,15 +83,15 @@ const SupplierEarningsScreen: React.FC = () => {
       });
 
       if (response.success) {
-        Alert.alert('Success', 'Payout request submitted successfully. An invoice has been generated for this request.');
+        toast.success('Success', 'Payout request submitted successfully. An invoice has been generated for this request.');
         setPayoutModalVisible(false);
         setPayoutAmount('');
         fetchWalletData();
       } else {
-        Alert.alert('Error', response.message || 'Failed to request payout');
+        toast.error('Error', response.message || 'Failed to request payout');
       }
     } catch (error) {
-      Alert.alert('Error', 'An error occurred while requesting payout');
+      toast.error('Error', 'An error occurred while requesting payout');
     } finally {
       setRequesting(false);
     }
@@ -164,7 +165,7 @@ const SupplierEarningsScreen: React.FC = () => {
                     styles.payoutStatus,
                     { color: payout.status === 'completed' ? '#10B981' : payout.status === 'pending' ? '#F59E0B' : '#EF4444' }
                   ]}>
-                    {payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
+                    {payout.status.replace(/_/g, ' ').charAt(0).toUpperCase() + payout.status.replace(/_/g, ' ').slice(1)}
                   </Text>
                 </View>
               </View>
@@ -176,7 +177,7 @@ const SupplierEarningsScreen: React.FC = () => {
       </ScrollView>
 
       {/* Payout Request Modal */}
-      <Modal
+      <AppModal
         visible={payoutModalVisible}
         transparent={true}
         animationType="slide">
@@ -212,7 +213,7 @@ const SupplierEarningsScreen: React.FC = () => {
             </View>
           </View>
         </View>
-      </Modal>
+      </AppModal>
 
       <OperationsBottomNavBar activeTab="payouts" />
     </View>

@@ -14,8 +14,10 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
-import { api } from '../config/api';
+import { api, BASE_URL } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import { Image } from 'react-native';
+import toast from '../utils/toast';
 
 // Shared visual style with SupplierJobsScreen
 import BannerImage from '../assets/images/4 1.svg';
@@ -41,6 +43,7 @@ interface Job {
   estimated_price?: string;
   orderItems?: OrderItem[];
   items?: OrderItem[];
+  attachment_url?: string;
 }
 
 const SupplierRequestsScreen: React.FC = () => {
@@ -56,12 +59,12 @@ const SupplierRequestsScreen: React.FC = () => {
       if (response.success && response.data) {
         setPendingJobs(response.data.requests);
       } else {
-        Alert.alert('Error', response.message || 'Failed to fetch pending requests');
+        toast.error('Error', response.message || 'Failed to fetch pending requests');
         if (response.debugInfo) console.log('Debug Info:', response.debugInfo);
       }
     } catch (error) {
       console.error('Error fetching pending requests:', error);
-      Alert.alert('Error', `Failed to fetch pending requests: ${error instanceof Error ? error.message : 'Network error'}`);
+      toast.error('Error', `Failed to fetch pending requests: ${error instanceof Error ? error.message : 'Network error'}`);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -91,6 +94,7 @@ const SupplierRequestsScreen: React.FC = () => {
         location: job.location,
         status: job.status,
         orderItems: job.items || job.orderItems || [],
+        attachment_url: job.attachment_url,
       },
     });
   };

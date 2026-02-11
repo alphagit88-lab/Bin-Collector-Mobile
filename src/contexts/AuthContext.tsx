@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import { requestUserPermission, getFcmToken, updatePushToken, registerAppWithFCM } from '../utils/fcmNotifications';
 
 export interface User {
   id: number;
@@ -25,12 +26,13 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (phone: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  login: (phone: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; message?: string }>;
   signup: (data: SignupData) => Promise<{ success: boolean; message?: string }>;
   updateProfile: (email: string) => Promise<{ success: boolean; message?: string }>;
   changePassword: (newPassword: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   isAuthenticated: boolean;
+  rememberedPhone: string | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,20 +40,44 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [rememberedPhone, setRememberedPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadStoredAuth();
   }, []);
 
+  // Sync FCM Push Token whenever user is authenticated
+  useEffect(() => {
+    const syncPushToken = async () => {
+      if (user?.id && token) {
+        console.log('Auth: User authenticated, syncing FCM token...');
+        const hasPermission = await requestUserPermission();
+        if (hasPermission) {
+          await registerAppWithFCM();
+          const fcmToken = await getFcmToken();
+          if (fcmToken) {
+            await updatePushToken(fcmToken);
+          }
+        }
+      }
+    };
+
+    syncPushToken();
+  }, [user?.id, token]);
+
   const loadStoredAuth = async () => {
     try {
       const storedToken = await AsyncStorage.getItem('token');
       const storedUser = await AsyncStorage.getItem('user');
+      const storedPhone = await AsyncStorage.getItem('rememberedPhone');
 
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
+      }
+      if (storedPhone) {
+        setRememberedPhone(storedPhone);
       }
     } catch (error) {
       console.error('Error loading stored auth:', error);
@@ -60,7 +86,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const login = async (phone: string, password: string) => {
+  const login = async (phone: string, password: string, rememberMe: boolean = false) => {
     try {
       const response = await api.post<{ user: User; token: string }>(ENDPOINTS.AUTH.LOGIN, {
         phone,
@@ -71,8 +97,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { user, token } = response.data;
         await AsyncStorage.setItem('token', token);
         await AsyncStorage.setItem('user', JSON.stringify(user));
+
+        if (rememberMe) {
+          await AsyncStorage.setItem('rememberedPhone', phone);
+          setRememberedPhone(phone);
+        } else {
+          await AsyncStorage.removeItem('rememberedPhone');
+          setRememberedPhone(null);
+        }
+
         setToken(token);
         setUser(user);
+
         return { success: true };
       } else {
         return { success: false, message: response.message || 'Login failed' };
@@ -95,6 +131,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await AsyncStorage.setItem('user', JSON.stringify(user));
         setToken(token);
         setUser(user);
+
         return { success: true };
       } else {
         return { success: false, message: response.message || 'Signup failed' };
@@ -168,6 +205,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         changePassword,
         logout,
         isAuthenticated: !!token && !!user,
+        rememberedPhone,
       }}
     >
       {children}

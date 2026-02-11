@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   navItemActiveBackground: {
-    width: 78, // Rectangle 7: width: 78px
+    width: 75, // Rectangle 7: width: 78px
     height: 70, // Rectangle 7: height: 70px
     borderRadius: 18, // Rectangle 7: border-radius: 18px
     borderWidth: 1,
@@ -320,14 +320,14 @@ const styles = StyleSheet.create({
   },
   navItemText: {
     fontFamily: fonts.family.medium,
-    fontSize: 12,
+    fontSize: 11,
     lineHeight: 13,
     color: '#504A4A',
     textAlign: 'center',
   },
   navItemTextActive: {
     fontFamily: fonts.family.medium,
-    fontSize: 12,
+    fontSize: 11,
     lineHeight: 13,
     color: '#FFFFFF',
     textAlign: 'center',

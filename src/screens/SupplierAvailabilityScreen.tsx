@@ -18,6 +18,7 @@ import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import toast from '../utils/toast';
 
 // Header truck/logo SVGs
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -69,7 +70,7 @@ const SupplierAvailabilityScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching availability:', error);
-      Alert.alert('Error', 'Failed to load availability settings.');
+      toast.error('Error', 'Failed to load availability settings.');
     } finally {
       setLoading(false);
     }
@@ -86,13 +87,13 @@ const SupplierAvailabilityScreen: React.FC = () => {
       setSaving(true);
       const response = await api.post(ENDPOINTS.SUPPLIER.AVAILABILITY, { schedule });
       if (response.success) {
-        Alert.alert('Success', 'Availability updated successfully.');
+        toast.success('Success', 'Availability updated successfully.');
       } else {
-        Alert.alert('Error', response.message || 'Failed to update availability.');
+        toast.error('Error', response.message || 'Failed to update availability.');
       }
     } catch (error) {
       console.error('Error saving availability:', error);
-      Alert.alert('Error', 'An error occurred while saving.');
+      toast.error('Error', 'An error occurred while saving.');
     } finally {
       setSaving(false);
     }
@@ -519,7 +520,7 @@ const styles = StyleSheet.create({
   },
   dayName: {
     fontFamily: fonts.family.leagueSpartanSemiBold,
-    fontSize: 20,
+    fontSize: 16,
     lineHeight: 18,
     color: '#242424',
     width: 100,
@@ -531,7 +532,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   timeBox: {
-    width: 100,
+    width: 80,
     height: 37,
     borderRadius: 9,
     borderWidth: 1,
@@ -551,7 +552,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   closedBox: {
-    width: 203,
+    width: 162,
     height: 37,
     borderRadius: 9,
     borderWidth: 1,

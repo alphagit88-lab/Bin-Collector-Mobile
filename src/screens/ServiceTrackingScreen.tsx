@@ -19,6 +19,8 @@ import { fonts } from '../theme/fonts';
 import BottomNavBar from '../components/BottomNavBar';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import AppConfirmModal from '../components/AppConfirmModal';
+import toast from '../utils/toast';
 
 // Import SVG images
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -48,6 +50,7 @@ const ServiceTrackingScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [confirmVisible, setConfirmVisible] = useState(false);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -139,34 +142,27 @@ const ServiceTrackingScreen: React.FC = () => {
 
   const handleMarkReadyToPickup = async () => {
     if (!selectedRequest) return;
+    setConfirmVisible(true);
+  };
 
-    Alert.alert(
-      'Request Pickup',
-      'Are you sure the bin is ready for pickup?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const response = await api.put(ENDPOINTS.BOOKINGS.MARK_READY(selectedRequest.id.toString()));
-              if (response.success) {
-                Alert.alert('Success', 'Pickup requested successfully');
-                fetchRequests();
-              } else {
-                Alert.alert('Error', response.message || 'Failed to request pickup');
-              }
-            } catch (error) {
-              console.error('Error requesting pickup:', error);
-              Alert.alert('Error', 'An error occurred');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+  const executeMarkReady = async () => {
+    if (!selectedRequest) return;
+    setConfirmVisible(false);
+    setLoading(true);
+    try {
+      const response = await api.put(ENDPOINTS.BOOKINGS.MARK_READY(selectedRequest.id.toString()));
+      if (response.success) {
+        toast.success('Success', 'Pickup requested successfully');
+        fetchRequests();
+      } else {
+        toast.error('Error', response.message || 'Failed to request pickup');
+      }
+    } catch (error) {
+      console.error('Error requesting pickup:', error);
+      toast.error('Error', 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getCurrentStepIndex = (status: string) => {
@@ -382,7 +378,15 @@ const ServiceTrackingScreen: React.FC = () => {
       </ScrollView>
 
       {/* Bottom Navigation */}
-      <BottomNavBar activeTab={'tracking'} />
+      <AppConfirmModal
+        visible={confirmVisible}
+        title="Request Pickup"
+        message="Are you sure the bin is ready for pickup?"
+        onConfirm={executeMarkReady}
+        onCancel={() => setConfirmVisible(false)}
+      />
+
+      <BottomNavBar activeTab="tracking" />
     </View>
   );
 };

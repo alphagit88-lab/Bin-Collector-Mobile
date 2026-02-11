@@ -7,21 +7,26 @@ import {
   TouchableOpacity,
   TextInput,
   Dimensions,
-  Modal,
+  ActivityIndicator,
+  Platform,
+  Alert,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import BottomNavBar from '../components/BottomNavBar';
 import { Ionicons } from '@expo/vector-icons';
-import { Alert, ActivityIndicator, Platform } from 'react-native';
+import toast from '../utils/toast';
+import AppModal from '../components/AppModal';
+import AttachmentOptionModal from '../components/AttachmentOptionModal';
 
 // Import SVG images
 import Logo14_1 from '../assets/images/14_1.svg';
@@ -108,7 +113,10 @@ const OrderBinScreen: React.FC = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [additionalContact, setAdditionalContact] = useState('');
   const [notes, setNotes] = useState('');
+  const [attachment, setAttachment] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchingSizes, setFetchingSizes] = useState(false);
 
   // Date Picker State
   const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
@@ -235,6 +243,7 @@ const OrderBinScreen: React.FC = () => {
 
   const fetchBinSizes = async (typeId: number) => {
     if (binSizesMap[typeId]) return;
+    setFetchingSizes(true);
     try {
       const response = await api.get<{ binSizes: BinSize[] }>(ENDPOINTS.BINS.SIZES(typeId));
       if (response.success && response.data) {
@@ -242,6 +251,8 @@ const OrderBinScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error fetching bin sizes:', error);
+    } finally {
+      setFetchingSizes(false);
     }
   };
 
@@ -300,56 +311,117 @@ const OrderBinScreen: React.FC = () => {
     }
   };
 
-  const handlePlaceOrder = async () => {
-    // Basic validation
-    if (!deliveryAddress.trim()) {
-      Alert.alert('Error', 'Please enter a delivery address');
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
       return;
     }
 
-    const validBins = bins.filter(b => b.bin_type_id && b.bin_size_id);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setAttachment(result.assets[0]);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error('Permission Denied', 'Sorry, we need camera permissions to make this work!');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      setAttachment(result.assets[0]);
+    }
+  };
+
+  const clearAttachment = () => {
+    setAttachment(null);
+  };
+
+  const handleAttachmentPress = () => {
+    setAttachmentModalVisible(true);
+  };
+
+  const handlePlaceOrder = async () => {
+    // Basic validation
+    if (!deliveryAddress.trim()) {
+      toast.error('Error', 'Please enter a delivery address');
+      return;
+    }
+
+    const validBins = bins.filter(b => {
+      if (!b.bin_type_id) return false;
+      const typeIdNum = parseInt(b.bin_type_id as string);
+      const possibleSizes = binSizesMap[typeIdNum] || [];
+      const sizeRequired = possibleSizes.length > 0;
+      return !sizeRequired || b.bin_size_id;
+    });
+
     if (validBins.length === 0) {
-      Alert.alert('Error', 'Please add at least one valid bin (Type & Size)');
+      toast.error('Error', 'Please add at least one valid bin selection');
       return;
     }
 
     if (!deliveryDate || !pickupDate) {
-      Alert.alert('Error', 'Please select both start and end dates');
+      toast.error('Error', 'Please select both start and end dates');
       return;
     }
 
     setLoading(true);
     try {
-      const payload = {
-        service_category: serviceType,
-        bins: validBins.map(b => ({
-          bin_type_id: parseInt(b.bin_type_id),
-          bin_size_id: parseInt(b.bin_size_id),
-          quantity: parseInt(b.quantity) || 1,
-        })),
-        location: deliveryAddress,
-        start_date: deliveryDate,
-        end_date: pickupDate,
-        payment_method: paymentMethod,
-        contact_number: contactNumber,
-        contact_email: additionalContact,
-        instructions: notes,
-      };
+      const formData = new FormData();
+      formData.append('service_category', serviceType);
+      formData.append('bins', JSON.stringify(validBins.map(b => ({
+        bin_type_id: parseInt(b.bin_type_id as string),
+        bin_size_id: b.bin_size_id ? parseInt(b.bin_size_id as string) : null,
+        quantity: parseInt(b.quantity) || 1,
+      }))));
+      formData.append('location', deliveryAddress);
+      formData.append('start_date', deliveryDate);
+      formData.append('end_date', pickupDate);
+      formData.append('payment_method', paymentMethod);
+      formData.append('contact_number', contactNumber);
+      formData.append('contact_email', additionalContact);
+      formData.append('instructions', notes);
 
-      const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, payload);
+      if (attachment) {
+        const uri = attachment.uri;
+        const fileType = uri.split('.').pop();
+        formData.append('attachment', {
+          uri,
+          name: `upload.${fileType}`,
+          type: `image/${fileType === 'jpg' ? 'jpeg' : fileType}`,
+        } as any);
+      }
+
+      const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, formData);
 
       if (response.success) {
-        Alert.alert(
+        toast.success(
           'Success',
           'Your order has been placed successfully!',
-          [{ text: 'OK', onPress: () => navigation.navigate('Bookings' as never) }]
+          () => navigation.navigate('Bookings' as never)
         );
       } else {
-        Alert.alert('Sorry', response.message || 'Failed to place order');
+        toast.error('Sorry', response.message || 'Failed to place order');
       }
     } catch (error) {
       console.error('Booking error:', error);
-      Alert.alert('Error', 'Something went wrong while placing your order');
+      toast.error('Error', 'Something went wrong while placing your order');
     } finally {
       setLoading(false);
     }
@@ -529,14 +601,16 @@ const OrderBinScreen: React.FC = () => {
                       isDropdown
                       onPress={() => openTypeModal(index)}
                     />
-                    <FormField
-                      label="Bin Size*"
-                      placeholder={bin.bin_type_id ? "Select Bin Size" : "Select Type First"}
-                      value={bin.bin_size_name}
-                      onChangeText={() => { }}
-                      isDropdown
-                      onPress={() => openSizeModal(index)}
-                    />
+                    {(!bin.bin_type_id || (bin.bin_type_id && (binSizesMap[parseInt(bin.bin_type_id as string)] === undefined || binSizesMap[parseInt(bin.bin_type_id as string)].length > 0))) && (
+                      <FormField
+                        label="Bin Size*"
+                        placeholder={bin.bin_type_id ? "Select Bin Size" : "Select Type First"}
+                        value={bin.bin_size_name}
+                        onChangeText={() => { }}
+                        isDropdown
+                        onPress={() => openSizeModal(index)}
+                      />
+                    )}
                     <FormField
                       label="Quantity*"
                       placeholder="Enter Quantity"
@@ -648,6 +722,45 @@ const OrderBinScreen: React.FC = () => {
             </LinearGradient>
           </View>
 
+          {/* Section: Upload Attachment */}
+          <View style={styles.formSection}>
+            <LinearGradient
+              colors={['#EFF2F0', '#F8FFEE']}
+              locations={[0.2377, 0.6629]}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
+              style={styles.formSectionGradient}>
+              <Text style={styles.instructionsLabel}>Upload Attachment (Optional)</Text>
+              <TouchableOpacity
+                style={styles.attachmentButton}
+                activeOpacity={0.8}
+                onPress={handleAttachmentPress}>
+                <View style={styles.attachmentButtonContent}>
+                  {attachment ? (
+                    <View style={styles.selectedAttachmentContainer}>
+                      <Image source={{ uri: attachment.uri }} style={styles.previewImage} />
+                      <View style={styles.attachmentTextContainer}>
+                        <Text style={styles.attachmentText} numberOfLines={1}>
+                          Image Selected
+                        </Text>
+                        <TouchableOpacity onPress={clearAttachment}>
+                          <Text style={styles.removeAttachmentText}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <>
+                      <Ionicons name="camera-outline" size={24} color="#979897" />
+                      <Text style={styles.attachmentPlaceholderText}>
+                        Upload Photo or Take Attachment
+                      </Text>
+                    </>
+                  )}
+                </View>
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+
           {/* Section 6: Payment Method */}
           <View style={styles.formSection}>
             <LinearGradient
@@ -738,13 +851,14 @@ const OrderBinScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.placeOrderButton}
             activeOpacity={0.8}
-            onPress={handlePlaceOrder}>
+            onPress={handlePlaceOrder}
+            disabled={loading || fetchingSizes}>
             <LinearGradient
               colors={['#29B554', '#6EAD16']}
               start={{ x: 0.22, y: 0 }}
               end={{ x: 0.7, y: 1 }}
-              style={styles.placeOrderButtonGradient}>
-              {loading ? (
+              style={[styles.placeOrderButtonGradient, (loading || fetchingSizes) && { opacity: 0.7 }]}>
+              {loading || fetchingSizes ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.placeOrderButtonText}>Next</Text>
@@ -758,7 +872,7 @@ const OrderBinScreen: React.FC = () => {
       <BottomNavBar activeTab="orderBin" />
 
       {/* Bin Type Selection Modal */}
-      <Modal
+      <AppModal
         animationType="slide"
         transparent={true}
         visible={typeModalVisible}
@@ -791,10 +905,10 @@ const OrderBinScreen: React.FC = () => {
             </ScrollView>
           </View>
         </TouchableOpacity>
-      </Modal>
+      </AppModal>
 
       {/* Bin Size Selection Modal */}
-      <Modal
+      <AppModal
         animationType="slide"
         transparent={true}
         visible={sizeModalVisible}
@@ -829,7 +943,14 @@ const OrderBinScreen: React.FC = () => {
             </ScrollView>
           </View>
         </TouchableOpacity>
-      </Modal>
+      </AppModal>
+
+      <AttachmentOptionModal
+        visible={attachmentModalVisible}
+        onClose={() => setAttachmentModalVisible(false)}
+        onTakePhoto={takePhoto}
+        onChooseGallery={pickImage}
+      />
     </View>
   );
 };
@@ -1029,12 +1150,62 @@ const styles = StyleSheet.create({
     minHeight: 96,
   },
   notesInput: {
-    flex: 1,
-    padding: 12,
-    fontFamily: fonts.family.light,
-    fontSize: 16,
     color: '#373934',
     textAlignVertical: 'top',
+    padding: 12,
+  },
+  attachmentButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 2,
+    minHeight: 56,
+    justifyContent: 'center',
+  },
+  attachmentButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  attachmentPlaceholderText: {
+    fontFamily: fonts.family.light,
+    fontSize: 16,
+    color: '#979897',
+    marginLeft: 12,
+  },
+  selectedAttachmentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  previewImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 4,
+    marginRight: 12,
+  },
+  attachmentTextContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  attachmentText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#373934',
+    flex: 1,
+  },
+  removeAttachmentText: {
+    fontFamily: fonts.family.bold,
+    fontSize: 14,
+    color: '#EF4444',
+    marginLeft: 10,
   },
   paymentMethodTitle: {
     fontFamily: fonts.family.bold,
