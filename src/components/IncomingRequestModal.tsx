@@ -91,17 +91,6 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                             keyboardShouldPersistTaps="handled"
                         >
                             <View style={styles.detailsContainer}>
-                                {request.attachment_url ? (
-                                    <View style={styles.infoRow}>
-                                        <Text style={styles.infoLabel}>Attachment:</Text>
-                                        <Image
-                                            source={{ uri: `${BASE_URL}${request.attachment_url}` }}
-                                            style={styles.attachmentPreview}
-                                            resizeMode="cover"
-                                        />
-                                    </View>
-                                ) : null}
-
                                 {request.items && request.items.length > 0 ? (
                                     // Group items by type and size
                                     Object.values(request.items.reduce((acc: any, item: any) => {
@@ -168,6 +157,17 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                                         <Text style={styles.infoValue} numberOfLines={2}>
                                             {request.instructions}
                                         </Text>
+                                    </View>
+                                ) : null}
+
+                                {request.attachment_url ? (
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.infoLabel}>Attachment:</Text>
+                                        <Image
+                                            source={{ uri: `${BASE_URL}${request.attachment_url}` }}
+                                            style={styles.attachmentPreview}
+                                            resizeMode="cover"
+                                        />
                                     </View>
                                 ) : null}
 
