@@ -33,6 +33,7 @@ const statusSteps = [
   { key: 'pending', label: 'Pending', icon: '⏳' },
   { key: 'confirmed', label: 'Confirmed', icon: '✅' },
   { key: 'on_delivery', label: 'On Delivery', icon: '🚚' },
+  { key: 'cash_collected', label: 'Cash Collected', icon: '💵', cashOnly: true },
   { key: 'delivered', label: 'Delivered', icon: '📦' },
   { key: 'ready_to_pickup', label: 'Ready to Pickup', icon: '🔄' },
   { key: 'pickup', label: 'Pickup', icon: '📥' },
@@ -169,14 +170,15 @@ const ServiceTrackingScreen: React.FC = () => {
     return statusSteps.findIndex(step => step.key === status);
   };
 
-  const renderTimeline = (currentStatus: string) => {
-    const currentIndex = getCurrentStepIndex(currentStatus);
+  const renderTimeline = (currentStatus: string, paymentMethod: string) => {
+    const filteredSteps = statusSteps.filter(step => !step.cashOnly || paymentMethod === 'cash');
+    const currentIndex = filteredSteps.findIndex(step => step.key === currentStatus);
 
     return (
       <View style={styles.timelineContainer}>
         <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Status Timeline</Text>
         <View style={styles.timelineList}>
-          {statusSteps.map((step, index) => {
+          {filteredSteps.map((step, index) => {
             const isCompleted = index <= currentIndex;
             const isCurrent = index === currentIndex;
 
@@ -367,7 +369,7 @@ const ServiceTrackingScreen: React.FC = () => {
                       </TouchableOpacity>
                     )}
 
-                    {renderTimeline(selectedRequest.status)}
+                    {renderTimeline(selectedRequest.status, selectedRequest.payment_method)}
                   </>
                 )}
               </View>

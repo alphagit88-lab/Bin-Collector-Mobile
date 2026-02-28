@@ -33,6 +33,7 @@ export const ENDPOINTS = {
     WALLET: {
         GET: '/wallet',
         TRANSACTIONS: '/wallet/transactions',
+        PENDING_JOBS: '/wallet/pending-jobs',
         REQUEST_PAYOUT: '/wallet/payout',
         MY_PAYOUTS: '/wallet/payouts',
     },

@@ -43,7 +43,12 @@ interface Job {
   estimated_price?: string;
   orderItems?: OrderItem[];
   items?: OrderItem[];
+  start_date: string;
+  end_date: string;
   attachment_url?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  payment_method?: string;
 }
 
 const SupplierRequestsScreen: React.FC = () => {
@@ -94,7 +99,13 @@ const SupplierRequestsScreen: React.FC = () => {
         location: job.location,
         status: job.status,
         orderItems: job.items || job.orderItems || [],
+        deliveryDate: job.start_date ? new Date(job.start_date).toLocaleDateString() : 'N/A',
+        pickupDate: job.end_date ? new Date(job.end_date).toLocaleDateString() : 'N/A',
+        customerName: job.customer_name || 'N/A',
+        customerId: job.id.toString(),
+        customerPhone: job.customer_phone,
         attachment_url: job.attachment_url,
+        payment_method: job.payment_method,
       },
     });
   };

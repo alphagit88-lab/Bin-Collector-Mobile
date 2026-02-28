@@ -46,10 +46,23 @@ interface JobDetail {
   location: string;
   customerName: string;
   customerId: string;
+  customerPhone?: string;
   status: string;
+  payment_method?: string;
   orderItems?: OrderItem[];
   attachment_url?: string;
 }
+
+const statusSteps = [
+  { key: 'pending', label: 'Pending', icon: '⏳' },
+  { key: 'confirmed', label: 'Confirmed', icon: '✅' },
+  { key: 'on_delivery', label: 'On Delivery', icon: '🚚' },
+  { key: 'cash_collected', label: 'Cash Collected', icon: '💵', cashOnly: true },
+  { key: 'delivered', label: 'Delivered', icon: '📦' },
+  { key: 'ready_to_pickup', label: 'Ready to Pickup', icon: '🔄' },
+  { key: 'pickup', label: 'Pickup', icon: '📥' },
+  { key: 'completed', label: 'Completed', icon: '🎉' },
+];
 
 const mockJobDetail: JobDetail = {
   id: 0,
@@ -145,7 +158,7 @@ const JobDetailScreen: React.FC = () => {
       if (binCodes) payload.bin_codes = binCodes;
 
       const response = await api.put(ENDPOINTS.BOOKINGS.UPDATE_STATUS(jobDetail.id.toString()), payload);
-
+      console.log('response cash', response);
       if (response.success) {
         toast.success('Success', 'Status updated successfully');
         navigation.goBack();
@@ -201,6 +214,8 @@ const JobDetailScreen: React.FC = () => {
             </LinearGradient>
           </LinearGradient>
         </View>
+
+
 
         {/* Pending Requests Section */}
         <View style={styles.sectionContainer}>
@@ -348,8 +363,13 @@ const JobDetailScreen: React.FC = () => {
               style={styles.detailCardFull}>
               <Text style={styles.detailLabel}>Customer</Text>
               <Text style={styles.detailValue}>
-                {jobDetail.customerName} - {jobDetail.customerId}
+                {jobDetail.customerName}
               </Text>
+              {!isPending && jobDetail.customerPhone && (
+                <Text style={[styles.detailValue, { marginTop: 4, fontFamily: fonts.family.regular, fontSize: 14 }]}>
+                  Phone: {jobDetail.customerPhone}
+                </Text>
+              )}
             </LinearGradient>
 
             {/* Attachment Section */}
@@ -430,7 +450,34 @@ const JobDetailScreen: React.FC = () => {
                     onPress={() => setConfirmModal({
                       visible: true,
                       title: 'Confirm',
-                      message: 'Mark this order as delivered?',
+                      message: jobDetail.payment_method === 'cash'
+                        ? 'Confirm cash collection for this order?'
+                        : 'Mark this order as delivered?',
+                      confirmText: 'Confirm',
+                      onConfirm: () => {
+                        setConfirmModal(prev => ({ ...prev, visible: false }));
+                        handleStatusUpdate(jobDetail.payment_method === 'cash' ? 'cash_collected' : 'delivered');
+                      },
+                      isDestructive: false,
+                    })}
+                    activeOpacity={0.8}>
+                    <LinearGradient
+                      colors={['#29B554', '#6EAD16']}
+                      style={styles.acceptButton}>
+                      <Text style={styles.acceptButtonText}>
+                        {jobDetail.payment_method === 'cash' ? 'Mark as Cash Collected' : 'Mark as Delivered'}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+
+                {jobDetail.status === 'cash_collected' && (
+                  <TouchableOpacity
+                    style={styles.acceptButtonWrapper}
+                    onPress={() => setConfirmModal({
+                      visible: true,
+                      title: 'Confirm',
+                      message: 'Cash collected. Mark this order as delivered now?',
                       confirmText: 'Confirm',
                       onConfirm: () => {
                         setConfirmModal(prev => ({ ...prev, visible: false }));
@@ -506,6 +553,47 @@ const JobDetailScreen: React.FC = () => {
             )}
           </LinearGradient>
         </View>
+
+        {/* Status Timeline Section */}
+        {!isPending && (
+          <View style={[styles.sectionContainer, { marginTop: 16 }]}>
+            <View style={styles.timelineCard}>
+              <Text style={styles.timelineTitle}>Status Timeline</Text>
+              <View style={styles.timelineList}>
+                {statusSteps
+                  .filter(step => !step.cashOnly || jobDetail.payment_method === 'cash')
+                  .map((step, index, filteredSteps) => {
+                    const currentIndex = filteredSteps.findIndex(s => s.key === jobDetail.status);
+                    const isCompleted = index <= currentIndex;
+                    const isCurrent = index === currentIndex;
+
+                    return (
+                      <View key={step.key} style={styles.timelineItem}>
+                        <View style={[
+                          styles.timelineIconContainer,
+                          isCompleted ? styles.timelineIconActive : styles.timelineIconInactive
+                        ]}>
+                          <Text style={styles.timelineIcon}>{step.icon}</Text>
+                        </View>
+                        <View style={styles.timelineContent}>
+                          <Text style={[
+                            styles.timelineLabel,
+                            isCurrent && styles.timelineLabelCurrent,
+                            isCompleted && styles.timelineLabelCompleted
+                          ]}>
+                            {step.label}
+                          </Text>
+                          {isCurrent && (
+                            <Text style={styles.currentStatusBadge}>Current Status</Text>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })}
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Bin Assignment Modal */}
         <BinAssignmentModal
@@ -918,6 +1006,66 @@ const styles = StyleSheet.create({
   modalConfirmText: {
     fontFamily: fonts.family.bold,
     color: '#FFF',
+  },
+  // Timeline Styles
+  timelineCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  timelineTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 18,
+    color: '#333',
+    marginBottom: 16,
+  },
+  timelineList: {
+    gap: 16,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  timelineIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timelineIconActive: {
+    backgroundColor: '#10B981',
+  },
+  timelineIconInactive: {
+    backgroundColor: '#E5E7EB',
+  },
+  timelineIcon: {
+    fontSize: 18,
+  },
+  timelineContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  timelineLabel: {
+    fontFamily: fonts.family.medium,
+    fontSize: 15,
+    color: '#666',
+  },
+  timelineLabelCurrent: {
+    fontFamily: fonts.family.bold,
+    color: '#333',
+  },
+  timelineLabelCompleted: {
+    color: '#333',
+  },
+  currentStatusBadge: {
+    fontSize: 11,
+    color: '#10B981',
+    fontFamily: fonts.family.medium,
+    marginTop: 2,
   },
 });
 

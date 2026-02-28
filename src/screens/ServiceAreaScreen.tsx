@@ -6,13 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Alert,
   TextInput,
   ActivityIndicator,
+  Keyboard,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { WebView } from 'react-native-webview';
+import MapView, { Marker, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
@@ -32,81 +33,13 @@ import Rectangle11 from '../assets/images/Rectangle 11.svg';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-const getMapHtml = (city: string, country: string, radiusMeters: number) => `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <style>
-    body { margin: 0; padding: 0; }
-    #map { height: 100vh; width: 100vw; }
-    .leaflet-control-attribution { font-size: 8px; } 
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    // Initialize map with a default world view first
-    var map = L.map('map', { 
-      zoomControl: false,
-      attributionControl: true 
-    }).setView([20, 0], 2);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
-    }).addTo(map);
-
-    // Function to geocode and update map
-    function updateMapLocation() {
-      var query = "${city}, ${country}";
-      
-      fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + encodeURIComponent(query))
-        .then(function(response) { return response.json(); })
-        .then(function(data) {
-          if (data && data.length > 0) {
-            var lat = parseFloat(data[0].lat);
-            var lon = parseFloat(data[0].lon);
-            
-            // Set view to the result
-            map.setView([lat, lon], 10);
-
-            // Add marker
-            L.marker([lat, lon]).addTo(map);
-
-            // Add radius circle
-            var circle = L.circle([lat, lon], {
-              color: '#37B112',
-              fillColor: '#77C40A',
-              fillOpacity: 0.2,
-              radius: ${radiusMeters}
-            }).addTo(map);
-            
-            // Fit bounds to show the whole circle
-            map.fitBounds(circle.getBounds());
-          } else {
-            console.error('Location not found');
-          }
-        })
-        .catch(function(error) {
-          console.error('Geocoding error:', error);
-        });
-    }
-
-    // Run geocoding
-    updateMapLocation();
-  </script>
-</body>
-</html>
-`;
-
 interface ServiceZoneData {
   id: string;
   country: string;
   city: string;
-  areaRadius: string;
+  areaRadiusKm: number;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 const ServiceAreaScreen: React.FC = () => {
@@ -120,6 +53,16 @@ const ServiceAreaScreen: React.FC = () => {
   const [newCountry, setNewCountry] = useState('');
   const [newCity, setNewCity] = useState('');
   const [newRadius, setNewRadius] = useState('');
+  const [newLatitude, setNewLatitude] = useState<number | null>(null);
+  const [newLongitude, setNewLongitude] = useState<number | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: -37.8136, // Default (e.g. Melbourne)
+    longitude: 144.9631,
+    latitudeDelta: 0.1,
+    longitudeDelta: 0.1,
+  });
+
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [zoneToDelete, setZoneToDelete] = useState<string | null>(null);
 
@@ -132,7 +75,9 @@ const ServiceAreaScreen: React.FC = () => {
           id: area.id.toString(),
           country: area.country,
           city: area.city,
-          areaRadius: `${area.area_radius_km}KM`
+          areaRadiusKm: parseFloat(area.area_radius_km),
+          latitude: area.latitude ? parseFloat(area.latitude) : null,
+          longitude: area.longitude ? parseFloat(area.longitude) : null,
         }));
         setServiceZones(mappedZones);
       }
@@ -159,17 +104,19 @@ const ServiceAreaScreen: React.FC = () => {
   };
 
   const submitNewServiceArea = async () => {
-    if (!newCountry.trim() || !newCity.trim() || !newRadius.trim()) {
-      toast.error('Validation Error', 'Please fill in all fields.');
+    if (!newCity.trim() || !newRadius.trim()) {
+      toast.error('Validation Error', 'Please enter a city/address and radius.');
       return;
     }
 
     try {
       setAddingZone(true);
       const response = await api.post(ENDPOINTS.SUPPLIER.SERVICE_AREAS, {
-        country: newCountry,
+        country: newCountry || 'Australia',
         city: newCity,
-        areaRadiusKm: parseInt(newRadius)
+        areaRadiusKm: parseFloat(newRadius),
+        latitude: newLatitude,
+        longitude: newLongitude,
       });
 
       if (response.success) {
@@ -177,6 +124,8 @@ const ServiceAreaScreen: React.FC = () => {
         setNewCountry('');
         setNewCity('');
         setNewRadius('');
+        setNewLatitude(null);
+        setNewLongitude(null);
         fetchServiceAreas();
         toast.success('Success', 'Service area added successfully.');
       } else {
@@ -187,6 +136,59 @@ const ServiceAreaScreen: React.FC = () => {
       toast.error('Error', 'An error occurred while adding service area.');
     } finally {
       setAddingZone(false);
+    }
+  };
+
+  const handleSearchAddress = async () => {
+    if (!newCity) return;
+    Keyboard.dismiss();
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newCity)}&format=json&limit=1`,
+        { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
+      );
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const { lat, lon, display_name } = data[0];
+        const newLat = parseFloat(lat);
+        const newLon = parseFloat(lon);
+        setNewLatitude(newLat);
+        setNewLongitude(newLon);
+        setNewCity(display_name);
+        setMapRegion({
+          ...mapRegion,
+          latitude: newLat,
+          longitude: newLon,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        });
+      } else {
+        toast.error('Location not found. Please try another search.');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Failed to search location.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const onMarkerDragEnd = async (e: any) => {
+    const { latitude: newLat, longitude: newLon } = e.nativeEvent.coordinate;
+    setNewLatitude(newLat);
+    setNewLongitude(newLon);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
+        { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
+      );
+      const data = await response.json();
+      if (data && data.display_name) {
+        setNewCity(data.display_name);
+      }
+    } catch (error) {
+      console.error('Reverse geocode error:', error);
     }
   };
 
@@ -341,7 +343,7 @@ const ServiceAreaScreen: React.FC = () => {
                       </View>
                       <View style={styles.infoColumn}>
                         <Text style={styles.infoLabel}>Area Radius</Text>
-                        <Text style={styles.infoValue}>{zone.areaRadius}</Text>
+                        <Text style={styles.infoValue}>{zone.areaRadiusKm} KM</Text>
                       </View>
                     </View>
 
@@ -358,18 +360,33 @@ const ServiceAreaScreen: React.FC = () => {
 
                     {/* Map for this specific area */}
                     <View style={styles.mapContainer}>
-                      <WebView
-                        originWhitelist={['*']}
-                        source={{
-                          html: getMapHtml(
-                            zone.city,
-                            zone.country,
-                            parseInt(zone.areaRadius.replace(/[^0-9]/g, '')) * 1000 || 45000
-                          )
+                      <MapView
+                        provider={PROVIDER_GOOGLE}
+                        style={{ width: '100%', height: 200 }}
+                        region={{
+                          latitude: zone.latitude || 0,
+                          longitude: zone.longitude || 0,
+                          latitudeDelta: 0.1,
+                          longitudeDelta: 0.1,
                         }}
-                        style={{ width: '100%', height: 200, backgroundColor: 'transparent' }}
                         scrollEnabled={false}
-                      />
+                        zoomEnabled={false}
+                        pitchEnabled={false}
+                        rotateEnabled={false}
+                      >
+                        {zone.latitude && zone.longitude && (
+                          <>
+                            <Marker coordinate={{ latitude: zone.latitude, longitude: zone.longitude }} />
+                            <Circle
+                              center={{ latitude: zone.latitude, longitude: zone.longitude }}
+                              radius={zone.areaRadiusKm * 1000}
+                              fillColor="rgba(119, 196, 10, 0.2)"
+                              strokeColor="#37B112"
+                              strokeWidth={2}
+                            />
+                          </>
+                        )}
+                      </MapView>
                     </View>
                   </View>
                 ))}
@@ -381,7 +398,6 @@ const ServiceAreaScreen: React.FC = () => {
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Add New Service Area Modal */}
       <AppModal
         animationType="slide"
         transparent={true}
@@ -389,53 +405,97 @@ const ServiceAreaScreen: React.FC = () => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Service Area</Text>
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Add New Service Area</Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Country"
-              value={newCountry}
-              onChangeText={setNewCountry}
-            />
+              <View style={styles.searchContainer}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                  placeholder="Enter City or Address"
+                  value={newCity}
+                  onChangeText={setNewCity}
+                />
+                <TouchableOpacity
+                  style={styles.searchIconButton}
+                  onPress={handleSearchAddress}
+                  disabled={isSearching}
+                >
+                  <LinearGradient
+                    colors={['#29B554', '#6EAD16']}
+                    style={styles.searchIconGradient}
+                  >
+                    {isSearching ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="search" size={20} color="#FFF" />}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="City"
-              value={newCity}
-              onChangeText={setNewCity}
-            />
+              <View style={[styles.mapContainer, { height: 200, width: '100%', marginBottom: 15 }]}>
+                <MapView
+                  provider={PROVIDER_GOOGLE}
+                  style={StyleSheet.absoluteFillObject}
+                  region={mapRegion}
+                  onRegionChangeComplete={setMapRegion}
+                >
+                  {newLatitude && newLongitude && (
+                    <>
+                      <Marker
+                        coordinate={{ latitude: newLatitude, longitude: newLongitude }}
+                        draggable
+                        onDragEnd={onMarkerDragEnd}
+                      />
+                      <Circle
+                        center={{ latitude: newLatitude, longitude: newLongitude }}
+                        radius={(parseFloat(newRadius) || 0) * 1000}
+                        fillColor="rgba(119, 196, 10, 0.2)"
+                        strokeColor="#37B112"
+                        strokeWidth={2}
+                      />
+                    </>
+                  )}
+                </MapView>
+              </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Radius (KM)"
-              value={newRadius}
-              onChangeText={setNewRadius}
-              keyboardType="numeric"
-            />
+              <TextInput
+                style={styles.input}
+                placeholder="Radius (KM)"
+                value={newRadius}
+                onChangeText={setNewRadius}
+                keyboardType="numeric"
+              />
 
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setModalVisible(false)}
-                disabled={addingZone}
-              >
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={() => setModalVisible(false)}
+                  disabled={addingZone}
+                >
+                  <Text style={[styles.buttonText, { color: '#666' }]}>Cancel</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.modalButton, styles.submitButton]}
-                onPress={submitNewServiceArea}
-                disabled={addingZone}
-              >
-                {addingZone ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.buttonText}>Add</Text>
-                )}
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.submitButton]}
+                  activeOpacity={0.8}
+                  onPress={submitNewServiceArea}
+                  disabled={addingZone}
+                >
+                  <LinearGradient
+                    colors={['#29B554', '#6EAD16']}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  {addingZone ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>Add Area</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          </ScrollView>
         </View>
       </AppModal>
 
@@ -696,11 +756,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    width: '85%',
+    width: '92%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
   modalTitle: {
     fontFamily: fonts.family.bold,
@@ -732,17 +797,49 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#ddd',
+    backgroundColor: '#F5F5F5',
     marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
   },
   submitButton: {
-    backgroundColor: '#37B112',
     marginLeft: 10,
+    overflow: 'hidden',
   },
   buttonText: {
     fontFamily: fonts.family.semiBold,
     fontSize: 16,
+    color: '#333',
+  },
+  submitButtonText: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 16,
     color: '#FFFFFF',
+    zIndex: 1,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 20,
+    width: screenWidth,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 15,
+  },
+  searchIconButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  searchIconGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

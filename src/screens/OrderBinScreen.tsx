@@ -11,7 +11,9 @@ import {
   Platform,
   Alert,
   Image,
+  Keyboard,
 } from 'react-native';
+import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -113,6 +115,15 @@ const OrderBinScreen: React.FC = () => {
   const [contactNumber, setContactNumber] = useState('');
   const [additionalContact, setAdditionalContact] = useState('');
   const [notes, setNotes] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
+  const [mapRegion, setMapRegion] = useState({
+    latitude: -37.8136, // Default to Melbourne (generic)
+    longitude: 144.9631,
+    latitudeDelta: 0.005,
+    longitudeDelta: 0.005,
+  });
+  const [isSearching, setIsSearching] = useState(false);
   const [attachment, setAttachment] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -130,6 +141,71 @@ const OrderBinScreen: React.FC = () => {
 
   const formatDateForDisplay = (date: Date) => {
     return date.toLocaleDateString();
+  };
+
+  const handleSearchAddress = async () => {
+    if (!deliveryAddress) return;
+
+    Keyboard.dismiss();
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+          deliveryAddress
+        )}&format=json&limit=1`,
+        {
+          headers: {
+            'User-Agent': 'BinRentalApp/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+        const { lat, lon, display_name } = data[0];
+        const newLat = parseFloat(lat);
+        const newLon = parseFloat(lon);
+
+        setLatitude(newLat);
+        setLongitude(newLon);
+        setDeliveryAddress(display_name);
+        setMapRegion({
+          ...mapRegion,
+          latitude: newLat,
+          longitude: newLon,
+        });
+      } else {
+        toast.error('Address not found. Please try a more specific address.');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Failed to search address. Please try again.');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const onMarkerDragEnd = async (e: any) => {
+    const { latitude: newLat, longitude: newLon } = e.nativeEvent.coordinate;
+    setLatitude(newLat);
+    setLongitude(newLon);
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
+        {
+          headers: {
+            'User-Agent': 'BinRentalApp/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+      if (data && data.display_name) {
+        setDeliveryAddress(data.display_name);
+      }
+    } catch (error) {
+      console.error('Reverse geocode error:', error);
+    }
   };
 
   // Dropdown data
@@ -293,12 +369,10 @@ const OrderBinScreen: React.FC = () => {
       setDeliveryDateObj(selectedDate);
       setDeliveryDate(formatDateForBackend(selectedDate));
 
-      // If pickup date is before or same as delivery date, move it to next day
-      if (pickupDateObj <= selectedDate) {
-        const nextDay = new Date(selectedDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        setPickupDateObj(nextDay);
-        setPickupDate(formatDateForBackend(nextDay));
+      // If pickup date is before delivery date, move it to same day
+      if (pickupDateObj < selectedDate) {
+        setPickupDateObj(selectedDate);
+        setPickupDate(formatDateForBackend(selectedDate));
       }
     }
   };
@@ -394,9 +468,10 @@ const OrderBinScreen: React.FC = () => {
       formData.append('start_date', deliveryDate);
       formData.append('end_date', pickupDate);
       formData.append('payment_method', paymentMethod);
-      formData.append('contact_number', contactNumber);
       formData.append('contact_email', additionalContact);
       formData.append('instructions', notes);
+      if (latitude) formData.append('latitude', latitude.toString());
+      if (longitude) formData.append('longitude', longitude.toString());
 
       if (attachment) {
         const uri = attachment.uri;
@@ -411,11 +486,8 @@ const OrderBinScreen: React.FC = () => {
       const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, formData);
 
       if (response.success) {
-        toast.success(
-          'Success',
-          'Your order has been placed successfully!',
-          () => navigation.navigate('Bookings' as never)
-        );
+        toast.success('Success', 'Your order has been placed successfully!');
+        navigation.navigate('Bookings' as never);
       } else {
         toast.error('Sorry', response.message || 'Failed to place order');
       }
@@ -562,19 +634,6 @@ const OrderBinScreen: React.FC = () => {
               style={styles.formSectionGradient}>
               <View style={styles.binSectionHeader}>
                 <Text style={styles.formSectionTitleSmall}>Bins *</Text>
-                <TouchableOpacity
-                  style={styles.addBinButton}
-                  activeOpacity={0.7}
-                  onPress={addBin}>
-                  <LinearGradient
-                    colors={['#29B554', '#6EAD16']}
-                    locations={[0.2227, 0.7018]}
-                    start={{ x: 0.7, y: 0 }}
-                    end={{ x: 0, y: 0.8 }}
-                    style={styles.addBinButtonGradient}>
-                    <AddBinIcon width={79} height={14} />
-                  </LinearGradient>
-                </TouchableOpacity>
               </View>
 
               {bins.map((bin, index) => (
@@ -620,6 +679,20 @@ const OrderBinScreen: React.FC = () => {
                   </LinearGradient>
                 </View>
               ))}
+
+              <TouchableOpacity
+                style={[styles.addBinButton, { marginTop: 10, width: 140, height: 35, alignSelf: 'flex-end' }]}
+                activeOpacity={0.7}
+                onPress={addBin}>
+                <LinearGradient
+                  colors={['#29B554', '#6EAD16']}
+                  locations={[0.2227, 0.7018]}
+                  start={{ x: 0.7, y: 0 }}
+                  end={{ x: 0, y: 0.8 }}
+                  style={styles.addBinButtonGradient}>
+                  <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </LinearGradient>
           </View>
 
@@ -631,12 +704,54 @@ const OrderBinScreen: React.FC = () => {
               start={{ x: 0.34, y: 0 }}
               end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
-              <FormField
-                label="Location*"
-                placeholder="Enter Delivery Address"
-                value={deliveryAddress}
-                onChangeText={setDeliveryAddress}
-              />
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <FormField
+                    label="Location*"
+                    placeholder="Enter Delivery Address"
+                    value={deliveryAddress}
+                    onChangeText={setDeliveryAddress}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.searchButton}
+                  onPress={handleSearchAddress}
+                  disabled={isSearching}
+                >
+                  <LinearGradient
+                    colors={['#29B554', '#6EAD16']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.searchButtonGradient}
+                  >
+                    {isSearching ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <Ionicons name="search" size={20} color="#FFF" />
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.mapContainer}>
+                <MapView
+                  style={styles.map}
+                  provider={PROVIDER_GOOGLE}
+                  region={mapRegion}
+                  onRegionChangeComplete={setMapRegion}
+                >
+                  {latitude !== null && longitude !== null && (
+                    <Marker
+                      coordinate={{ latitude, longitude }}
+                      draggable
+                      onDragEnd={onMarkerDragEnd}
+                      title="Delivery Location"
+                      description="Drag to refine"
+                    />
+                  )}
+                </MapView>
+                <Text style={styles.mapHint}>Drag the pin to refine your exact location</Text>
+              </View>
               <FormField
                 label="Start Date*"
                 placeholder="Select Start Date"
@@ -670,7 +785,7 @@ const OrderBinScreen: React.FC = () => {
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={onPickupDateChange}
-                  minimumDate={new Date(deliveryDateObj.getTime() + 86400000)}
+                  minimumDate={deliveryDateObj}
                 />
               )}
             </LinearGradient>
@@ -1348,6 +1463,43 @@ const styles = StyleSheet.create({
     top: 5,
     right: 5,
     zIndex: 10,
+  },
+  searchButton: {
+    height: 46,
+    width: 46,
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  searchButtonGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapContainer: {
+    height: 200,
+    width: '100%',
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  map: {
+    flex: 1,
+  },
+  mapHint: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    right: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    padding: 4,
+    borderRadius: 4,
+    fontSize: 10,
+    color: '#373934',
+    textAlign: 'center',
+    fontFamily: fonts.family.regular,
   },
 });
 

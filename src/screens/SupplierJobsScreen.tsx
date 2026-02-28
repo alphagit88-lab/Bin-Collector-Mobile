@@ -57,6 +57,7 @@ interface Job {
   customer_name: string;
   customer_phone: string;
   attachment_url?: string;
+  payment_method?: string;
 }
 
 const categoryLabels: Record<JobCategory, string> = {
@@ -160,8 +161,10 @@ const SupplierJobsScreen: React.FC = () => {
         deliveryDate: new Date(job.start_date).toLocaleDateString(),
         pickupDate: new Date(job.end_date).toLocaleDateString(),
         customerName: job.customer_name,
-        customerId: job.customer_phone,
+        customerId: job.id.toString(), // or job.customer_id if you want the user id
+        customerPhone: job.customer_phone,
         attachment_url: job.attachment_url,
+        payment_method: job.payment_method,
       },
     });
   };

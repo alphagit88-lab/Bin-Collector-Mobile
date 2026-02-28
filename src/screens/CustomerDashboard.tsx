@@ -136,7 +136,7 @@ const CustomerDashboard: React.FC = () => {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Tracking and Booking Cards Row */}
+        {/* Tracking and History Cards Row */}
         <View style={styles.trackingBookingRow}>
           {/* Tracking Card */}
           <View style={styles.trackingCard}>
@@ -167,7 +167,7 @@ const CustomerDashboard: React.FC = () => {
             </LinearGradient>
           </View>
 
-          {/* Booking Card */}
+          {/* History Card */}
           <View style={styles.bookingCard}>
             <LinearGradient
               colors={['#A7DB3D', '#D6EF72', '#D8FF3A']}
@@ -177,7 +177,7 @@ const CustomerDashboard: React.FC = () => {
               style={styles.bookingCardGradient}>
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>Bookings</Text>
+                  <Text style={styles.cardTitle}>History</Text>
                   <TouchableOpacity
                     style={styles.playButtonContainer}
                     activeOpacity={0.7}
@@ -207,7 +207,10 @@ const CustomerDashboard: React.FC = () => {
         </View>
 
         {/* Payments Card */}
-        <View style={styles.paymentsCard}>
+        <TouchableOpacity
+          style={styles.paymentsCard}
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('Bookings' as never)}>
           <LinearGradient
             colors={['#29B554', '#6EAD16']}
             start={{ x: 0, y: 0 }}
@@ -232,7 +235,7 @@ const CustomerDashboard: React.FC = () => {
               </View>
             </View>
           </LinearGradient>
-        </View>
+        </TouchableOpacity>
 
         {/* Recent Bookings Section */}
         <View style={styles.recentBookingsSection}>

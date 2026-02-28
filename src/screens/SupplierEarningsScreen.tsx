@@ -5,8 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
-  TextInput,
   ActivityIndicator,
 } from 'react-native';
 import AppModal from '../components/AppModal';
@@ -24,6 +22,14 @@ interface Wallet {
   total_earned: string;
 }
 
+interface PendingJob {
+  wallet_transaction_id: number;
+  amount: string;
+  description: string | null;
+  created_at: string;
+  service_request_code: string | null;
+}
+
 interface Payout {
   id: number;
   payout_id: string;
@@ -35,9 +41,10 @@ interface Payout {
 const SupplierEarningsScreen: React.FC = () => {
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [payouts, setPayouts] = useState<Payout[]>([]);
+  const [pendingJobs, setPendingJobs] = useState<PendingJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [payoutModalVisible, setPayoutModalVisible] = useState(false);
-  const [payoutAmount, setPayoutAmount] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
@@ -56,6 +63,11 @@ const SupplierEarningsScreen: React.FC = () => {
       if (payoutsRes.success && payoutsRes.data) {
         setPayouts(payoutsRes.data.payouts);
       }
+
+      const jobsRes = await api.get<{ pending_jobs: PendingJob[] }>(ENDPOINTS.WALLET.PENDING_JOBS);
+      if (jobsRes.success && jobsRes.data) {
+        setPendingJobs(jobsRes.data.pending_jobs || []);
+      }
     } catch (error) {
       console.error('Error fetching wallet data:', error);
     } finally {
@@ -63,29 +75,49 @@ const SupplierEarningsScreen: React.FC = () => {
     }
   };
 
-  const handleRequestPayout = async () => {
-    const amount = parseFloat(payoutAmount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error('Error', 'Please enter a valid amount');
-      return;
+  const openPayoutModal = async () => {
+    setSelectedIds(new Set());
+    setPayoutModalVisible(true);
+    try {
+      const jobsRes = await api.get<{ pending_jobs: PendingJob[] }>(ENDPOINTS.WALLET.PENDING_JOBS);
+      if (jobsRes.success && jobsRes.data) {
+        setPendingJobs(jobsRes.data.pending_jobs || []);
+      }
+    } catch (_) {
+      // keep existing list on error
     }
+  };
 
-    if (wallet && amount > parseFloat(wallet.balance)) {
-      toast.error('Error', 'Insufficient balance');
+  const toggleJob = (walletTransactionId: number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(walletTransactionId)) next.delete(walletTransactionId);
+      else next.add(walletTransactionId);
+      return next;
+    });
+  };
+
+  const selectedTotal = pendingJobs
+    .filter((j) => selectedIds.has(j.wallet_transaction_id))
+    .reduce((sum, j) => sum + parseFloat(j.amount), 0);
+
+  const handleRequestPayout = async () => {
+    if (selectedIds.size === 0) {
+      toast.error('Error', 'Select at least one job to include in the payout');
       return;
     }
 
     setRequesting(true);
     try {
       const response = await api.post(ENDPOINTS.WALLET.REQUEST_PAYOUT, {
-        amount,
-        paymentMethod: 'bank_transfer', // Default for now
+        wallet_transaction_ids: Array.from(selectedIds),
+        payment_method: 'bank_transfer',
       });
 
       if (response.success) {
         toast.success('Success', 'Payout request submitted successfully. An invoice has been generated for this request.');
         setPayoutModalVisible(false);
-        setPayoutAmount('');
+        setSelectedIds(new Set());
         fetchWalletData();
       } else {
         toast.error('Error', response.message || 'Failed to request payout');
@@ -141,8 +173,9 @@ const SupplierEarningsScreen: React.FC = () => {
             </View>
 
             <TouchableOpacity
-              style={styles.payoutButton}
-              onPress={() => setPayoutModalVisible(true)}>
+              style={[styles.payoutButton, pendingJobs.length === 0 && styles.payoutButtonDisabled]}
+              onPress={openPayoutModal}
+              disabled={pendingJobs.length === 0}>
               <Text style={styles.payoutButtonText}>Request Payout</Text>
             </TouchableOpacity>
           </LinearGradient>
@@ -163,7 +196,7 @@ const SupplierEarningsScreen: React.FC = () => {
                   <Text style={styles.payoutAmount}>${parseFloat(payout.amount).toFixed(2)}</Text>
                   <Text style={[
                     styles.payoutStatus,
-                    { color: payout.status === 'completed' ? '#10B981' : payout.status === 'pending' ? '#F59E0B' : '#EF4444' }
+                    { color: (payout.status === 'approved' || payout.status === 'completed') ? '#10B981' : (payout.status === 'pending' || payout.status === 'processing') ? '#F59E0B' : '#EF4444' }
                   ]}>
                     {payout.status.replace(/_/g, ' ').charAt(0).toUpperCase() + payout.status.replace(/_/g, ' ').slice(1)}
                   </Text>
@@ -176,7 +209,7 @@ const SupplierEarningsScreen: React.FC = () => {
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      {/* Payout Request Modal */}
+      {/* Payout Request Modal - select pending jobs */}
       <AppModal
         visible={payoutModalVisible}
         transparent={true}
@@ -184,15 +217,36 @@ const SupplierEarningsScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Request Payout</Text>
-            <Text style={styles.modalLabel}>Amount to Withdraw</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="0.00"
-              keyboardType="decimal-pad"
-              value={payoutAmount}
-              onChangeText={setPayoutAmount}
-            />
-            <Text style={styles.helperText}>A payout invoice will be generated automatically upon submission.</Text>
+            <Text style={styles.modalLabel}>Select jobs to include</Text>
+            {pendingJobs.length === 0 ? (
+              <Text style={styles.emptyJobsText}>No pending job earnings available for payout.</Text>
+            ) : (
+              <ScrollView style={styles.jobsList} nestedScrollEnabled>
+                {pendingJobs.map((job) => {
+                  const isSelected = selectedIds.has(job.wallet_transaction_id);
+                  return (
+                    <TouchableOpacity
+                      key={job.wallet_transaction_id}
+                      style={[styles.jobRow, isSelected && styles.jobRowSelected]}
+                      onPress={() => toggleJob(job.wallet_transaction_id)}
+                      activeOpacity={0.7}>
+                      <View style={styles.jobRowLeft}>
+                        <View style={[styles.checkbox, isSelected && styles.checkboxSelected]} />
+                        <View>
+                          <Text style={styles.jobCode}>{job.service_request_code || `Job #${job.wallet_transaction_id}`}</Text>
+                          <Text style={styles.jobDesc} numberOfLines={1}>{job.description || 'Earning'}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.jobAmount}>${parseFloat(job.amount).toFixed(2)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+            {selectedIds.size > 0 && (
+              <Text style={styles.totalText}>Total: ${selectedTotal.toFixed(2)}</Text>
+            )}
+            <Text style={styles.helperText}>An invoice listing these jobs will be generated upon submission.</Text>
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
@@ -203,7 +257,7 @@ const SupplierEarningsScreen: React.FC = () => {
               <TouchableOpacity
                 style={[styles.modalBtn, styles.confirmBtn]}
                 onPress={handleRequestPayout}
-                disabled={requesting}>
+                disabled={requesting || selectedIds.size === 0}>
                 {requesting ? (
                   <ActivityIndicator color="#FFF" size="small" />
                 ) : (
@@ -294,6 +348,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
   },
+  payoutButtonDisabled: {
+    opacity: 0.6,
+  },
   payoutButtonText: {
     fontFamily: fonts.family.bold,
     fontSize: 16,
@@ -375,14 +432,69 @@ const styles = StyleSheet.create({
     color: '#666666',
     marginBottom: 10,
   },
-  input: {
+  jobsList: {
+    maxHeight: 220,
+    marginBottom: 12,
+  },
+  jobRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 15,
-    fontSize: 18,
-    fontFamily: fonts.family.bold,
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  jobRowSelected: {
+    backgroundColor: 'rgba(130, 209, 0, 0.15)',
+    borderWidth: 1,
+    borderColor: '#82D100',
+  },
+  jobRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#CCC',
+    marginRight: 12,
+  },
+  checkboxSelected: {
+    backgroundColor: '#82D100',
+    borderColor: '#82D100',
+  },
+  jobCode: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 14,
     color: '#242424',
-    marginBottom: 10,
+  },
+  jobDesc: {
+    fontFamily: fonts.family.regular,
+    fontSize: 12,
+    color: '#666666',
+    marginTop: 2,
+  },
+  jobAmount: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#242424',
+  },
+  totalText: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#242424',
+    marginBottom: 8,
+  },
+  emptyJobsText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 20,
   },
   helperText: {
     fontFamily: fonts.family.regular,
