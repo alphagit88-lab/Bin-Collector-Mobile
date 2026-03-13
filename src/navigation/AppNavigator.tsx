@@ -12,6 +12,7 @@ import SupplierOperationsScreen from '../screens/SupplierOperationsScreen';
 import FleetManagementScreen from '../screens/FleetManagementScreen';
 import SupplierAvailabilityScreen from '../screens/SupplierAvailabilityScreen';
 import ServiceAreaScreen from '../screens/ServiceAreaScreen';
+import SupplierBinPricingScreen from '../screens/SupplierBinPricingScreen';
 import SupplierRequestsScreen from '../screens/SupplierRequestsScreen';
 import SupplierOrderAcceptedScreen from '../screens/SupplierOrderAcceptedScreen';
 import JobDetailScreen from '../screens/JobDetailScreen';
@@ -21,6 +22,9 @@ import BookingsScreen from '../screens/BookingsScreen';
 import OrderBinScreen from '../screens/OrderBinScreen';
 import OrderConfirmationScreen from '../screens/OrderConfirmationScreen';
 import OrderSuccessScreen from '../screens/OrderSuccessScreen';
+import SupplierDriversScreen from '../screens/SupplierDriversScreen';
+import DriverDashboard from '../screens/DriverDashboard';
+import DriverJobsScreen from '../screens/DriverJobsScreen';
 
 import { navigationRef } from './navigationRef';
 
@@ -83,6 +87,7 @@ const AppNavigator: React.FC = () => {
               component={SupplierRequestsScreen}
             />
             <Stack.Screen name="ServiceArea" component={ServiceAreaScreen} />
+            <Stack.Screen name="SupplierBinPricing" component={SupplierBinPricingScreen} />
             <Stack.Screen
               name="SupplierOrderAccepted"
               component={SupplierOrderAcceptedScreen}
@@ -93,11 +98,19 @@ const AppNavigator: React.FC = () => {
               name="SupplierEarnings"
               component={SupplierEarningsScreen}
             />
+            <Stack.Screen name="SupplierDrivers" component={SupplierDriversScreen} />
             <Stack.Screen name="Bookings" component={BookingsScreen} />
             <Stack.Screen
               name="ServiceTracking"
               component={ServiceTrackingScreen}
             />
+            <Stack.Screen name="Account" component={AccountScreen} />
+          </>
+        ) : user?.role === 'driver' ? (
+          <>
+            <Stack.Screen name="DriverDashboard" component={DriverDashboard} />
+            <Stack.Screen name="DriverJobs" component={DriverJobsScreen} />
+            <Stack.Screen name="JobDetail" component={JobDetailScreen} />
             <Stack.Screen name="Account" component={AccountScreen} />
           </>
         ) : (

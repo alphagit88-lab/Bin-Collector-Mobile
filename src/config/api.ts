@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Update this to match your backend URL
 // For Android emulator, use 10.0.2.2 instead of localhost
 // For physical device, use your computer's IP address
-const BASE_URL = `https://flashers-twenty-themes-daniel.trycloudflare.com`;
+const BASE_URL = `http://192.168.8.120:5000`;
 const API_URL = `${BASE_URL}/api`;
 //http://192.168.8.120:5000
 //https://flashers-twenty-themes-daniel.trycloudflare.com
@@ -88,9 +88,10 @@ class ApiClient {
   }
 
   async put<T>(endpoint: string, body?: any): Promise<ApiResponse<T>> {
+    const isFormData = body instanceof FormData;
     return this.request<T>(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
     });
   }
 

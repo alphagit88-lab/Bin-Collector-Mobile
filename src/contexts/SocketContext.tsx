@@ -82,15 +82,13 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         }
     }, [token, user]);
 
-    const handleAccept = async (totalPrice: number) => {
+    const handleAccept = async () => {
         if (incomingRequest && incomingRequest.request) {
             const request = incomingRequest.request;
 
             try {
                 // Call acception endpoint
-                const response = await api.post(ENDPOINTS.BOOKINGS.ACCEPT(request.id), {
-                    total_price: totalPrice
-                });
+                const response = await api.post(ENDPOINTS.BOOKINGS.ACCEPT(request.id), {});
 
                 if (response.success) {
                     setRequestModalVisible(false);

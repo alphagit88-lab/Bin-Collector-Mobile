@@ -10,6 +10,7 @@ export const ENDPOINTS = {
     BINS: {
         TYPES: '/bins/types',
         SIZES: (typeId: number) => `/bins/sizes?binTypeId=${typeId}`,
+        PRICES: '/bins/prices',
         PHYSICAL: '/bins/physical',
         UPDATE_PHYSICAL: (id: number) => `/bins/physical/${id}`,
     },
@@ -19,6 +20,7 @@ export const ENDPOINTS = {
         SUPPLIER_REQUESTS: '/bookings/supplier/requests',
         PENDING: '/bookings/supplier/pending',
         ACCEPT: (id: string) => `/bookings/${id}/accept`,
+        DETAILS: (id: string) => `/bookings/${id}`,
         UPDATE_STATUS: (id: string) => `/bookings/${id}/status`,
         ORDER_ITEMS: (id: string) => `/bookings/${id}/order-items`,
         MARK_READY: (id: string) => `/bookings/${id}/ready-to-pickup`,
@@ -40,5 +42,12 @@ export const ENDPOINTS = {
     SUPPLIER: {
         AVAILABILITY: '/supplier/availability',
         SERVICE_AREAS: '/supplier/service-areas',
+        BIN_SIZES: '/supplier/bin-sizes',
+        UPDATE_BIN_PRICE: '/supplier/service-area-bins/price',
+        DRIVERS: '/supplier/drivers',
+        ASSIGN_DRIVER: '/supplier/assign-driver',
+    },
+    SERVICES: {
+        CATEGORIES: '/service-categories',
     }
 };

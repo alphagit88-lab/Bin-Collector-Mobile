@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,9 +9,9 @@ import {
   Dimensions,
   Image,
 } from 'react-native';
-import {LinearGradient} from 'expo-linear-gradient';
-import {useNavigation} from '@react-navigation/native';
-import {fonts} from '../theme/fonts';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
+import { fonts } from '../theme/fonts';
 import BottomNavBar from '../components/BottomNavBar';
 
 // Import SVG images
@@ -20,7 +20,7 @@ import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import Group14 from '../assets/images/Group 14.svg';
 import Icon20_1 from '../assets/images/20 1.svg';
 
-const {width} = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface BinItem {
   binType: string;
@@ -38,8 +38,8 @@ const OrderConfirmationScreen: React.FC = () => {
 
   // Sample added bins data
   const addedBins: BinItem[] = [
-    {binType: 'General Waste', binSize: '6m³ - Medium'},
-    {binType: 'Concrete/Dirt', binSize: '6m³ - Medium'},
+    { binType: 'General Waste', binSize: '6m³ - Medium' },
+    { binType: 'Concrete/Dirt', binSize: '6m³ - Medium' },
   ];
 
   const handleConfirmOrder = () => {
@@ -85,8 +85,8 @@ const OrderConfirmationScreen: React.FC = () => {
         <View style={styles.headerBanner}>
           <LinearGradient
             colors={['#29B554', '#6EAD16']}
-            start={{x: 0.22, y: 0}}
-            end={{x: 0.7, y: 1}}
+            start={{ x: 0.22, y: 0 }}
+            end={{ x: 0.7, y: 1 }}
             style={styles.headerBannerGradient}>
             <View style={styles.headerContent}>
               <View style={styles.headerTextContainer}>
@@ -125,15 +125,15 @@ const OrderConfirmationScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#EAFFCC']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.34, y: 0}}
-              end={{x: 0.66, y: 1}}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
               style={styles.addedBinsSectionGradient}>
               <Text style={styles.addedBinsTitle}>Added Bins</Text>
 
               {/* Table Header */}
               <View style={styles.tableHeader}>
                 <Text style={styles.tableHeaderText}>Bin Type</Text>
-                <Text style={styles.tableHeaderText}>Bin Size/Capacity</Text>
+                <Text style={styles.tableHeaderText}>Size/Capacity</Text>
                 <Text style={[styles.tableHeaderText, styles.actionHeader]}>
                   Action
                 </Text>
@@ -170,8 +170,8 @@ const OrderConfirmationScreen: React.FC = () => {
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
               locations={[0.2377, 0.6629]}
-              start={{x: 0.34, y: 0}}
-              end={{x: 0.66, y: 1}}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
               style={styles.paymentSectionGradient}>
               <Text style={styles.paymentTitle}>Payment Information</Text>
 
@@ -259,8 +259,8 @@ const OrderConfirmationScreen: React.FC = () => {
               onPress={handleConfirmOrder}>
               <LinearGradient
                 colors={['#29B554', '#6EAD16']}
-                start={{x: 0.22, y: 0}}
-                end={{x: 0.7, y: 1}}
+                start={{ x: 0.22, y: 0 }}
+                end={{ x: 0.7, y: 1 }}
                 style={styles.confirmButtonGradient}>
                 <Text style={styles.confirmButtonText}>
                   Confirm & Place Order
@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     color: '#2C2525',
   },
   arrowIconContainer: {
-    transform: [{rotate: '90deg'}],
+    transform: [{ rotate: '90deg' }],
   },
   paymentSection: {
     marginBottom: 8,

@@ -10,12 +10,17 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Linking } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import BottomNavBar from '../components/BottomNavBar';
 import AppModal from '../components/AppModal';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
@@ -51,16 +56,25 @@ interface JobDetail {
   payment_method?: string;
   orderItems?: OrderItem[];
   attachment_url?: string;
+  latitude?: number | string;
+  longitude?: number | string;
+  delivery_photo_url?: string;
+  service_category?: string;
+  selected_services?: any;
+  service_names?: string;
+  selected_services_count?: number;
+  driver_id?: number | string;
+  driver_name?: string;
 }
 
 const statusSteps = [
   { key: 'pending', label: 'Pending', icon: '⏳' },
   { key: 'confirmed', label: 'Confirmed', icon: '✅' },
-  { key: 'on_delivery', label: 'On Delivery', icon: '🚚' },
+  { key: 'on_delivery', label: 'On Delivery', icon: '🚚', isPhysical: true },
   { key: 'cash_collected', label: 'Cash Collected', icon: '💵', cashOnly: true },
-  { key: 'delivered', label: 'Delivered', icon: '📦' },
-  { key: 'ready_to_pickup', label: 'Ready to Pickup', icon: '🔄' },
-  { key: 'pickup', label: 'Pickup', icon: '📥' },
+  { key: 'delivered', label: 'Delivered', icon: '📦', isPhysical: true },
+  { key: 'ready_to_pickup', label: 'Ready to Pickup', icon: '🔄', isPhysical: true },
+  { key: 'pickup', label: 'Pickup', icon: '📥', isPhysical: true },
   { key: 'completed', label: 'Completed', icon: '🎉' },
 ];
 
@@ -84,13 +98,61 @@ const mockJobDetail: JobDetail = {
 const JobDetailScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute();
+  const initialData = (route.params as any)?.booking || (route.params as any)?.job || mockJobDetail;
+
+  const formatDisplayDate = (dateStr: any) => {
+    if (!dateStr || dateStr === 'N/A') return 'N/A';
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      return date.toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  const mapBackendToJobDetail = (data: any): JobDetail => {
+    if (!data) return mockJobDetail;
+    return {
+      id: data.id,
+      orderId: data.request_id || data.orderId || '#0000',
+      binType: data.bin_type_name || data.binType,
+      binSize: data.bin_size || data.binSize,
+      total: data.total_price || data.estimated_price || data.total || '$0.00',
+      deliveryDate: formatDisplayDate(data.start_date || data.deliveryDate),
+      pickupDate: formatDisplayDate(data.end_date || data.pickupDate),
+      location: data.location || 'N/A',
+      customerName: data.customer_name || data.customerName || 'N/A',
+      customerId: data.customer_id || data.customerId || 'N/A',
+      customerPhone: data.customer_phone || data.customerPhone,
+      status: data.status,
+      payment_method: data.payment_method,
+      orderItems: data.orderItems || data.items,
+      attachment_url: data.attachment_url,
+      latitude: data.latitude,
+      longitude: data.longitude,
+      delivery_photo_url: data.delivery_photo_url,
+      service_category: data.service_category,
+      selected_services: data.selected_services,
+      service_names: data.service_names,
+      selected_services_count: data.selected_services_count,
+      driver_id: data.driver_id,
+      driver_name: data.driver_name
+    };
+  };
 
   // Use route params if available, otherwise use mock data
-  const jobDetail: JobDetail = (route.params as any)?.job || mockJobDetail;
+  const [jobDetail, setJobDetail] = useState<JobDetail>(mapBackendToJobDetail(initialData));
+  const [fetching, setFetching] = useState(false);
 
   const [showAcceptModal, setShowAcceptModal] = useState(false);
-  const [totalPrice, setTotalPrice] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [deliveryPhoto, setDeliveryPhoto] = useState<string | null>(null);
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
     title: '',
@@ -100,19 +162,80 @@ const JobDetailScreen: React.FC = () => {
     isDestructive: false,
   });
   const [showBinModal, setShowBinModal] = useState(false);
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showDriverModal, setShowDriverModal] = useState(false);
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [assigningDriver, setAssigningDriver] = useState(false);
+  const { user } = require('../contexts/AuthContext').useAuth();
+
+  const isPending = jobDetail.status === 'pending';
+
+  const fetchDrivers = React.useCallback(async () => {
+    try {
+      const response = await api.get<{ drivers: any[] }>(ENDPOINTS.SUPPLIER.DRIVERS);
+      if (response.success && response.data) {
+        setDrivers(response.data.drivers || []);
+      }
+    } catch (error) {
+      console.error('Error fetching drivers:', error);
+    }
+  }, []);
+
+  const fetchJobData = React.useCallback(async () => {
+    if (!jobDetail.id) return;
+    setFetching(true);
+    try {
+      const response = await api.get<{ request: any }>(ENDPOINTS.BOOKINGS.DETAILS(jobDetail.id.toString()));
+      if (response.success && response.data?.request) {
+        setJobDetail(mapBackendToJobDetail(response.data.request));
+      }
+    } catch (error) {
+      console.error('Error fetching job details:', error);
+    } finally {
+      setFetching(false);
+    }
+  }, [jobDetail.id]);
+
+  React.useEffect(() => {
+    fetchJobData();
+    if (user?.role === 'supplier') {
+      fetchDrivers();
+    }
+  }, [user?.role, fetchDrivers, fetchJobData]);
+
+  const handleAssignDriver = async (driverId: number) => {
+    setAssigningDriver(true);
+    try {
+      const response = await api.post(ENDPOINTS.SUPPLIER.ASSIGN_DRIVER, {
+        requestId: jobDetail.id,
+        driverId: driverId
+      });
+
+      if (response.success) {
+        toast.success('Success', 'Driver assigned successfully');
+        setShowDriverModal(false);
+
+        // Update local state
+        setJobDetail(prev => {
+          const updated = { ...prev };
+          updated.driver_id = driverId;
+          const driver = drivers.find(d => d.id === driverId);
+          if (driver) updated.driver_name = driver.name;
+          return updated;
+        });
+      } else {
+        toast.error('Error', response.message || 'Failed to assign driver');
+      }
+    } catch (error) {
+      toast.error('Error', 'An error occurred while assigning driver');
+    } finally {
+      setAssigningDriver(false);
+    }
+  };
 
   const handleAcceptOrder = async () => {
-    if (!totalPrice || parseFloat(totalPrice) <= 0) {
-      toast.error('Error', 'Please enter a valid price');
-      return;
-    }
-
     setSubmitting(true);
     try {
-      const response = await api.post(ENDPOINTS.BOOKINGS.ACCEPT(jobDetail.id.toString()), {
-        total_price: parseFloat(totalPrice)
-      });
+      const response = await api.post(ENDPOINTS.BOOKINGS.ACCEPT(jobDetail.id.toString()), {});
 
       if (response.success) {
         // Navigate to the success screen with order details
@@ -123,7 +246,6 @@ const JobDetailScreen: React.FC = () => {
             binSize: jobDetail.binSize,
             deliveryDate: jobDetail.deliveryDate,
             collectionDate: jobDetail.pickupDate,
-            // You might want to pass times if available, or they will fallback to defaults/empty in the screen
           },
         });
       } else {
@@ -133,7 +255,7 @@ const JobDetailScreen: React.FC = () => {
       toast.error('Error', 'An error occurred while accepting the order');
     } finally {
       setSubmitting(false);
-      setShowAcceptModal(false);
+      setConfirmModal(prev => ({ ...prev, visible: false }));
     }
   };
 
@@ -152,20 +274,41 @@ const JobDetailScreen: React.FC = () => {
   };
 
   const handleStatusUpdate = async (newStatus: string, binCodes?: string[]) => {
+    if (newStatus === 'delivered' && !deliveryPhoto) {
+      toast.error('Error', 'Please take a delivery photo first');
+      return;
+    }
     setUpdatingStatus(true);
     try {
-      const payload: any = { status: newStatus };
-      if (binCodes) payload.bin_codes = binCodes;
+      const formData = new FormData();
+      formData.append('status', newStatus);
 
-      const response = await api.put(ENDPOINTS.BOOKINGS.UPDATE_STATUS(jobDetail.id.toString()), payload);
-      console.log('response cash', response);
+      if (binCodes) {
+        formData.append('bin_codes', JSON.stringify(binCodes));
+      }
+
+      if (newStatus === 'delivered' && deliveryPhoto) {
+        const filename = deliveryPhoto.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename || '');
+        const type = match ? `image/${match[1]}` : `image`;
+
+        formData.append('delivery_photo', {
+          uri: deliveryPhoto,
+          name: filename,
+          type,
+        } as any);
+      }
+
+      const response = await api.put(ENDPOINTS.BOOKINGS.UPDATE_STATUS(jobDetail.id.toString()), formData);
+
       if (response.success) {
-        toast.success('Success', 'Status updated successfully');
+        toast.success('Success', `Status updated to ${newStatus}`);
         navigation.goBack();
       } else {
         toast.error('Error', response.message || 'Failed to update status');
       }
     } catch (error) {
+      console.error('Update status error:', error);
       toast.error('Error', 'An error occurred while updating status');
     } finally {
       setUpdatingStatus(false);
@@ -173,11 +316,49 @@ const JobDetailScreen: React.FC = () => {
     }
   };
 
+  const handleOpenDirections = () => {
+    const lat = jobDetail.latitude;
+    const lon = jobDetail.longitude;
+    const addr = encodeURIComponent(jobDetail.location);
+
+    if (lat && lon) {
+      const url = Platform.select({
+        ios: `maps:0,0?q=${addr}@${lat},${lon}`,
+        android: `geo:0,0?q=${lat},${lon}(${addr})`,
+      });
+      if (url) Linking.openURL(url);
+    } else {
+      const url = Platform.select({
+        ios: `maps:0,0?q=${addr}`,
+        android: `geo:0,0?q=${addr}`,
+      });
+      if (url) Linking.openURL(url);
+    }
+  };
+
+  const handleCapturePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error('Permission Denied', 'Camera permission is required to capture delivery photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setDeliveryPhoto(result.assets[0].uri);
+    }
+  };
+
   const handleBack = () => {
     navigation.goBack();
   };
 
-  const isPending = jobDetail.status === 'pending';
 
   return (
     <View style={styles.container}>
@@ -251,15 +432,19 @@ const JobDetailScreen: React.FC = () => {
                 </Text>
               </View>
               <View style={styles.orderSummaryColumn}>
-                <Text style={styles.orderSummaryLabel}>Bin Type</Text>
+                <Text style={styles.orderSummaryLabel}>
+                  {jobDetail.service_category === 'service' ? 'Service Type' : 'Bin Type'}
+                </Text>
                 <Text style={styles.orderSummaryValue}>
-                  {jobDetail.binType}
+                  {jobDetail.service_category === 'service' ? 'General Service' : jobDetail.binType}
                 </Text>
               </View>
               <View style={styles.orderSummaryColumn}>
-                <Text style={styles.orderSummaryLabel}>Bin Size/Capacity</Text>
+                <Text style={styles.orderSummaryLabel}>
+                  {jobDetail.service_category === 'service' ? 'Budget' : 'Size/Capacity'}
+                </Text>
                 <Text style={styles.orderSummaryValue}>
-                  {jobDetail.binSize}
+                  {jobDetail.service_category === 'service' ? `$${jobDetail.total}` : jobDetail.binSize}
                 </Text>
               </View>
             </View>
@@ -327,7 +512,16 @@ const JobDetailScreen: React.FC = () => {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.detailCardFull}>
-              <Text style={styles.detailLabel}>Location</Text>
+              <View style={styles.locationHeader}>
+                <Text style={styles.detailLabel}>Location</Text>
+                <TouchableOpacity
+                  style={styles.directionsButton}
+                  onPress={handleOpenDirections}
+                >
+                  <Ionicons name="navigate-circle" size={24} color={themeColors.primary} />
+                  <Text style={styles.directionsText}>Directions</Text>
+                </TouchableOpacity>
+              </View>
               <Text style={styles.detailValue}>{jobDetail.location}</Text>
             </LinearGradient>
 
@@ -339,17 +533,33 @@ const JobDetailScreen: React.FC = () => {
               end={{ x: 1, y: 1 }}
               style={styles.detailCardFull}>
               <Text style={styles.detailLabel}>Order Requirements</Text>
-              {jobDetail.orderItems && jobDetail.orderItems.length > 0 ? (
+              {jobDetail.service_category === 'service' ? (
+                <View style={styles.serviceListContainer}>
+                  {jobDetail.service_names ? (
+                    jobDetail.service_names.split(',').map((name: string, idx: number) => (
+                      <View key={idx} style={styles.serviceTag}>
+                        <Ionicons name="checkmark-circle" size={16} color={themeColors.primary} />
+                        <Text style={styles.serviceTagText}>{name.trim()}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <View style={styles.serviceTag}>
+                      <Ionicons name="checkmark-circle" size={16} color={themeColors.primary} />
+                      <Text style={styles.serviceTagText}>General Service</Text>
+                    </View>
+                  )}
+                </View>
+              ) : jobDetail.orderItems && jobDetail.orderItems.length > 0 ? (
                 jobDetail.orderItems.map((item, index) => (
                   <View key={item.id} style={[styles.orderItemRow, index > 0 && { marginTop: 8 }]}>
                     <Text style={styles.detailValue}>
-                      • {item.bin_type_name} - {item.bin_size}
+                      • {item.bin_type_name} {item.bin_size ? `( - ${item.bin_size})` : ''}
                     </Text>
                   </View>
                 ))
               ) : (
                 <Text style={styles.detailValue}>
-                  {jobDetail.binType} - {jobDetail.binSize}
+                  {jobDetail.binType} {jobDetail.binSize ? `( - ${jobDetail.binSize})` : ''}
                 </Text>
               )}
             </LinearGradient>
@@ -371,6 +581,28 @@ const JobDetailScreen: React.FC = () => {
                 </Text>
               )}
             </LinearGradient>
+
+            {/* Driver Card */}
+            {jobDetail.driver_id && (
+              <LinearGradient
+                colors={['#EFF2F0', '#EAFFCC']}
+                locations={[0.2377, 0.6629]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.detailCardFull}>
+                <Text style={styles.detailLabel}>Assigned Driver</Text>
+                <View style={styles.driverInfoRow}>
+                  <Text style={styles.detailValue}>
+                    {jobDetail.driver_name || 'Driver Assigned'}
+                  </Text>
+                  {user?.role === 'supplier' && jobDetail.status === 'confirmed' && (
+                    <TouchableOpacity onPress={() => setShowDriverModal(true)}>
+                      <Text style={{ color: themeColors.primary, fontFamily: fonts.family.medium }}>Change</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </LinearGradient>
+            )}
 
             {/* Attachment Section */}
             {jobDetail.attachment_url && (
@@ -394,8 +626,36 @@ const JobDetailScreen: React.FC = () => {
               </LinearGradient>
             )}
 
+            {/* Delivery Confirmation Photo Section */}
+            {jobDetail.delivery_photo_url && (
+              <LinearGradient
+                colors={['#EFF2F0', '#EAFFCC']}
+                locations={[0.2377, 0.6629]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.detailCardFull}>
+                <Text style={styles.detailLabel}>Delivery Confirmation</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    // Logic to view full image could go here
+                  }}>
+                  <Image
+                    source={{ uri: `${BASE_URL}${jobDetail.delivery_photo_url}` }}
+                    style={styles.attachmentPreview}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              </LinearGradient>
+            )}
+
+            {fetching && (
+              <View style={{ padding: 10, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={themeColors.primary} />
+              </View>
+            )}
+
             {/* Action Buttons */}
-            {isPending && (
+            {(user?.role === 'supplier' || user?.role === 'driver') && isPending && (
               <View style={styles.actionButtonsContainer}>
                 <TouchableOpacity
                   style={styles.declineButton}
@@ -406,7 +666,15 @@ const JobDetailScreen: React.FC = () => {
 
                 <TouchableOpacity
                   style={[styles.acceptButtonWrapper, { marginLeft: 8 }]}
-                  onPress={() => setShowAcceptModal(true)}
+                  onPress={() => setConfirmModal({
+                    visible: true,
+                    title: 'Accept Order',
+                    message: `Are you sure you want to accept order ${jobDetail.orderId}?`,
+                    confirmText: 'Accept',
+                    isDestructive: false,
+                    onConfirm: handleAcceptOrder,
+                  })}
+                  disabled={submitting}
                   activeOpacity={0.8}>
                   <LinearGradient
                     colors={[
@@ -421,134 +689,239 @@ const JobDetailScreen: React.FC = () => {
                       start={{ x: 0.1, y: 0 }}
                       end={{ x: 1, y: 1 }}
                       style={styles.acceptButton}>
-                      <Text style={styles.acceptButtonText}>Accept Order</Text>
+                      {submitting ? (
+                        <ActivityIndicator color="#FFF" size="small" />
+                      ) : (
+                        <Text style={styles.acceptButtonText}>Accept Order</Text>
+                      )}
                     </LinearGradient>
                   </LinearGradient>
                 </TouchableOpacity>
               </View>
             )}
 
-            {/* Status Update Buttons for Supplier */}
-            {!isPending && (
-              <View style={styles.actionButtonsContainer}>
-                {jobDetail.status === 'confirmed' && (
+            {/* Status Update Buttons for Supplier/Driver */}
+            {(user?.role === 'supplier' || user?.role === 'driver') && !isPending && (
+              <View style={{ gap: 8 }}>
+                {user?.role === 'supplier' && !jobDetail.driver_id && jobDetail.status === 'confirmed' && (
                   <TouchableOpacity
-                    style={styles.acceptButtonWrapper}
-                    onPress={() => setShowBinModal(true)}
-                    activeOpacity={0.8}>
-                    <LinearGradient
-                      colors={['#29B554', '#6EAD16']}
-                      style={styles.acceptButton}>
-                      <Text style={styles.acceptButtonText}>Start Delivery (Assign Bins)</Text>
-                    </LinearGradient>
+                    style={styles.assignDriverButton}
+                    onPress={() => setShowDriverModal(true)}
+                  >
+                    <Ionicons name="people-outline" size={20} color={themeColors.primary} style={{ marginRight: 8 }} />
+                    <Text style={styles.assignDriverButtonText}>Assign Driver</Text>
                   </TouchableOpacity>
                 )}
 
-                {jobDetail.status === 'on_delivery' && (
-                  <TouchableOpacity
-                    style={styles.acceptButtonWrapper}
-                    onPress={() => setConfirmModal({
-                      visible: true,
-                      title: 'Confirm',
-                      message: jobDetail.payment_method === 'cash'
-                        ? 'Confirm cash collection for this order?'
-                        : 'Mark this order as delivered?',
-                      confirmText: 'Confirm',
-                      onConfirm: () => {
-                        setConfirmModal(prev => ({ ...prev, visible: false }));
-                        handleStatusUpdate(jobDetail.payment_method === 'cash' ? 'cash_collected' : 'delivered');
-                      },
-                      isDestructive: false,
-                    })}
-                    activeOpacity={0.8}>
-                    <LinearGradient
-                      colors={['#29B554', '#6EAD16']}
-                      style={styles.acceptButton}>
-                      <Text style={styles.acceptButtonText}>
-                        {jobDetail.payment_method === 'cash' ? 'Mark as Cash Collected' : 'Mark as Delivered'}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
+                <View style={styles.actionButtonsContainer}>
+                  {jobDetail.status === 'confirmed' && (
+                    <TouchableOpacity
+                      style={[
+                        styles.acceptButtonWrapper,
+                        user?.role === 'driver' && jobDetail.service_category !== 'service' && styles.disabledContent
+                      ]}
+                      onPress={() => {
+                        if (user?.role === 'driver' && jobDetail.service_category !== 'service') return;
+                        if (jobDetail.service_category === 'service') {
+                          setConfirmModal({
+                            visible: true,
+                            title: 'Complete Service',
+                            message: jobDetail.payment_method === 'cash'
+                              ? 'Confirm cash collection and complete this service?'
+                              : 'Mark this service as completed?',
+                            confirmText: 'Confirm',
+                            onConfirm: () => {
+                              setConfirmModal(prev => ({ ...prev, visible: false }));
+                              if (jobDetail.payment_method === 'cash') {
+                                handleStatusUpdate('cash_collected');
+                              } else {
+                                handleStatusUpdate('completed');
+                              }
+                            },
+                            isDestructive: false,
+                          });
+                        } else {
+                          setShowBinModal(true);
+                        }
+                      }}
+                      activeOpacity={user?.role === 'driver' && jobDetail.service_category !== 'service' ? 1 : 0.8}
+                      disabled={user?.role === 'driver' && jobDetail.service_category !== 'service'}
+                    >
+                      <LinearGradient
+                        colors={['#29B554', '#6EAD16']}
+                        style={styles.acceptButton}>
+                        <Text style={styles.acceptButtonText}>
+                          {jobDetail.service_category === 'service'
+                            ? (jobDetail.payment_method === 'cash' ? 'Collect Cash & Complete' : 'Mark as Completed')
+                            : 'Start Delivery (Assign Bins)'}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
 
-                {jobDetail.status === 'cash_collected' && (
-                  <TouchableOpacity
-                    style={styles.acceptButtonWrapper}
-                    onPress={() => setConfirmModal({
-                      visible: true,
-                      title: 'Confirm',
-                      message: 'Cash collected. Mark this order as delivered now?',
-                      confirmText: 'Confirm',
-                      onConfirm: () => {
-                        setConfirmModal(prev => ({ ...prev, visible: false }));
-                        handleStatusUpdate('delivered');
-                      },
-                      isDestructive: false,
-                    })}
-                    activeOpacity={0.8}>
-                    <LinearGradient
-                      colors={['#29B554', '#6EAD16']}
-                      style={styles.acceptButton}>
-                      <Text style={styles.acceptButtonText}>Mark as Delivered</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
+                  {jobDetail.service_category === 'service' && jobDetail.status === 'cash_collected' && (
+                    <TouchableOpacity
+                      style={styles.acceptButtonWrapper}
+                      onPress={() => setConfirmModal({
+                        visible: true,
+                        title: 'Complete Job',
+                        message: 'Mark this service as fully completed?',
+                        confirmText: 'Confirm',
+                        onConfirm: () => {
+                          setConfirmModal(prev => ({ ...prev, visible: false }));
+                          handleStatusUpdate('completed');
+                        },
+                        isDestructive: false,
+                      })}
+                      activeOpacity={0.8}>
+                      <LinearGradient
+                        colors={['#29B554', '#6EAD16']}
+                        style={styles.acceptButton}>
+                        <Text style={styles.acceptButtonText}>Complete Job</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
 
-                {jobDetail.status === 'ready_to_pickup' && (
-                  <TouchableOpacity
-                    style={styles.acceptButtonWrapper}
-                    onPress={() => setConfirmModal({
-                      visible: true,
-                      title: 'Confirm',
-                      message: 'Start pickup process for this order?',
-                      confirmText: 'Confirm',
-                      onConfirm: () => {
-                        setConfirmModal(prev => ({ ...prev, visible: false }));
-                        handleStatusUpdate('pickup');
-                      },
-                      isDestructive: false,
-                    })}
-                    activeOpacity={0.8}>
-                    <LinearGradient
-                      colors={['#29B554', '#6EAD16']}
-                      style={styles.acceptButton}>
-                      <Text style={styles.acceptButtonText}>Start Pickup</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
+                  {jobDetail.service_category !== 'service' && jobDetail.status === 'on_delivery' && (
+                    <TouchableOpacity
+                      style={styles.acceptButtonWrapper}
+                      onPress={() => setConfirmModal({
+                        visible: true,
+                        title: 'Confirm',
+                        message: jobDetail.payment_method === 'cash'
+                          ? 'Confirm cash collection for this order?'
+                          : 'Mark this order as delivered?',
+                        confirmText: 'Confirm',
+                        onConfirm: () => {
+                          setConfirmModal(prev => ({ ...prev, visible: false }));
+                          handleStatusUpdate(jobDetail.payment_method === 'cash' ? 'cash_collected' : 'delivered');
+                        },
+                        isDestructive: false,
+                      })}
+                      activeOpacity={0.8}>
+                      <LinearGradient
+                        colors={['#29B554', '#6EAD16']}
+                        style={styles.acceptButton}>
+                        <Text style={styles.acceptButtonText}>
+                          {jobDetail.payment_method === 'cash' ? 'Mark as Cash Collected' : 'Mark as Delivered'}
+                        </Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
 
-                {jobDetail.status === 'pickup' && (
-                  <TouchableOpacity
-                    style={styles.acceptButtonWrapper}
-                    onPress={() => setConfirmModal({
-                      visible: true,
-                      title: 'Confirm',
-                      message: 'Complete this job? Bins will be marked as available.',
-                      confirmText: 'Confirm',
-                      onConfirm: () => {
-                        setConfirmModal(prev => ({ ...prev, visible: false }));
-                        handleStatusUpdate('completed');
-                      },
-                      isDestructive: false,
-                    })}
-                    activeOpacity={0.8}>
-                    <LinearGradient
-                      colors={['#29B554', '#6EAD16']}
-                      style={styles.acceptButton}>
-                      <Text style={styles.acceptButtonText}>Complete Job</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
+                  {jobDetail.service_category !== 'service' && (jobDetail.status === 'cash_collected' || (jobDetail.status === 'on_delivery' && jobDetail.payment_method !== 'cash')) && !deliveryPhoto && (
+                    <View style={{ width: '100%' }}>
+                      <TouchableOpacity
+                        style={styles.photoButton}
+                        onPress={handleCapturePhoto}
+                        activeOpacity={0.8}>
+                        <Ionicons name="camera" size={20} color="#374151" />
+                        <Text style={styles.photoButtonText}>Take Delivery Photo</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
 
-                {jobDetail.status === 'completed' && (
-                  <View style={styles.acceptButtonWrapper}>
-                    <LinearGradient
-                      colors={['#BCBCBC', '#999999']}
-                      style={styles.acceptButton}>
-                      <Text style={styles.acceptButtonText}>Order Completed</Text>
-                    </LinearGradient>
-                  </View>
-                )}
+                  {jobDetail.service_category !== 'service' && (jobDetail.status === 'cash_collected' || (jobDetail.status === 'on_delivery' && jobDetail.payment_method !== 'cash')) && deliveryPhoto && (
+                    <View style={{ width: '100%', alignItems: 'center' }}>
+                      <Image source={{ uri: deliveryPhoto }} style={styles.deliveryPhotoPreview} />
+                      <TouchableOpacity
+                        onPress={handleCapturePhoto}
+                        style={[styles.photoButton, { marginTop: 8 }]}>
+                        <Ionicons name="refresh" size={18} color="#374151" />
+                        <Text style={styles.photoButtonText}>Retake Photo</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {jobDetail.service_category !== 'service' && (jobDetail.status === 'cash_collected' || (jobDetail.status === 'on_delivery' && jobDetail.payment_method !== 'cash')) && (
+                    <View style={{ width: '100%', marginTop: 10 }}>
+                      <TouchableOpacity
+                        style={[
+                          styles.acceptButtonWrapper,
+                          (jobDetail.status === 'cash_collected' || (jobDetail.status === 'on_delivery' && jobDetail.payment_method !== 'cash')) && !deliveryPhoto && { opacity: 0.7 }
+                        ]}
+                        disabled={!deliveryPhoto}
+                        onPress={() => {
+                          setConfirmModal({
+                            visible: true,
+                            title: 'Confirm',
+                            message: jobDetail.status === 'cash_collected'
+                              ? 'Cash collected. Mark this order as delivered now?'
+                              : 'Mark this order as delivered?',
+                            confirmText: 'Confirm',
+                            onConfirm: () => {
+                              setConfirmModal(prev => ({ ...prev, visible: false }));
+                              handleStatusUpdate('delivered');
+                            },
+                            isDestructive: false,
+                          });
+                        }}
+                        activeOpacity={0.8}>
+                        <LinearGradient
+                          colors={['#29B554', '#6EAD16']}
+                          style={styles.acceptButton}>
+                          <Text style={styles.acceptButtonText}>Mark as Delivered</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {jobDetail.service_category !== 'service' && jobDetail.status === 'ready_to_pickup' && (
+                    <TouchableOpacity
+                      style={styles.acceptButtonWrapper}
+                      onPress={() => setConfirmModal({
+                        visible: true,
+                        title: 'Confirm',
+                        message: 'Start pickup process for this order?',
+                        confirmText: 'Confirm',
+                        onConfirm: () => {
+                          setConfirmModal(prev => ({ ...prev, visible: false }));
+                          handleStatusUpdate('pickup');
+                        },
+                        isDestructive: false,
+                      })}
+                      activeOpacity={0.8}>
+                      <LinearGradient
+                        colors={['#29B554', '#6EAD16']}
+                        style={styles.acceptButton}>
+                        <Text style={styles.acceptButtonText}>Start Pickup</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
+
+                  {jobDetail.service_category !== 'service' && jobDetail.status === 'pickup' && (
+                    <TouchableOpacity
+                      style={styles.acceptButtonWrapper}
+                      onPress={() => setConfirmModal({
+                        visible: true,
+                        title: 'Confirm',
+                        message: 'Complete this job? Bins will be marked as available.',
+                        confirmText: 'Confirm',
+                        onConfirm: () => {
+                          setConfirmModal(prev => ({ ...prev, visible: false }));
+                          handleStatusUpdate('completed');
+                        },
+                        isDestructive: false,
+                      })}
+                      activeOpacity={0.8}>
+                      <LinearGradient
+                        colors={['#29B554', '#6EAD16']}
+                        style={styles.acceptButton}>
+                        <Text style={styles.acceptButtonText}>Complete Job</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
+
+                  {jobDetail.status === 'completed' && (
+                    <View style={styles.acceptButtonWrapper}>
+                      <LinearGradient
+                        colors={['#BCBCBC', '#999999']}
+                        style={styles.acceptButton}>
+                        <Text style={styles.acceptButtonText}>Order Completed</Text>
+                      </LinearGradient>
+                    </View>
+                  )}
+                </View>
               </View>
             )}
           </LinearGradient>
@@ -561,7 +934,11 @@ const JobDetailScreen: React.FC = () => {
               <Text style={styles.timelineTitle}>Status Timeline</Text>
               <View style={styles.timelineList}>
                 {statusSteps
-                  .filter(step => !step.cashOnly || jobDetail.payment_method === 'cash')
+                  .filter(step => {
+                    if (step.cashOnly && jobDetail.payment_method !== 'cash') return false;
+                    if (jobDetail.service_category === 'service' && (step as any).isPhysical) return false;
+                    return true;
+                  })
                   .map((step, index, filteredSteps) => {
                     const currentIndex = filteredSteps.findIndex(s => s.key === jobDetail.status);
                     const isCompleted = index <= currentIndex;
@@ -578,15 +955,18 @@ const JobDetailScreen: React.FC = () => {
                         <View style={styles.timelineContent}>
                           <Text style={[
                             styles.timelineLabel,
-                            isCurrent && styles.timelineLabelCurrent,
-                            isCompleted && styles.timelineLabelCompleted
+                            isCompleted && styles.timelineLabelActive,
+                            isCurrent && styles.timelineLabelCurrent
                           ]}>
                             {step.label}
                           </Text>
-                          {isCurrent && (
-                            <Text style={styles.currentStatusBadge}>Current Status</Text>
-                          )}
                         </View>
+                        {index < filteredSteps.length - 1 && (
+                          <View style={[
+                            styles.timelineConnector,
+                            index < currentIndex && styles.timelineConnectorActive
+                          ]} />
+                        )}
                       </View>
                     );
                   })}
@@ -595,88 +975,88 @@ const JobDetailScreen: React.FC = () => {
           </View>
         )}
 
-        {/* Bin Assignment Modal */}
-        <BinAssignmentModal
-          visible={showBinModal}
-          orderItems={jobDetail.orderItems || []}
-          onClose={() => setShowBinModal(false)}
-          onSubmit={handleStatusUpdate}
-          isLoading={updatingStatus}
-        />
-
-        {/* Accept Modal */}
-        <AppModal
-          visible={showAcceptModal}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowAcceptModal(false)}>
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Accept Order</Text>
-              <Text style={styles.modalSubtitle}>Enter total price for this request</Text>
-
-              <TextInput
-                style={styles.priceInput}
-                placeholder="0.00"
-                keyboardType="decimal-pad"
-                value={totalPrice}
-                onChangeText={setTotalPrice}
-                autoFocus
-                placeholderTextColor="#999"
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.modalCancelButton}
-                  onPress={() => setShowAcceptModal(false)}>
-                  <Text style={styles.modalCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modalConfirmButton, submitting && { opacity: 0.7 }]}
-                  onPress={handleAcceptOrder}
-                  disabled={submitting}>
-                  {submitting ? (
-                    <ActivityIndicator color="#FFF" size="small" />
-                  ) : (
-                    <Text style={styles.modalConfirmText}>Confirm</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </AppModal>
-
-        {/* Job Management Tab Bar */}
-        {/* Job Management Tab Bar */}
-        <TouchableOpacity
-          style={styles.jobManagementTab}
-          onPress={() => navigation.navigate('SupplierJobs')}
-          activeOpacity={0.8}>
-          <LinearGradient
-            colors={['#86F442', '#4E8E26']}
-            locations={[0, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.jobManagementTabGradient}>
-            <Text style={styles.jobManagementTabText}>Job Management</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <AppConfirmModal
-          visible={confirmModal.visible}
-          title={confirmModal.title}
-          message={confirmModal.message}
-          confirmText={confirmModal.confirmText}
-          isDestructive={confirmModal.isDestructive}
-          onConfirm={confirmModal.onConfirm}
-          onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
-        />
-
         <View style={styles.bottomSpacing} />
-      </ScrollView >
+      </ScrollView>
 
-      <SupplierBottomNavBar activeTab="requests" />
-    </View >
+      {/* Driver Assignment Modal */}
+      <AppModal
+        visible={showDriverModal}
+        onRequestClose={() => !assigningDriver && setShowDriverModal(false)}
+        animationType="slide"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Assign Driver</Text>
+              <TouchableOpacity onPress={() => !assigningDriver && setShowDriverModal(false)}>
+                <Ionicons name="close" size={24} color="#17360F" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll}>
+              {drivers.length === 0 ? (
+                <View style={styles.emptyDrivers}>
+                  <Text style={styles.emptyText}>No drivers available</Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowDriverModal(false);
+                      navigation.navigate('SupplierDrivers');
+                    }}
+                    style={styles.addDriverLink}
+                  >
+                    <Text style={styles.addDriverLinkText}>Add New Driver</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                drivers.map((driver) => (
+                  <TouchableOpacity
+                    key={driver.id}
+                    style={styles.driverItem}
+                    onPress={() => handleAssignDriver(driver.id)}
+                    disabled={assigningDriver}
+                  >
+                    <View style={styles.driverItemInfo}>
+                      <Text style={styles.driverItemName}>{driver.name}</Text>
+                      <Text style={styles.driverItemPhone}>{driver.phone}</Text>
+                    </View>
+                    {assigningDriver ? (
+                      <ActivityIndicator size="small" color={themeColors.primary} />
+                    ) : (
+                      <Ionicons name="chevron-forward" size={20} color="#CCC" />
+                    )}
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </AppModal>
+
+      {/* Bin Assignment Modal */}
+      <BinAssignmentModal
+        visible={showBinModal}
+        orderItems={jobDetail.orderItems || []}
+        onClose={() => setShowBinModal(false)}
+        onSubmit={handleStatusUpdate}
+        isLoading={updatingStatus}
+      />
+
+      <AppConfirmModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        isDestructive={confirmModal.isDestructive}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+      />
+
+      {user?.role === 'customer' ? (
+        <BottomNavBar activeTab="bookings" />
+      ) : (
+        <SupplierBottomNavBar activeTab={user?.role === 'driver' ? 'jobs' : 'requests'} />
+      )}
+    </View>
   );
 };
 
@@ -881,6 +1261,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 16,
+    flexWrap: 'wrap'
   },
   declineButton: {
     flex: 1,
@@ -981,6 +1362,9 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 25,
   },
+  disabledContent: {
+    opacity: 0.5,
+  },
   modalActions: {
     flexDirection: 'row',
     gap: 12,
@@ -1066,6 +1450,158 @@ const styles = StyleSheet.create({
     color: '#10B981',
     fontFamily: fonts.family.medium,
     marginTop: 2,
+  },
+  locationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 7,
+  },
+  directionsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0c2404e1',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 15,
+  },
+  directionsText: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 12,
+    color: themeColors.primary,
+    lineHeight: 14,
+  },
+  deliveryPhotoPreview: {
+    width: '100%',
+    height: 150,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  photoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 8,
+  },
+  photoButtonText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#374151',
+  },
+  serviceListContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  serviceTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3FFE2',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5EFD1',
+    gap: 6,
+  },
+  serviceTagText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#444',
+    marginLeft: 8,
+  },
+  assignDriverButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#0c2404e1',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  assignDriverButtonText: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: themeColors.primary,
+  },
+  driverInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  timelineLabelActive: {
+    fontFamily: fonts.family.bold,
+    color: '#10B981',
+  },
+  timelineConnector: {
+    position: 'absolute',
+    left: 17,
+    top: 36,
+    width: 2,
+    height: 16,
+    backgroundColor: '#E5E7EB',
+    zIndex: -1,
+  },
+  timelineConnectorActive: {
+    backgroundColor: '#10B981',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '100%',
+  },
+  modalScroll: {
+    width: '100%',
+    maxHeight: 300,
+  },
+  emptyDrivers: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  emptyText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+  },
+  addDriverLink: {
+    padding: 10,
+  },
+  addDriverLinkText: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: themeColors.primary,
+  },
+  driverItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  driverItemInfo: {
+    flex: 1,
+  },
+  driverItemName: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#333',
+  },
+  driverItemPhone: {
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#666',
   },
 });
 

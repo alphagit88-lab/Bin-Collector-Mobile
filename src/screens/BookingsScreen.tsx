@@ -42,6 +42,14 @@ interface Booking {
   order_items_count: number;
   items?: any[];
   attachment_url?: string;
+  service_category?: string;
+  service_names?: string;
+  selected_services_count?: number;
+  contact_number?: string;
+  contact_email?: string;
+  instructions?: string;
+  payment_method?: string;
+  location?: string;
 }
 
 const BookingsScreen: React.FC = () => {
@@ -278,11 +286,16 @@ const BookingsScreen: React.FC = () => {
                             <Text style={styles.bookingValue}>#{booking.request_id.slice(-5).toUpperCase()}</Text>
                           </View>
                           <View style={styles.bookingInfoItem}>
-                            <Text style={styles.bookingLabel}>Service</Text>
+                            <Text style={styles.bookingLabel}>{booking.service_category === 'service' ? 'Service(s)' : 'Bin(s)'}</Text>
                             {booking.items && booking.items.length > 0 ? (
                               <Text numberOfLines={1} style={styles.bookingValue}>
                                 {booking.items.length}x {booking.items[0].bin_type_name}
                                 {booking.items.length > 1 ? '...' : ''}
+                              </Text>
+                            ) : booking.service_names && booking.service_names.length > 0 ? (
+                              <Text numberOfLines={1} style={styles.bookingValue}>
+                                {booking.service_names.split(',').length}x {booking.service_names.split(',')[0]}
+                                {booking.service_names.split(',').length > 1 ? '...' : ''}
                               </Text>
                             ) : (
                               <Text numberOfLines={1} style={styles.bookingValue}>{booking.bin_type_name}</Text>
@@ -336,6 +349,7 @@ const BookingsScreen: React.FC = () => {
                             onPress={() => {
                               setSelectedBooking(booking);
                               setDetailsModalVisible(true);
+                              console.log(booking)
                             }}>
                             <PlayIcon width={21} height={17} />
                             <Text style={styles.viewButtonTextNew}>View</Text>
@@ -413,32 +427,96 @@ const BookingsScreen: React.FC = () => {
                     <Text style={styles.modalValue}>{formatPrice(selectedBooking.total_price || selectedBooking.estimated_price || 0)}</Text>
                   </View>
 
-                  <Text style={styles.modalSectionTitle}>Items</Text>
-                  {selectedBooking.items && selectedBooking.items.length > 0 ? (
+                  <Text style={styles.modalSectionTitle}>
+                    {selectedBooking.service_category === 'service' ? 'Requested Services' : 'Items'}
+                  </Text>
+
+                  {selectedBooking.service_category === 'service' ? (
+                    <View style={styles.orderItemContainer}>
+                      <View style={styles.modalRow}>
+                        <Text style={styles.modalLabel}>Budget</Text>
+                        <Text style={styles.modalValue}>{formatPrice(selectedBooking.estimated_price || 0)}</Text>
+                      </View>
+                      {selectedBooking.service_names ? (
+                        selectedBooking.service_names.split(',').map((name, index) => (
+                          <View key={index} style={[styles.modalRow, index > 0 && { marginTop: 8 }]}>
+                            <Text style={styles.modalLabel}>Service {index + 1}</Text>
+                            <Text style={styles.modalValue}>{name.trim()}</Text>
+                          </View>
+                        ))
+                      ) : (
+                        <View style={styles.modalRow}>
+                          <Text style={styles.modalLabel}>Service</Text>
+                          <Text style={styles.modalValue}>Unknown</Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : selectedBooking.items && selectedBooking.items.length > 0 ? (
                     selectedBooking.items.map((item, index) => (
                       <View key={index} style={styles.orderItemContainer}>
                         <View style={styles.modalRow}>
                           <Text style={styles.modalLabel}>Bin Type</Text>
                           <Text style={styles.modalValue}>{item.bin_type_name}</Text>
                         </View>
-                        <View style={styles.modalRow}>
+                        {item.bin_size && <View style={styles.modalRow}>
                           <Text style={styles.modalLabel}>Size</Text>
                           <Text style={styles.modalValue}>{item.bin_size}</Text>
-                        </View>
+                        </View>}
                       </View>
                     ))
                   ) : (
                     <View style={styles.orderItemContainer}>
                       <View style={styles.modalRow}>
                         <Text style={styles.modalLabel}>Bin Type</Text>
-                        <Text style={styles.modalValue}>{selectedBooking.bin_type_name}</Text>
+                        <Text style={styles.modalValue}>{selectedBooking.bin_type_name || 'N/A'}</Text>
                       </View>
                       <View style={styles.modalRow}>
                         <Text style={styles.modalLabel}>Size</Text>
-                        <Text style={styles.modalValue}>{selectedBooking.bin_size}</Text>
+                        <Text style={styles.modalValue}>{selectedBooking.bin_size || 'N/A'}</Text>
                       </View>
                     </View>
                   )}
+
+                  {selectedBooking.location && (
+                    <>
+                      <Text style={styles.modalSectionTitle}>Location</Text>
+                      <View style={styles.orderItemContainer}>
+                        <Text style={[styles.modalValue, { textAlign: 'left', lineHeight: 22 }]}>
+                          {selectedBooking.location}
+                        </Text>
+                      </View>
+                    </>
+                  )}
+
+                  <Text style={styles.modalSectionTitle}>Contact & Notes</Text>
+                  <View style={styles.orderItemContainer}>
+                    {selectedBooking.contact_number && (
+                      <View style={styles.modalRow}>
+                        <Text style={styles.modalLabel}>Contact No</Text>
+                        <Text style={styles.modalValue}>{selectedBooking.contact_number}</Text>
+                      </View>
+                    )}
+                    {selectedBooking.contact_email && (
+                      <View style={styles.modalRow}>
+                        <Text style={styles.modalLabel}>Email</Text>
+                        <Text style={styles.modalValue}>{selectedBooking.contact_email}</Text>
+                      </View>
+                    )}
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Payment</Text>
+                      <Text style={styles.modalValue}>{getStatusDisplay(selectedBooking.payment_method || 'online')}</Text>
+                    </View>
+                    {selectedBooking.instructions && (
+                      <View style={{ marginTop: 8 }}>
+                        <Text style={styles.modalLabel}>
+                          {selectedBooking.service_category === 'service' ? 'Description' : 'Instructions'}
+                        </Text>
+                        <Text style={[styles.modalValue, { textAlign: 'left', marginTop: 4, fontFamily: fonts.family.regular }]}>
+                          {selectedBooking.instructions}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
 
                   {selectedBooking.attachment_url && (
                     <View style={styles.modalAttachmentSection}>

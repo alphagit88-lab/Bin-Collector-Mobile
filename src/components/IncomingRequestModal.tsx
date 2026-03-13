@@ -10,7 +10,10 @@ import {
     KeyboardAvoidingView,
     ScrollView,
     Platform,
+    Linking,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { themeColors } from '../theme/colors';
 import AppModal from './AppModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '../theme/fonts';
@@ -23,7 +26,7 @@ const { width, height } = Dimensions.get('window');
 interface IncomingRequestModalProps {
     visible: boolean;
     requestData: any;
-    onAccept: (totalPrice: number) => void;
+    onAccept: () => void;
     onDecline: () => void;
 }
 
@@ -54,7 +57,27 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
         }
     };
 
-    const [totalPrice, setTotalPrice] = React.useState<string>('');
+    const handleOpenDirections = () => {
+        const lat = request.latitude;
+        const lon = request.longitude;
+        const addr = encodeURIComponent(request.location || 'N/A');
+
+        if (lat && lon) {
+            const url = Platform.select({
+                ios: `maps:0,0?q=${addr}@${lat},${lon}`,
+                android: `geo:0,0?q=${lat},${lon}(${addr})`,
+            });
+            if (url) Linking.openURL(url);
+        } else {
+            const url = Platform.select({
+                ios: `maps:0,0?q=${addr}`,
+                android: `geo:0,0?q=${addr}`,
+            });
+            if (url) Linking.openURL(url);
+        }
+    };
+
+
 
     return (
         <AppModal
@@ -113,12 +136,47 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                                             <View style={styles.binTextContainer}>
                                                 <Text style={styles.binType}>
                                                     {item.count > 1 ? `${item.count}x ` : ''}
-                                                    {item.bin_type_name || 'N/A'}
+                                                    {item.bin_type_name || 'Unknown'}
                                                 </Text>
-                                                <Text style={styles.binSize}>{item.bin_size || 'N/A'}</Text>
+                                                {item.bin_size && <Text style={styles.binSize}>{item.bin_size}</Text>}
                                             </View>
                                         </View>
                                     ))
+                                ) : request.service_category === 'service' ? (
+                                    <View>
+                                        <View style={styles.binInfoRow}>
+                                            <View style={[styles.iconContainer, { width: 50, height: 50 }]}>
+                                                <Ionicons name="construct" size={30} color={themeColors.primary} />
+                                            </View>
+                                             <View style={styles.binTextContainer}>
+                                                 <Text style={styles.binType}>General Service</Text>
+                                                 <Text style={styles.binSize}>Requested Services</Text>
+                                             </View>
+                                         </View>
+                                         <View style={styles.serviceListContainer}>
+                                             {request.service_names ? (
+                                                 request.service_names.split(',').map((name: string, idx: number) => (
+                                                     <View key={idx} style={styles.serviceTag}>
+                                                         <Ionicons name="checkmark-circle" size={16} color={themeColors.primary} />
+                                                         <Text style={styles.serviceTagText}>{name.trim()}</Text>
+                                                     </View>
+                                                 ))
+                                             ) : (
+                                                 <View style={styles.serviceTag}>
+                                                     <Ionicons name="checkmark-circle" size={16} color={themeColors.primary} />
+                                                     <Text style={styles.serviceTagText}>General Service</Text>
+                                                 </View>
+                                             )}
+                                         </View>
+                                        {request.estimated_price && (
+                                            <View style={styles.budgetRow}>
+                                                <Text style={styles.infoLabel}>Customer's Budget:</Text>
+                                                <Text style={[styles.infoValue, { color: themeColors.primary, fontFamily: fonts.family.bold, fontSize: 18 }]}>
+                                                    ${request.estimated_price}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
                                 ) : (
                                     <View style={styles.binInfoRow}>
                                         <View style={styles.iconContainer}>
@@ -138,7 +196,16 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                                 <View style={styles.divider} />
 
                                 <View style={styles.infoRow}>
-                                    <Text style={styles.infoLabel}>Location:</Text>
+                                    <View style={styles.locationHeader}>
+                                        <Text style={styles.infoLabel}>Location:</Text>
+                                        <TouchableOpacity
+                                            style={styles.directionsButton}
+                                            onPress={handleOpenDirections}
+                                        >
+                                            <Ionicons name="navigate-circle" size={20} color={themeColors.primary} />
+                                            <Text style={styles.directionsText}>Directions</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                     <Text style={styles.infoValue} numberOfLines={2}>
                                         {request.location || 'N/A'}
                                     </Text>
@@ -173,18 +240,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
 
                                 <View style={styles.divider} />
 
-                                {/* Price Input Section */}
-                                <View style={styles.priceInputContainer}>
-                                    <Text style={styles.priceLabel}>Your Quote (Total Price) *</Text>
-                                    <TextInput
-                                        style={styles.priceInput}
-                                        placeholder="Enter total price (e.g., 250.00)"
-                                        placeholderTextColor="#999"
-                                        keyboardType="decimal-pad"
-                                        value={totalPrice}
-                                        onChangeText={setTotalPrice}
-                                    />
-                                </View>
+
                             </View>
                         </ScrollView>
 
@@ -199,13 +255,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
 
                             <TouchableOpacity
                                 style={styles.acceptButton}
-                                onPress={() => {
-                                    const price = parseFloat(totalPrice);
-                                    if (!totalPrice || isNaN(price) || price <= 0) {
-                                        return; // Visual feedback will be added via styling
-                                    }
-                                    onAccept(price);
-                                }}
+                                onPress={onAccept}
                                 activeOpacity={0.8}
                             >
                                 <LinearGradient
@@ -315,6 +365,29 @@ const styles = StyleSheet.create({
         color: '#373934',
         lineHeight: 22,
     },
+    locationHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    directionsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        backgroundColor: '#0c2404e1',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    directionsText: {
+        fontFamily: fonts.family.semiBold,
+        fontSize: 12,
+        color: themeColors.primary,
+        lineHeight: 14,
+    },
     priceInputContainer: {
         marginTop: 20,
         marginBottom: 8,
@@ -377,6 +450,40 @@ const styles = StyleSheet.create({
         fontFamily: fonts.family.bold,
         fontSize: 18,
         color: '#161616',
+    },
+    serviceListContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 10,
+        marginBottom: 20,
+    },
+    serviceTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3FFE2',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E5EFD1',
+        gap: 6,
+    },
+    serviceTagText: {
+        fontFamily: fonts.family.medium,
+        fontSize: 12,
+        color: '#373934',
+    },
+    budgetRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#F8FFEE',
+        padding: 12,
+        borderRadius: 12,
+        marginTop: 10,
+        borderWidth: 1,
+        borderColor: '#E5EFD1',
     },
 });
 

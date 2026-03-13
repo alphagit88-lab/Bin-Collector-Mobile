@@ -333,7 +333,7 @@ const AccountScreen: React.FC = () => {
         onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
       />
 
-      {user?.role === 'supplier' ? (
+      {user?.role === 'supplier' || user?.role === 'driver' ? (
         <SupplierBottomNavBar activeTab="account" />
       ) : (
         <BottomNavBar activeTab="account" />

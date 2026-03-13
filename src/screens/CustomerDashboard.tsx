@@ -41,6 +41,9 @@ interface Booking {
   end_date: string;
   order_items_count: number;
   items?: any[];
+  service_category?: string;
+  service_names?: string;
+  selected_services_count?: number;
 }
 
 const CustomerDashboard: React.FC = () => {
@@ -267,9 +270,12 @@ const CustomerDashboard: React.FC = () => {
                     <View style={styles.bookingItemContent}>
                       <View style={styles.bookingItemLeft}>
                         <Text style={styles.bookingItemTitle}>
-                          {booking.items && booking.items.length > 0
-                            ? `${booking.items[0].bin_type_name} - ${booking.items[0].bin_size}`
-                            : `${booking.bin_type_name} - ${booking.bin_size}`}
+                          {booking.service_category === 'service'
+                            ? (booking.service_names?.split(',')[0] || 'General Service') + ((booking.selected_services_count || 0) > 1 ? ` (+${(booking.selected_services_count || 0) - 1})` : '')
+                            : (booking.items && booking.items.length > 0
+                                ? booking.items[0].bin_type_name + (booking.items[0].bin_size ? ` - ${booking.items[0].bin_size}` : '')
+                                : booking.bin_type_name + (booking.bin_size ? ` - ${booking.bin_size}` : ''))
+                          }
                         </Text>
                         <Text style={styles.bookingItemId}>#{booking.request_id}</Text>
                       </View>

@@ -127,7 +127,7 @@ const BinAssignmentModal: React.FC<BinAssignmentModalProps> = ({
                     <View style={styles.pickerContent}>
                         <Text style={styles.pickerTitle}>Select Bin</Text>
                         <Text style={styles.pickerSubtitle}>
-                            For {currentItem.bin_type_name} ({currentItem.bin_size})
+                            For {currentItem.bin_type_name} {currentItem.bin_size && `(${currentItem.bin_size})`}
                         </Text>
 
                         <ScrollView style={styles.pickerScroll}>

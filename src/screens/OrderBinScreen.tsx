@@ -50,6 +50,9 @@ interface FormFieldProps {
   onChangeText: (text: string) => void;
   isDropdown?: boolean;
   customIcon?: React.ReactNode;
+  multiline?: boolean;
+  keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad';
+  secureTextEntry?: boolean;
 }
 
 const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
@@ -60,6 +63,9 @@ const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
   isDropdown = false,
   customIcon,
   onPress,
+  multiline = false,
+  keyboardType = 'default',
+  secureTextEntry = false,
 }) => (
   <TouchableOpacity
     activeOpacity={isDropdown ? 0.7 : 1}
@@ -68,13 +74,16 @@ const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
     <Text style={styles.formFieldLabel}>{label}</Text>
     <View style={styles.formFieldInputContainer}>
       <TextInput
-        style={styles.formFieldInput}
+        style={[styles.formFieldInput, multiline && { height: 80, textAlignVertical: 'top' }]}
         placeholder={placeholder}
         placeholderTextColor="#979897"
         value={value}
         onChangeText={onChangeText}
         editable={!isDropdown}
         pointerEvents={isDropdown ? 'none' : 'auto'}
+        multiline={multiline}
+        keyboardType={keyboardType}
+        secureTextEntry={secureTextEntry}
       />
       {customIcon && <View style={styles.dropdownIcon}>{customIcon}</View>}
       {isDropdown && !customIcon && (
@@ -97,13 +106,24 @@ interface BinSize {
   size: string;
 }
 
+interface PriceConfig {
+  bin_size_id: number;
+  admin_final_price: string;
+}
+
+interface ServiceCategory {
+  id: number;
+  name: string;
+  description: string;
+}
+
 const OrderBinScreen: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation();
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash'>(
     'online',
   );
-  const [serviceType, setServiceType] = useState<'residential' | 'commercial'>(
+  const [serviceType, setServiceType] = useState<'residential' | 'commercial' | 'service'>(
     'residential',
   );
 
@@ -128,6 +148,12 @@ const OrderBinScreen: React.FC = () => {
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [fetchingSizes, setFetchingSizes] = useState(false);
+  const [binPrices, setBinPrices] = useState<PriceConfig[]>([]);
+  const [fetchingPrices, setFetchingPrices] = useState(false);
+  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([]);
+  const [selectedServices, setSelectedServices] = useState<number[]>([]);
+  const [customerBudget, setCustomerBudget] = useState('');
+  const [fetchingCategories, setFetchingCategories] = useState(false);
 
   // Date Picker State
   const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
@@ -208,6 +234,26 @@ const OrderBinScreen: React.FC = () => {
     }
   };
 
+  const fetchBinPrices = async (lat: number, lon: number) => {
+    setFetchingPrices(true);
+    try {
+      const response = await api.get<{ prices: PriceConfig[] }>(`${ENDPOINTS.BINS.PRICES}?lat=${lat}&lon=${lon}`);
+      if (response.success && response.data) {
+        setBinPrices(response.data.prices);
+      }
+    } catch (error) {
+      console.error('Error fetching prices:', error);
+    } finally {
+      setFetchingPrices(false);
+    }
+  };
+
+  useEffect(() => {
+    if (latitude && longitude) {
+      fetchBinPrices(latitude, longitude);
+    }
+  }, [latitude, longitude]);
+
   // Dropdown data
   const [binTypes, setBinTypes] = useState<BinType[]>([]);
   const [binSizesMap, setBinSizesMap] = useState<Record<number, BinSize[]>>({});
@@ -267,6 +313,47 @@ const OrderBinScreen: React.FC = () => {
   const setBinType = (val: string) => updateBin(0, { bin_type_name: val });
   const setBinSize = (val: string) => updateBin(0, { bin_size_name: val });
 
+
+  const loadDefaultLocation = React.useCallback(async () => {
+    try {
+      const savedLocation = await AsyncStorage.getItem('defaultLocation');
+      if (savedLocation) {
+        setDeliveryAddress(savedLocation);
+      } else {
+        setDeliveryAddress('');
+      }
+    } catch (error) {
+      console.error('Error loading default location:', error);
+    }
+  }, []);
+
+  const fetchBinTypes = React.useCallback(async () => {
+    try {
+      const response = await api.get<{ binTypes: BinType[] }>(`${ENDPOINTS.BINS.TYPES}?t=${Date.now()}`);
+      if (response.success && response.data) {
+        setBinTypes(response.data.binTypes);
+      }
+    } catch (error) {
+      console.error('Error fetching bin types:', error);
+    }
+  }, []);
+
+  const fetchServiceCategories = React.useCallback(async () => {
+    setFetchingCategories(true);
+    // Clear existing to show loading/fresh state if needed
+    setServiceCategories([]);
+    try {
+      const response = await api.get<{ categories: ServiceCategory[] }>(`${ENDPOINTS.SERVICES.CATEGORIES}?t=${Date.now()}`);
+      if (response.success && response.data) {
+        setServiceCategories(response.data.categories);
+      }
+    } catch (error) {
+      console.error('Error fetching service categories:', error);
+    } finally {
+      setFetchingCategories(false);
+    }
+  }, []);
+
   useFocusEffect(
     React.useCallback(() => {
       // Reset form on focus
@@ -287,41 +374,28 @@ const OrderBinScreen: React.FC = () => {
       setAdditionalContact(user?.email || '');
       setNotes('');
       setBinSizesMap({});
+      setSelectedServices([]);
+      setCustomerBudget('');
 
       loadDefaultLocation();
       fetchBinTypes();
-    }, [user])
+      fetchServiceCategories();
+    }, [user, loadDefaultLocation, fetchBinTypes, fetchServiceCategories])
   );
 
-  const loadDefaultLocation = async () => {
-    try {
-      const savedLocation = await AsyncStorage.getItem('defaultLocation');
-      if (savedLocation) {
-        setDeliveryAddress(savedLocation);
-      } else {
-        setDeliveryAddress('');
-      }
-    } catch (error) {
-      console.error('Error loading default location:', error);
-    }
+
+  const toggleService = (id: number) => {
+    setSelectedServices(prev =>
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
   };
 
-  const fetchBinTypes = async () => {
-    try {
-      const response = await api.get<{ binTypes: BinType[] }>(ENDPOINTS.BINS.TYPES);
-      if (response.success && response.data) {
-        setBinTypes(response.data.binTypes);
-      }
-    } catch (error) {
-      console.error('Error fetching bin types:', error);
-    }
-  };
 
   const fetchBinSizes = async (typeId: number) => {
     if (binSizesMap[typeId]) return;
     setFetchingSizes(true);
     try {
-      const response = await api.get<{ binSizes: BinSize[] }>(ENDPOINTS.BINS.SIZES(typeId));
+      const response = await api.get<{ binSizes: BinSize[] }>(`${ENDPOINTS.BINS.SIZES(typeId)}&t=${Date.now()}`);
       if (response.success && response.data) {
         setBinSizesMap((prev) => ({ ...prev, [typeId]: response?.data?.binSizes ?? [] }));
       }
@@ -437,17 +511,29 @@ const OrderBinScreen: React.FC = () => {
       return;
     }
 
-    const validBins = bins.filter(b => {
-      if (!b.bin_type_id) return false;
-      const typeIdNum = parseInt(b.bin_type_id as string);
-      const possibleSizes = binSizesMap[typeIdNum] || [];
-      const sizeRequired = possibleSizes.length > 0;
-      return !sizeRequired || b.bin_size_id;
-    });
+    let validBins: any[] = [];
+    if (serviceType !== 'service') {
+      validBins = bins.filter(b => {
+        if (!b.bin_type_id) return false;
+        const typeIdNum = parseInt(b.bin_type_id as string);
+        const possibleSizes = binSizesMap[typeIdNum] || [];
+        const sizeRequired = possibleSizes.length > 0;
+        return !sizeRequired || b.bin_size_id;
+      });
 
-    if (validBins.length === 0) {
-      toast.error('Error', 'Please add at least one valid bin selection');
-      return;
+      if (validBins.length === 0) {
+        toast.error('Error', 'Please add at least one valid bin selection');
+        return;
+      }
+    } else {
+      if (selectedServices.length === 0) {
+        toast.error('Error', 'Please select at least one service');
+        return;
+      }
+      if (!customerBudget.trim()) {
+        toast.error('Error', 'Please enter your budget');
+        return;
+      }
     }
 
     if (!deliveryDate || !pickupDate) {
@@ -459,15 +545,21 @@ const OrderBinScreen: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('service_category', serviceType);
-      formData.append('bins', JSON.stringify(validBins.map(b => ({
-        bin_type_id: parseInt(b.bin_type_id as string),
-        bin_size_id: b.bin_size_id ? parseInt(b.bin_size_id as string) : null,
-        quantity: parseInt(b.quantity) || 1,
-      }))));
+      if (serviceType === 'service') {
+        formData.append('selected_services', JSON.stringify(selectedServices));
+        formData.append('estimated_price', customerBudget);
+      } else {
+        formData.append('bins', JSON.stringify(validBins.map(b => ({
+          bin_type_id: parseInt(b.bin_type_id as string),
+          bin_size_id: b.bin_size_id ? parseInt(b.bin_size_id as string) : null,
+          quantity: parseInt(b.quantity) || 1,
+        }))));
+      }
       formData.append('location', deliveryAddress);
       formData.append('start_date', deliveryDate);
       formData.append('end_date', pickupDate);
       formData.append('payment_method', paymentMethod);
+      formData.append('contact_number', contactNumber);
       formData.append('contact_email', additionalContact);
       formData.append('instructions', notes);
       if (latitude) formData.append('latitude', latitude.toString());
@@ -555,7 +647,7 @@ const OrderBinScreen: React.FC = () => {
               <View style={styles.paymentOptionsContainer}>
                 {/* Residential Option */}
                 <TouchableOpacity
-                  style={styles.paymentOption}
+                  style={[styles.paymentOption, { width: (width - 70) / 3 }]}
                   activeOpacity={0.8}
                   onPress={() => setServiceType('residential')}>
                   <LinearGradient
@@ -582,14 +674,14 @@ const OrderBinScreen: React.FC = () => {
                       </Text>
                     </View>
                     <View style={styles.binCollectPaymentOverlay}>
-                      <BinCollect2 width={181} height={70} />
+                      <BinCollect2 width={181} height={70} opacity={0.3} />
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
 
                 {/* Commercial Option */}
                 <TouchableOpacity
-                  style={styles.paymentOption}
+                  style={[styles.paymentOption, { width: (width - 70) / 3 }]}
                   activeOpacity={0.8}
                   onPress={() => setServiceType('commercial')}>
                   <LinearGradient
@@ -616,7 +708,41 @@ const OrderBinScreen: React.FC = () => {
                       </Text>
                     </View>
                     <View style={styles.binCollectPaymentOverlay}>
-                      <BinCollect2 width={176} height={68} />
+                      <BinCollect2 width={176} height={68} opacity={0.3} />
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                {/* Service Option */}
+                <TouchableOpacity
+                  style={[styles.paymentOption, { width: (width - 70) / 3 }]}
+                  activeOpacity={0.8}
+                  onPress={() => setServiceType('service')}>
+                  <LinearGradient
+                    colors={
+                      serviceType === 'service'
+                        ? ['#C0F96F', '#90B93E']
+                        : ['#F3FFE2', '#E5EFD1']
+                    }
+                    locations={[0.2009, 0.7847]}
+                    start={{ x: 0.27, y: 0 }}
+                    end={{ x: 0.73, y: 1 }}
+                    style={styles.paymentOptionGradient}>
+                    <View style={styles.paymentOptionContent}>
+                      <View style={styles.paymentIconContainer}>
+                        <Ionicons name="construct" size={40} color={serviceType === 'service' ? '#373934' : '#90B93E'} />
+                      </View>
+                      <Text
+                        style={[
+                          styles.paymentOptionText,
+                          serviceType === 'service' &&
+                          styles.paymentOptionTextActive,
+                        ]}>
+                        Service
+                      </Text>
+                    </View>
+                    <View style={styles.binCollectPaymentOverlay}>
+                      <BinCollect2 width={171} height={65} opacity={0.3} />
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -625,76 +751,138 @@ const OrderBinScreen: React.FC = () => {
           </View>
 
           {/* Section 2: Bin Selection */}
-          <View style={styles.formSection}>
-            <LinearGradient
-              colors={['#EFF2F0', '#F8FFEE']}
-              locations={[0.2377, 0.6629]}
-              start={{ x: 0.34, y: 0 }}
-              end={{ x: 0.66, y: 1 }}
-              style={styles.formSectionGradient}>
-              <View style={styles.binSectionHeader}>
-                <Text style={styles.formSectionTitleSmall}>Bins *</Text>
-              </View>
+          {serviceType !== 'service' && (
+            <View style={styles.formSection}>
+              <LinearGradient
+                colors={['#EFF2F0', '#F8FFEE']}
+                locations={[0.2377, 0.6629]}
+                start={{ x: 0.34, y: 0 }}
+                end={{ x: 0.66, y: 1 }}
+                style={styles.formSectionGradient}>
+                <View style={styles.binSectionHeader}>
+                  <Text style={styles.formSectionTitleSmall}>Bins *</Text>
+                </View>
 
-              {bins.map((bin, index) => (
-                <View key={index} style={[styles.binFormContainer, index > 0 && { marginTop: 12 }]}>
-                  <LinearGradient
-                    colors={['#EFF2F0', '#F8FFEE']}
-                    locations={[0.2377, 0.6629]}
-                    start={{ x: 0.34, y: 0 }}
-                    end={{ x: 0.66, y: 1 }}
-                    style={styles.binFormGradient}>
-                    {bins.length > 1 && (
-                      <TouchableOpacity
-                        style={styles.removeBinButton}
-                        onPress={() => removeBin(index)}
-                      >
-                        <Ionicons name="close-circle" size={24} color="#EF4444" />
-                      </TouchableOpacity>
-                    )}
-                    <FormField
-                      label="Bin Type*"
-                      placeholder="Select Bin Type"
-                      value={bin.bin_type_name}
-                      onChangeText={() => { }}
-                      isDropdown
-                      onPress={() => openTypeModal(index)}
-                    />
-                    {(!bin.bin_type_id || (bin.bin_type_id && (binSizesMap[parseInt(bin.bin_type_id as string)] === undefined || binSizesMap[parseInt(bin.bin_type_id as string)].length > 0))) && (
+                {bins.map((bin, index) => (
+                  <View key={index} style={[styles.binFormContainer, index > 0 && { marginTop: 12 }]}>
+                    <LinearGradient
+                      colors={['#EFF2F0', '#F8FFEE']}
+                      locations={[0.2377, 0.6629]}
+                      start={{ x: 0.34, y: 0 }}
+                      end={{ x: 0.66, y: 1 }}
+                      style={styles.binFormGradient}>
+                      {bins.length > 1 && (
+                        <TouchableOpacity
+                          style={styles.removeBinButton}
+                          onPress={() => removeBin(index)}
+                        >
+                          <Ionicons name="close-circle" size={24} color="#EF4444" />
+                        </TouchableOpacity>
+                      )}
                       <FormField
-                        label="Bin Size*"
-                        placeholder={bin.bin_type_id ? "Select Bin Size" : "Select Type First"}
-                        value={bin.bin_size_name}
+                        label="Bin Type*"
+                        placeholder="Select Bin Type"
+                        value={bin.bin_type_name}
                         onChangeText={() => { }}
                         isDropdown
-                        onPress={() => openSizeModal(index)}
+                        onPress={() => openTypeModal(index)}
                       />
-                    )}
-                    <FormField
-                      label="Quantity*"
-                      placeholder="Enter Quantity"
-                      value={bin.quantity}
-                      onChangeText={(val) => updateBin(index, { quantity: val })}
-                    />
-                  </LinearGradient>
-                </View>
-              ))}
+                      {(!bin.bin_type_id || (bin.bin_type_id && (binSizesMap[parseInt(bin.bin_type_id as string)] === undefined || binSizesMap[parseInt(bin.bin_type_id as string)].length > 0))) && (
+                        <FormField
+                          label="Bin Size*"
+                          placeholder={bin.bin_type_id ? "Select Bin Size" : "Select Type First"}
+                          value={bin.bin_size_name}
+                          onChangeText={() => { }}
+                          isDropdown
+                          onPress={() => openSizeModal(index)}
+                        />
+                      )}
+                      <FormField
+                        label="Quantity*"
+                        placeholder="Enter Quantity"
+                        value={bin.quantity}
+                        onChangeText={(val) => updateBin(index, { quantity: val })}
+                      />
+                    </LinearGradient>
+                  </View>
+                ))}
 
-              <TouchableOpacity
-                style={[styles.addBinButton, { marginTop: 10, width: 140, height: 35, alignSelf: 'flex-end' }]}
-                activeOpacity={0.7}
-                onPress={addBin}>
-                <LinearGradient
-                  colors={['#29B554', '#6EAD16']}
-                  locations={[0.2227, 0.7018]}
-                  start={{ x: 0.7, y: 0 }}
-                  end={{ x: 0, y: 0.8 }}
-                  style={styles.addBinButtonGradient}>
-                  <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
+                <TouchableOpacity
+                  style={[styles.addBinButton, { marginTop: 10, width: 140, height: 35, alignSelf: 'flex-end' }]}
+                  activeOpacity={0.7}
+                  onPress={addBin}>
+                  <LinearGradient
+                    colors={['#29B554', '#6EAD16']}
+                    locations={[0.2227, 0.7018]}
+                    start={{ x: 0.7, y: 0 }}
+                    end={{ x: 0, y: 0.8 }}
+                    style={styles.addBinButtonGradient}>
+                    <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </LinearGradient>
+            </View>
+          )}
+
+          {/* Section 2: Service Selection (Conditional) */}
+          {serviceType === 'service' && (
+            <View style={styles.formSection}>
+              <LinearGradient
+                colors={['#EFF2F0', '#F8FFEE']}
+                locations={[0.2377, 0.6629]}
+                start={{ x: 0.34, y: 0 }}
+                end={{ x: 0.66, y: 1 }}
+                style={styles.formSectionGradient}>
+                <View style={styles.binSectionHeader}>
+                  <Text style={styles.formSectionTitleSmall}>Select Services *</Text>
+                </View>
+
+                {fetchingCategories ? (
+                  <ActivityIndicator size="small" color="#29B554" style={{ marginVertical: 20 }} />
+                ) : (
+                  <View style={styles.servicesGrid}>
+                    {serviceCategories.map((category) => (
+                      <TouchableOpacity
+                        key={category.id}
+                        style={[
+                          styles.serviceCheckboxItem,
+                          selectedServices.includes(category.id) && styles.serviceCheckboxItemActive
+                        ]}
+                        onPress={() => toggleService(category.id)}>
+                        <Ionicons
+                          name={selectedServices.includes(category.id) ? "checkbox" : "square-outline"}
+                          size={24}
+                          color={selectedServices.includes(category.id) ? "#29B554" : "#90B93E"}
+                        />
+                        <Text style={[
+                          styles.serviceCheckboxLabel,
+                          selectedServices.includes(category.id) && styles.serviceCheckboxLabelActive
+                        ]}>
+                          {category.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                <FormField
+                  label="Description*"
+                  placeholder="Tell us what you need..."
+                  value={notes}
+                  onChangeText={setNotes}
+                  multiline
+                />
+
+                <FormField
+                  label="Price (Your Budget - $)*"
+                  placeholder="e.g. 500"
+                  value={customerBudget}
+                  onChangeText={setCustomerBudget}
+                  keyboardType="numeric"
+                />
+              </LinearGradient>
+            </View>
+          )}
 
           {/* Section 3: Delivery Details */}
           <View style={styles.formSection}>
@@ -815,7 +1003,7 @@ const OrderBinScreen: React.FC = () => {
           </View>
 
           {/* Section 5: Instructions */}
-          <View style={styles.formSection}>
+          {serviceType !== 'service' && <View style={styles.formSection}>
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
               locations={[0.2377, 0.6629]}
@@ -835,7 +1023,7 @@ const OrderBinScreen: React.FC = () => {
                 />
               </View>
             </LinearGradient>
-          </View>
+          </View>}
 
           {/* Section: Upload Attachment */}
           <View style={styles.formSection}>
@@ -962,6 +1150,29 @@ const OrderBinScreen: React.FC = () => {
             </LinearGradient>
           </View>
 
+          {/* Order Summary / Estimated Total */}
+          {bins.some(b => b.bin_size_id) && (
+            <View style={styles.formSection}>
+              <LinearGradient
+                colors={['#EFF2F0', '#F8FFEE']}
+                locations={[0.2377, 0.6629]}
+                start={{ x: 0.34, y: 0 }}
+                end={{ x: 0.66, y: 1 }}
+                style={styles.formSectionGradient}>
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Estimated Total:</Text>
+                  <Text style={styles.summaryValue}>
+                    ${bins.reduce((acc, b) => {
+                      const price = binPrices.find(p => p.bin_size_id.toString() === b.bin_size_id)?.admin_final_price;
+                      return acc + (parseFloat(price || '0') * (parseInt(b.quantity) || 1));
+                    }, 0).toFixed(2)}
+                  </Text>
+                </View>
+                {fetchingPrices && <ActivityIndicator size="small" color={themeColors.primary} style={{ marginTop: 5 }} />}
+              </LinearGradient>
+            </View>
+          )}
+
           {/* Place Order Button */}
           <TouchableOpacity
             style={styles.placeOrderButton}
@@ -1046,10 +1257,17 @@ const OrderBinScreen: React.FC = () => {
               {binSizesMap[parseInt(bins[activeBinIndex]?.bin_type_id)]?.map((size) => (
                 <TouchableOpacity
                   key={size.id}
-                  style={styles.optionItem}
                   onPress={() => selectBinSize(size)}
+                  style={styles.optionItem}
                 >
-                  <Text style={[styles.optionText, bins[activeBinIndex]?.bin_size_id === size.id.toString() && styles.selectedOptionText]}>{size.size}</Text>
+                  <Text style={[styles.optionText, bins[activeBinIndex]?.bin_size_id === size.id.toString() && styles.selectedOptionText]}>
+                    {size.size}
+                  </Text>
+                  {binPrices.some(p => p.bin_size_id === size.id) && (
+                    <Text style={styles.optionPrice}>
+                      ${binPrices.find(p => p.bin_size_id === size.id)?.admin_final_price}
+                    </Text>
+                  )}
                 </TouchableOpacity>
               ))}
               {(!bins[activeBinIndex]?.bin_type_id || !binSizesMap[parseInt(bins[activeBinIndex]?.bin_type_id)]?.length) && (
@@ -1147,6 +1365,42 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.15)',
     marginBottom: 11,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  summaryLabel: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 18,
+    color: '#373934',
+  },
+  summaryValue: {
+    fontFamily: fonts.family.bold,
+    fontSize: 22,
+    color: themeColors.primary,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  optionPrice: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: themeColors.primary,
+  },
+  noDataText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center',
+    padding: 20,
   },
   formSection: {
     marginBottom: 6,
@@ -1437,11 +1691,6 @@ const styles = StyleSheet.create({
   optionsList: {
     width: '100%',
   },
-  optionItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
   optionText: {
     fontFamily: fonts.family.regular,
     fontSize: 16,
@@ -1450,13 +1699,6 @@ const styles = StyleSheet.create({
   selectedOptionText: {
     color: '#9AD346',
     fontFamily: fonts.family.semiBold,
-  },
-  noDataText: {
-    fontFamily: fonts.family.regular,
-    fontSize: 14,
-    color: '#979897',
-    textAlign: 'center',
-    marginTop: 20,
   },
   removeBinButton: {
     position: 'absolute',
@@ -1490,16 +1732,42 @@ const styles = StyleSheet.create({
   },
   mapHint: {
     position: 'absolute',
-    bottom: 8,
-    left: 8,
-    right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    padding: 4,
-    borderRadius: 4,
     fontSize: 10,
-    color: '#373934',
+    color: '#6EAD16',
     textAlign: 'center',
-    fontFamily: fonts.family.regular,
+    marginTop: 5,
+    fontFamily: fonts.family.medium,
+  },
+  servicesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 10,
+  },
+  serviceCheckboxItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3FFE2',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5EFD1',
+    width: (width - 60) / 2 - 10,
+    gap: 8,
+  },
+  serviceCheckboxItemActive: {
+    backgroundColor: '#C0F96F',
+    borderColor: '#90B93E',
+  },
+  serviceCheckboxLabel: {
+    fontSize: 12,
+    color: '#373934',
+    fontFamily: fonts.family.medium,
+    flex: 1,
+  },
+  serviceCheckboxLabelActive: {
+    color: '#373934',
+    fontFamily: fonts.family.bold,
   },
 });
 

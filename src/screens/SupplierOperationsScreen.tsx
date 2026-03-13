@@ -196,6 +196,38 @@ const SupplierOperationsScreen: React.FC = () => {
                 </View>
               </LinearGradient>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.smallCard}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate('SupplierDrivers' as never)}>
+              <LinearGradient
+                colors={['#37B112', '#77C40A']}
+                locations={[0.2227, 0.7018]}
+                start={{ x: 0.88, y: 0 }}
+                end={{ x: 0.12, y: 1 }}
+                style={styles.smallCardGradient}>
+                {/* translucent overlay */}
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.1)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 0, y: 1 }}
+                  style={styles.smallCardOverlay}
+                  pointerEvents="none"
+                />
+
+                <View
+                  style={[
+                    styles.smallCardContent,
+                    styles.smallCardContentOnTop,
+                  ]}>
+                  <Text style={styles.smallCardLabel}>Drivers</Text>
+                  <View style={styles.playCircleSmall}>
+                    <Text style={styles.playIconSmall}>▶</Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         </View>
 

@@ -43,7 +43,7 @@ interface ServiceZoneData {
 }
 
 const ServiceAreaScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const [loading, setLoading] = useState(false);
   const [serviceZones, setServiceZones] = useState<ServiceZoneData[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -97,6 +97,13 @@ const ServiceAreaScreen: React.FC = () => {
 
   const handleBack = () => {
     navigation.goBack();
+  };
+
+  const handleSetupPricing = (zone: ServiceZoneData) => {
+    navigation.navigate('SupplierBinPricing', {
+      serviceAreaId: zone.id,
+      city: zone.city,
+    });
   };
 
   const handleAddNewServiceArea = () => {
@@ -346,6 +353,19 @@ const ServiceAreaScreen: React.FC = () => {
                         <Text style={styles.infoValue}>{zone.areaRadiusKm} KM</Text>
                       </View>
                     </View>
+
+                    {/* Pricing Setup Button */}
+                    <TouchableOpacity
+                      style={[styles.removeButton, { marginBottom: 10 }]}
+                      activeOpacity={0.8}
+                      onPress={() => handleSetupPricing(zone)}>
+                      <LinearGradient
+                        colors={['#29B554', '#6EAD16']}
+                        style={styles.removeButtonInner}>
+                        <Ionicons name="pricetag-outline" size={16} color="#FFFFFF" />
+                        <Text style={styles.removeText}>Setup Bin Pricing</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
 
                     {/* Remove Button */}
                     <TouchableOpacity

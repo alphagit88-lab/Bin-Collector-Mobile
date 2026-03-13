@@ -11,6 +11,8 @@ import Icon3 from '../assets/images/1 237.svg';
 import Icon4 from '../assets/images/1 238.svg';
 import Icon5 from '../assets/images/1 239.svg';
 
+import { useAuth } from '../contexts/AuthContext';
+
 interface SupplierBottomNavBarProps {
   activeTab?: 'dashboard' | 'operations' | 'requests' | 'jobs' | 'account';
 }
@@ -18,7 +20,9 @@ interface SupplierBottomNavBarProps {
 const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
   activeTab = 'dashboard',
 }) => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const { user } = useAuth();
+  const isDriver = user?.role === 'driver';
 
   return (
     <View style={styles.bottomNav}>
@@ -38,7 +42,7 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
                 : styles.navItemInactive
             }
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('SupplierDashboard' as never)}>
+            onPress={() => navigation.navigate(isDriver ? 'DriverDashboard' : 'SupplierDashboard')}>
             {activeTab === 'dashboard' ? (
               <View style={styles.navItemActiveBackground}>
                 <LinearGradient
@@ -75,6 +79,7 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
           </TouchableOpacity>
 
           {/* Operations */}
+          {!isDriver && (
           <TouchableOpacity
             style={
               activeTab === 'operations' ? styles.navItem : styles.navItemInactive
@@ -109,14 +114,16 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
             ) : (
               <>
                 <View style={styles.navIconContainer}>
-                  <Icon2 width={28} height={28} />
+                   <Icon2 width={28} height={28} />
                 </View>
                 <Text style={styles.navItemText}>Operations</Text>
               </>
             )}
           </TouchableOpacity>
+          )}
 
           {/* Requests */}
+          {!isDriver && (
           <TouchableOpacity
             style={
               activeTab === 'requests' ? styles.navItem : styles.navItemInactive
@@ -157,6 +164,7 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
               </>
             )}
           </TouchableOpacity>
+          )}
 
           {/* My Jobs */}
           <TouchableOpacity
@@ -164,7 +172,7 @@ const SupplierBottomNavBar: React.FC<SupplierBottomNavBarProps> = ({
               activeTab === 'jobs' ? styles.navItem : styles.navItemInactive
             }
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('SupplierJobs' as never)}>
+            onPress={() => navigation.navigate(isDriver ? 'DriverJobs' : 'SupplierJobs')}>
             {activeTab === 'jobs' ? (
               <View style={styles.navItemActiveBackground}>
                 <LinearGradient

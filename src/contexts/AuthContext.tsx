@@ -9,8 +9,9 @@ export interface User {
   name: string;
   phone: string;
   email: string;
-  role: 'customer' | 'supplier' | 'admin';
+  role: 'customer' | 'supplier' | 'admin' | 'driver';
   supplierType?: string;
+  supplierId?: number;
 }
 
 export interface SignupData {

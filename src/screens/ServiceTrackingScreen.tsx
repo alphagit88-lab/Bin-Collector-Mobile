@@ -170,8 +170,13 @@ const ServiceTrackingScreen: React.FC = () => {
     return statusSteps.findIndex(step => step.key === status);
   };
 
-  const renderTimeline = (currentStatus: string, paymentMethod: string) => {
-    const filteredSteps = statusSteps.filter(step => !step.cashOnly || paymentMethod === 'cash');
+  const renderTimeline = (currentStatus: string, paymentMethod: string, category: string) => {
+    const isService = category === 'service';
+    const filteredSteps = statusSteps.filter(step => {
+      if (step.cashOnly && paymentMethod !== 'cash') return false;
+      if (isService && ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(step.key)) return false;
+      return true;
+    });
     const currentIndex = filteredSteps.findIndex(step => step.key === currentStatus);
 
     return (
@@ -222,11 +227,21 @@ const ServiceTrackingScreen: React.FC = () => {
 
         <View style={[styles.detailRow, { marginTop: 8, alignItems: 'flex-start' }]}>
           <Text style={[styles.detailLabel, { fontFamily: fonts.family.medium }]}>
-            {orderItems.length > 1 ? 'Bins' : 'Bin'}
+            {request.service_category === 'service' ? 'Service' : (orderItems.length > 1 ? 'Bins' : 'Bin')}
           </Text>
 
           <View style={{ flex: 1, alignItems: 'flex-end' }}>
-            {orderItems.length > 0 ? (
+            {request.service_category === 'service' ? (
+              request.service_names ? (
+                request.service_names.split(',').map((name: string, index: number) => (
+                  <Text key={index} style={[styles.detailValue, { textAlign: 'right', marginBottom: 4 }]}>
+                    {name.trim()}
+                  </Text>
+                ))
+              ) : (
+                <Text style={[styles.detailValue, { textAlign: 'right' }]}>General Service</Text>
+              )
+            ) : orderItems.length > 0 ? (
               orderItems.map((item, index) => (
                 <Text key={index} style={[styles.detailValue, { textAlign: 'right', marginBottom: 4 }]}>
                   {item.bin_type_name} - {item.bin_size} {item.bin_code ? `(${item.bin_code})` : ''}
@@ -369,7 +384,7 @@ const ServiceTrackingScreen: React.FC = () => {
                       </TouchableOpacity>
                     )}
 
-                    {renderTimeline(selectedRequest.status, selectedRequest.payment_method)}
+                    {renderTimeline(selectedRequest.status, selectedRequest.payment_method, selectedRequest.service_category)}
                   </>
                 )}
               </View>

@@ -49,6 +49,12 @@ interface Job {
   customer_name?: string;
   customer_phone?: string;
   payment_method?: string;
+  latitude?: number;
+  longitude?: number;
+  delivery_photo_url?: string;
+  service_category?: string;
+  service_names?: string;
+  selected_services_count?: number;
 }
 
 const SupplierRequestsScreen: React.FC = () => {
@@ -106,6 +112,12 @@ const SupplierRequestsScreen: React.FC = () => {
         customerPhone: job.customer_phone,
         attachment_url: job.attachment_url,
         payment_method: job.payment_method,
+        latitude: job.latitude,
+        longitude: job.longitude,
+        delivery_photo_url: job.delivery_photo_url,
+        service_category: job.service_category,
+        service_names: job.service_names,
+        selected_services_count: job.selected_services_count,
       },
     });
   };
@@ -113,19 +125,31 @@ const SupplierRequestsScreen: React.FC = () => {
   const renderJobItem = (job: Job, index: number) => (
     <View key={job.id} style={styles.jobRow}>
       <View style={styles.jobColumn}>
-        {index === 0 && <Text style={styles.columnHeader}>Bin Type</Text>}
+        {index === 0 && <Text style={styles.columnHeader}>Bin Type / Service</Text>}
         <View style={styles.binTypeCell}>
-          <Text style={styles.jobText}>{job.bin_type_name}</Text>
-          {job.order_items_count > 1 && (
-            <View style={styles.moreBadge}>
-              <Text style={styles.moreBadgeText}>+{job.order_items_count - 1} more</Text>
-            </View>
+          <Text style={styles.jobText} numberOfLines={1}>
+            {job.service_category === 'service'
+              ? (job.service_names?.split(',')[0] || 'Unknown')
+              : job.bin_type_name}
+          </Text>
+          {job.service_category === 'service' ? (
+            (job.selected_services_count || 0) > 1 && (
+              <View style={styles.moreBadge}>
+                <Text style={styles.moreBadgeText}>+{(job.selected_services_count || 0) - 1} more</Text>
+              </View>
+            )
+          ) : (
+            (job.order_items_count || 0) > 1 && (
+              <View style={styles.moreBadge}>
+                <Text style={styles.moreBadgeText}>+{(job.order_items_count || 0) - 1} more</Text>
+              </View>
+            )
           )}
         </View>
       </View>
       <View style={styles.jobColumn}>
         {index === 0 && (
-          <Text style={styles.columnHeader}>Bin Size/Capacity</Text>
+          <Text style={styles.columnHeader}>Size/Capacity</Text>
         )}
         <Text style={styles.jobText}>{job.bin_size}</Text>
       </View>

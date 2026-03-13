@@ -10,7 +10,10 @@ import {
   Alert, // Keeping Alert for confirmation dialog
   TextInput,
   RefreshControl,
+  Linking,
+  Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
@@ -38,6 +41,9 @@ interface BinItem {
   bin_size: string;
   status: string;
   notes?: string;
+  current_location?: string;
+  current_latitude?: number | string;
+  current_longitude?: number | string;
 }
 
 interface BinType {
@@ -190,6 +196,25 @@ const FleetManagementScreen: React.FC = () => {
   const handleRemoveBin = (binId: number) => {
     handleUpdateStatus(binId, 'unavailable');
   };
+  const handleOpenDirections = (bin: BinItem) => {
+    const lat = bin.current_latitude;
+    const lon = bin.current_longitude;
+    const addr = encodeURIComponent(bin.current_location || 'N/A');
+
+    if (lat && lon) {
+      const url = Platform.select({
+        ios: `maps:0,0?q=${addr}@${lat},${lon}`,
+        android: `geo:0,0?q=${lat},${lon}(${addr})`,
+      });
+      if (url) Linking.openURL(url);
+    } else if (bin.current_location) {
+      const url = Platform.select({
+        ios: `maps:0,0?q=${addr}`,
+        android: `geo:0,0?q=${addr}`,
+      });
+      if (url) Linking.openURL(url);
+    }
+  };
 
   const renderBinCard = (bin: BinItem, index: number) => (
     <LinearGradient
@@ -256,6 +281,16 @@ const FleetManagementScreen: React.FC = () => {
             <Text style={styles.editButtonText}>Activate</Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          style={[
+            styles.locationButton,
+            !bin.current_location && { backgroundColor: '#CCC', opacity: 0.5 }
+          ]}
+          onPress={() => handleOpenDirections(bin)}
+          disabled={!bin.current_location}
+          activeOpacity={0.8}>
+          <Ionicons name="location" size={20} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
     </LinearGradient>
   );
@@ -735,6 +770,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#89D957',
     borderRadius: 12,
     paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  locationButton: {
+    width: 44,
+    height: 44,
+    backgroundColor: '#252525',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
   },
