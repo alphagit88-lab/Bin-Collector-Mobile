@@ -1,0 +1,490 @@
+import React from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    Dimensions,
+    Image,
+    TextInput,
+    KeyboardAvoidingView,
+    ScrollView,
+    Platform,
+    Linking,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { themeColors } from '../theme/colors';
+import AppModal from './AppModal';
+import { LinearGradient } from 'expo-linear-gradient';
+import { fonts } from '../theme/fonts';
+import { BASE_URL } from '../config/api';
+
+const MiddleImage = require('../assets/images/image1_25_2.png');
+
+const { width, height } = Dimensions.get('window');
+
+interface IncomingRequestModalProps {
+    visible: boolean;
+    requestData: any;
+    onAccept: () => void;
+    onDecline: () => void;
+}
+
+const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
+    visible,
+    requestData,
+    onAccept,
+    onDecline,
+}) => {
+    if (!requestData) return null;
+
+    const request = requestData.request || {};
+    console.log('Request data:', request);
+    console.log('Request items:', request.items);
+    console.log('Items length:', request.items?.length);
+
+    const formatDate = (dateStr: string) => {
+        if (!dateStr || dateStr === 'N/A') return 'N/A';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+            });
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
+    const handleOpenDirections = () => {
+        const lat = request.latitude;
+        const lon = request.longitude;
+        const addr = encodeURIComponent(request.location || 'N/A');
+
+        if (lat && lon) {
+            const url = Platform.select({
+                ios: `maps:0,0?q=${addr}@${lat},${lon}`,
+                android: `geo:0,0?q=${lat},${lon}(${addr})`,
+            });
+            if (url) Linking.openURL(url);
+        } else {
+            const url = Platform.select({
+                ios: `maps:0,0?q=${addr}`,
+                android: `geo:0,0?q=${addr}`,
+            });
+            if (url) Linking.openURL(url);
+        }
+    };
+
+
+
+    return (
+        <AppModal
+            animationType="fade"
+            transparent={true}
+            visible={visible}
+            statusBarTranslucent
+        >
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.overlay}
+            >
+                <LinearGradient
+                    colors={['rgba(0,0,0,0.85)', 'rgba(0,0,0,0.95)']}
+                    style={styles.container}
+                >
+                    <View style={styles.contentCard}>
+                        <LinearGradient
+                            colors={['#29B554', '#6EAD16']}
+                            style={styles.headerGradient}
+                        >
+                            <Text style={styles.headerTitle}>New Service Request!</Text>
+                            <Text style={styles.headerSubtitle}>
+                                {request.items && request.items.length > 0
+                                    ? `${request.items.length} Bin${request.items.length > 1 ? 's' : ''} Requested`
+                                    : 'Instant Booking Available'}
+                            </Text>
+                        </LinearGradient>
+
+                        <ScrollView
+                            style={styles.scrollView}
+                            contentContainerStyle={styles.scrollContent}
+                            showsVerticalScrollIndicator={false}
+                            keyboardShouldPersistTaps="handled"
+                        >
+                            <View style={styles.detailsContainer}>
+                                {request.items && request.items.length > 0 ? (
+                                    // Group items by type and size
+                                    Object.values(request.items.reduce((acc: any, item: any) => {
+                                        const key = `${item.bin_type_id}-${item.bin_size_id}`;
+                                        if (!acc[key]) {
+                                            acc[key] = { ...item, count: 1 };
+                                        } else {
+                                            acc[key].count += 1;
+                                        }
+                                        return acc;
+                                    }, {})).map((item: any, index: number) => (
+                                        <View key={index} style={styles.binInfoRow}>
+                                            <View style={styles.iconContainer}>
+                                                <Image
+                                                    source={MiddleImage}
+                                                    style={{ width: 70 }}
+                                                    resizeMode="contain"
+                                                />
+                                            </View>
+                                            <View style={styles.binTextContainer}>
+                                                <Text style={styles.binType}>
+                                                    {item.count > 1 ? `${item.count}x ` : ''}
+                                                    {item.bin_type_name || 'Unknown'}
+                                                </Text>
+                                                {item.bin_size && <Text style={styles.binSize}>{item.bin_size}</Text>}
+                                            </View>
+                                        </View>
+                                    ))
+                                ) : request.service_category === 'service' ? (
+                                    <View>
+                                        <View style={styles.binInfoRow}>
+                                            <View style={[styles.iconContainer, { width: 50, height: 50 }]}>
+                                                <Ionicons name="construct" size={30} color={themeColors.primary} />
+                                            </View>
+                                             <View style={styles.binTextContainer}>
+                                                 <Text style={styles.binType}>General Service</Text>
+                                                 <Text style={styles.binSize}>Requested Services</Text>
+                                             </View>
+                                         </View>
+                                         <View style={styles.serviceListContainer}>
+                                             {request.service_names ? (
+                                                 request.service_names.split(',').map((name: string, idx: number) => (
+                                                     <View key={idx} style={styles.serviceTag}>
+                                                         <Ionicons name="checkmark-circle" size={16} color={themeColors.primary} />
+                                                         <Text style={styles.serviceTagText}>{name.trim()}</Text>
+                                                     </View>
+                                                 ))
+                                             ) : (
+                                                 <View style={styles.serviceTag}>
+                                                     <Ionicons name="checkmark-circle" size={16} color={themeColors.primary} />
+                                                     <Text style={styles.serviceTagText}>General Service</Text>
+                                                 </View>
+                                             )}
+                                         </View>
+                                        {request.estimated_price && (
+                                            <View style={styles.budgetRow}>
+                                                <Text style={styles.infoLabel}>Customer's Budget:</Text>
+                                                <Text style={[styles.infoValue, { color: themeColors.primary, fontFamily: fonts.family.bold, fontSize: 18 }]}>
+                                                    ${request.estimated_price}
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                ) : (
+                                    <View style={styles.binInfoRow}>
+                                        <View style={styles.iconContainer}>
+                                            <Image
+                                                source={MiddleImage}
+                                                style={{ width: 70 }}
+                                                resizeMode="contain"
+                                            />
+                                        </View>
+                                        <View style={styles.binTextContainer}>
+                                            <Text style={styles.binType}>{request.bin_type_name || 'N/A'}</Text>
+                                            <Text style={styles.binSize}>{request.bin_size || 'N/A'}</Text>
+                                        </View>
+                                    </View>
+                                )}
+
+                                <View style={styles.divider} />
+
+                                <View style={styles.infoRow}>
+                                    <View style={styles.locationHeader}>
+                                        <Text style={styles.infoLabel}>Location:</Text>
+                                        <TouchableOpacity
+                                            style={styles.directionsButton}
+                                            onPress={handleOpenDirections}
+                                        >
+                                            <Ionicons name="navigate-circle" size={20} color={themeColors.primary} />
+                                            <Text style={styles.directionsText}>Directions</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <Text style={styles.infoValue} numberOfLines={2}>
+                                        {request.location || 'N/A'}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.infoLabel}>Duration:</Text>
+                                    <Text style={styles.infoValue}>
+                                        {formatDate(request.start_date)} to {formatDate(request.end_date)}
+                                    </Text>
+                                </View>
+
+                                {request.instructions ? (
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.infoLabel}>Note:</Text>
+                                        <Text style={styles.infoValue} numberOfLines={2}>
+                                            {request.instructions}
+                                        </Text>
+                                    </View>
+                                ) : null}
+
+                                {request.attachment_url ? (
+                                    <View style={styles.infoRow}>
+                                        <Text style={styles.infoLabel}>Attachment:</Text>
+                                        <Image
+                                            source={{ uri: `${BASE_URL}${request.attachment_url}` }}
+                                            style={styles.attachmentPreview}
+                                            resizeMode="cover"
+                                        />
+                                    </View>
+                                ) : null}
+
+                                <View style={styles.divider} />
+
+
+                            </View>
+                        </ScrollView>
+
+                        <View style={styles.actionsContainer}>
+                            <TouchableOpacity
+                                style={styles.declineButton}
+                                onPress={onDecline}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.declineButtonText}>Decline</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.acceptButton}
+                                onPress={onAccept}
+                                activeOpacity={0.8}
+                            >
+                                <LinearGradient
+                                    colors={['#C0F96F', '#90B93E']}
+                                    style={styles.acceptButtonGradient}
+                                >
+                                    <Text style={styles.acceptButtonText}>ACCEPT NOW</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </LinearGradient>
+            </KeyboardAvoidingView>
+        </AppModal>
+    );
+};
+
+const styles = StyleSheet.create({
+    overlay: {
+        flex: 1,
+    },
+    container: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    contentCard: {
+        width: width * 0.9,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        overflow: 'hidden',
+        elevation: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+    },
+    headerGradient: {
+        paddingVertical: 24,
+        alignItems: 'center',
+    },
+    headerTitle: {
+        fontFamily: fonts.family.bold,
+        fontSize: 24,
+        color: '#FFFFFF',
+    },
+    headerSubtitle: {
+        fontFamily: fonts.family.medium,
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.8)',
+        marginTop: 4,
+    },
+    scrollView: {
+        maxHeight: height * 0.5,
+    },
+    scrollContent: {
+        flexGrow: 1,
+    },
+    detailsContainer: {
+        padding: 24,
+    },
+    binInfoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    iconContainer: {
+        width: 100,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#ffffffff',
+        borderRadius: 10,
+    },
+    binTextContainer: {
+        marginLeft: 16,
+        flex: 1,
+    },
+    binType: {
+        fontFamily: fonts.family.bold,
+        fontSize: 20,
+        color: '#373934',
+    },
+    binSize: {
+        fontFamily: fonts.family.medium,
+        fontSize: 16,
+        color: '#29B554',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: '#EEEEEE',
+        marginBottom: 20,
+    },
+    infoRow: {
+        marginBottom: 16,
+    },
+    infoLabel: {
+        fontFamily: fonts.family.medium,
+        fontSize: 14,
+        color: '#979897',
+        marginBottom: 4,
+    },
+    infoValue: {
+        fontFamily: fonts.family.regular,
+        fontSize: 16,
+        color: '#373934',
+        lineHeight: 22,
+    },
+    locationHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    directionsButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        backgroundColor: '#0c2404e1',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    directionsText: {
+        fontFamily: fonts.family.semiBold,
+        fontSize: 12,
+        color: themeColors.primary,
+        lineHeight: 14,
+    },
+    priceInputContainer: {
+        marginTop: 20,
+        marginBottom: 8,
+    },
+    priceLabel: {
+        fontFamily: fonts.family.medium,
+        fontSize: 14,
+        color: '#373934',
+        marginBottom: 8,
+    },
+    priceInput: {
+        backgroundColor: '#F5F5F5',
+        borderRadius: 12,
+        padding: 15,
+        fontSize: 18,
+        fontFamily: fonts.family.regular,
+        color: '#333',
+        borderWidth: 1,
+        borderColor: '#DDDDDD',
+    },
+    attachmentPreview: {
+        width: '100%',
+        height: 150,
+        borderRadius: 12,
+        marginTop: 8,
+        backgroundColor: '#F0F0F0',
+    },
+    actionsContainer: {
+        flexDirection: 'row',
+        padding: 20,
+        gap: 12,
+        backgroundColor: '#F9F9F9',
+    },
+    declineButton: {
+        flex: 1,
+        height: 56,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: '#DDDDDD',
+    },
+    declineButtonText: {
+        fontFamily: fonts.family.bold,
+        fontSize: 16,
+        color: '#666666',
+    },
+    acceptButton: {
+        flex: 2,
+        height: 56,
+        borderRadius: 16,
+        overflow: 'hidden',
+    },
+    acceptButtonGradient: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    acceptButtonText: {
+        fontFamily: fonts.family.bold,
+        fontSize: 18,
+        color: '#161616',
+    },
+    serviceListContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 10,
+        marginBottom: 20,
+    },
+    serviceTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3FFE2',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#E5EFD1',
+        gap: 6,
+    },
+    serviceTagText: {
+        fontFamily: fonts.family.medium,
+        fontSize: 12,
+        color: '#373934',
+    },
+    budgetRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#F8FFEE',
+        padding: 12,
+        borderRadius: 12,
+        marginTop: 10,
+        borderWidth: 1,
+        borderColor: '#E5EFD1',
+    },
+});
+
+export default IncomingRequestModal;
