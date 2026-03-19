@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import { io, Socket } from 'socket.io-client';
 import { showMessage } from 'react-native-flash-message';
 import { useAuth } from './AuthContext';
-import { API_URL, api } from '../config/api';
+import { BASE_URL, api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { navigate } from '../navigation/navigationRef';
 import IncomingRequestModal from '../components/IncomingRequestModal';
@@ -26,8 +26,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     useEffect(() => {
         if (token && user) {
             // Connect to socket
-            const socketUrl = API_URL.replace('/api', '');
-            const newSocket = io(socketUrl, {
+            const newSocket = io(BASE_URL, {
                 auth: { token },
             });
 
