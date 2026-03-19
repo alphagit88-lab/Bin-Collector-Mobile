@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Update this to match your backend URL
 // For Android emulator, use 10.0.2.2 instead of localhost
 // For physical device, use your computer's IP address
-const BASE_URL = `http://192.168.8.120:5000`;
+const BASE_URL = `https://api.taskerbuddy.com`;
 const API_URL = `${BASE_URL}/api`;
 //http://192.168.8.120:5000
 //https://flashers-twenty-themes-daniel.trycloudflare.com
