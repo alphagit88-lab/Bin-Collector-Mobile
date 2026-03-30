@@ -543,6 +543,26 @@ const OrderBinScreen: React.FC = () => {
 
     setLoading(true);
     try {
+      let finalLat = latitude;
+      let finalLon = longitude;
+
+      // Auto-geocode if coordinates are missing
+      if (!finalLat || !finalLon) {
+        try {
+          const geoResponse = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1`,
+            { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
+          );
+          const geoData = await geoResponse.json();
+          if (geoData && geoData.length > 0) {
+            finalLat = parseFloat(geoData[0].lat);
+            finalLon = parseFloat(geoData[0].lon);
+          }
+        } catch (e) {
+          console.error('Auto-geocoding failed:', e);
+        }
+      }
+
       const formData = new FormData();
       formData.append('service_category', serviceType);
       if (serviceType === 'service') {
@@ -562,8 +582,8 @@ const OrderBinScreen: React.FC = () => {
       formData.append('contact_number', contactNumber);
       formData.append('contact_email', additionalContact);
       formData.append('instructions', notes);
-      if (latitude) formData.append('latitude', latitude.toString());
-      if (longitude) formData.append('longitude', longitude.toString());
+      if (finalLat !== null && finalLat !== undefined) formData.append('latitude', finalLat.toString());
+      if (finalLon !== null && finalLon !== undefined) formData.append('longitude', finalLon.toString());
 
       if (attachment) {
         const uri = attachment.uri;

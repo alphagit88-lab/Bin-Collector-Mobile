@@ -175,7 +175,7 @@ const SupplierBinPricingScreen: React.FC = () => {
           </View>
           <TouchableOpacity
             style={[styles.saveButton, isLocked && styles.disabledButton]}
-            onPress={() => handleSavePrice(isSizeBased ? null : type.id, isSizeBased ? size.id : null)}
+            onPress={() => handleSavePrice(type.id, isSizeBased ? size.id : null)}
             disabled={saving || isLocked}
           >
             <LinearGradient

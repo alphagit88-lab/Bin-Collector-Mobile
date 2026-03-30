@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const BASE_URL = `https://api.taskerbuddy.com`;
 const API_URL = `${BASE_URL}/api`;
 //http://192.168.8.120:5000
-//https://flashers-twenty-themes-daniel.trycloudflare.com
+//https://api.taskerbuddy.com
 
 export interface ApiResponse<T> {
   success: boolean;
