@@ -14,6 +14,7 @@ import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/nativ
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import { useSocket } from '../contexts/SocketContext';
 import { api, BASE_URL } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
@@ -22,7 +23,6 @@ import toast from '../utils/toast';
 
 // Import SVG icons
 import BannerImage from '../assets/images/4 1.svg';
-import TruckIcon from '../assets/images/14_1.svg';
 import ViewArrow from '../assets/images/Ellipse 11.svg';
 
 type JobCategory =
@@ -141,6 +141,9 @@ const SupplierJobsScreen: React.FC = () => {
     if (selectedCategory === 'inProgress') {
       return jobs.filter(j => ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(j.status));
     }
+    if (selectedCategory === 'confirmed') {
+      return jobs.filter(j => ['confirmed', 'awaiting_payment'].includes(j.status));
+    }
     return jobs.filter(j => j.status === selectedCategory);
   };
 
@@ -148,6 +151,9 @@ const SupplierJobsScreen: React.FC = () => {
     if (category === 'all') return jobs.length;
     if (category === 'inProgress') {
       return jobs.filter(j => ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(j.status)).length;
+    }
+    if (category === 'confirmed') {
+      return jobs.filter(j => ['confirmed', 'awaiting_payment'].includes(j.status)).length;
     }
     return jobs.filter(j => j.status === category).length;
   };
@@ -306,8 +312,8 @@ const SupplierJobsScreen: React.FC = () => {
                   Track. Manage. Collect.
                 </Text>
               </View>
-              <View style={styles.truckIconContainer}>
-                <TruckIcon width={148} height={63} />
+              <View style={styles.headerIconsWrapper}>
+                <HeaderActionIcons useWhiteWrapper />
               </View>
             </View>
             <View style={styles.bannerContainer}>
@@ -412,8 +418,8 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: '#FFFFFF',
   },
-  truckIconContainer: {
-    marginTop: -10,
+  headerIconsWrapper: {
+    zIndex: 3,
   },
   bannerContainer: {
     width: '100%',

@@ -20,6 +20,8 @@ import { ENDPOINTS } from '../config/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 
+// Icons
+
 const { width: screenWidth } = Dimensions.get('window');
 
 const DriverDashboard: React.FC = () => {
@@ -32,12 +34,18 @@ const DriverDashboard: React.FC = () => {
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
+  const [messageCount, setMessageCount] = useState(0);
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const response = await api.get<any>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS);
-      if (response.success && response.data) {
-        const jobs = response.data.requests || [];
+      const [jobsRes, notificationRes, messageRes] = await Promise.all([
+        api.get<any>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS),
+        api.get<{ count: number }>(ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT),
+        api.get<{ count: number }>(ENDPOINTS.MESSAGES.UNREAD_COUNT),
+      ]);
+      if (jobsRes.success && jobsRes.data) {
+        const jobs = jobsRes.data.requests || [];
         setRecentJobs(jobs.slice(0, 5));
         
         const active = jobs.filter((j: any) => 
@@ -47,6 +55,12 @@ const DriverDashboard: React.FC = () => {
         const completed = jobs.filter((j: any) => j.status === 'delivered' || j.status === 'completed').length;
         
         setStats({ active, completed });
+      }
+      if (notificationRes.success && notificationRes.data) {
+        setNotificationCount(Number(notificationRes.data.count) || 0);
+      }
+      if (messageRes.success && messageRes.data) {
+        setMessageCount(Number(messageRes.data.count) || 0);
       }
     } catch (error) {
       console.error('Error fetching driver dashboard:', error);
@@ -89,11 +103,44 @@ const DriverDashboard: React.FC = () => {
                 <Text style={styles.welcomeText}>Hello,</Text>
                 <Text style={styles.userNameText}>{user?.name || 'Driver'}</Text>
               </View>
-              <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Account' as never)}>
-                <View style={styles.avatar}>
-                   <Text style={styles.avatarText}>{user?.name?.charAt(0).toUpperCase() || 'D'}</Text>
-                </View>
-              </TouchableOpacity>
+              <View style={styles.headerRight}>
+                <TouchableOpacity 
+                  style={styles.headerIconButton} 
+                  onPress={() => navigation.navigate('Notifications' as never)}
+                >
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+                  </View>
+                  {notificationCount > 0 && (
+                    <View style={styles.notificationBadge}>
+                      <Text style={styles.badgeText}>{notificationCount > 99 ? '99+' : notificationCount}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.headerIconButton} 
+                  onPress={() => navigation.navigate('MessageInbox' as never)}
+                >
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="chatbox-outline" size={22} color="#FFFFFF" />
+                  </View>
+                  {messageCount > 0 && (
+                    <View style={styles.notificationBadge}>
+                      <Text style={styles.badgeText}>{messageCount > 99 ? '99+' : messageCount}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={styles.headerProfileButton} 
+                  onPress={() => navigation.navigate('Account' as never)}
+                >
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Stats Cards Row */}
@@ -232,6 +279,51 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerIconButton: {
+    position: 'relative',
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerProfileButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#29B554',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: '#FF3B30',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#37B112',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: fonts.family.bold,
   },
   statsRow: {
     flexDirection: 'row',

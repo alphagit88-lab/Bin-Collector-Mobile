@@ -13,17 +13,19 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext'; // Ensure this exists and exports useSocket
 import { fonts } from '../theme/fonts';
 import BottomNavBar from '../components/BottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import AppConfirmModal from '../components/AppConfirmModal';
 import toast from '../utils/toast';
+import { useStripe } from '@stripe/stripe-react-native';
 
 // Import SVG images
-import Logo14_1 from '../assets/images/14_1.svg';
 import Icon6 from '../assets/images/6.svg';
 import BinCollectIcon from '../assets/images/Bin.Collect (1) 1.svg';
 
@@ -31,6 +33,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const statusSteps = [
   { key: 'pending', label: 'Pending', icon: '⏳' },
+  { key: 'awaiting_payment', label: 'Awaiting Payment', icon: '💳' },
   { key: 'confirmed', label: 'Confirmed', icon: '✅' },
   { key: 'on_delivery', label: 'On Delivery', icon: '🚚' },
   { key: 'cash_collected', label: 'Cash Collected', icon: '💵', cashOnly: true },
@@ -45,6 +48,7 @@ const ServiceTrackingScreen: React.FC = () => {
   const { socket } = useSocket();
   const navigation = useNavigation();
   const userName = user?.name || 'Customer';
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
 
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,6 +56,7 @@ const ServiceTrackingScreen: React.FC = () => {
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [confirmVisible, setConfirmVisible] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -144,6 +149,68 @@ const ServiceTrackingScreen: React.FC = () => {
   const handleMarkReadyToPickup = async () => {
     if (!selectedRequest) return;
     setConfirmVisible(true);
+  };
+
+  const handlePayNow = async () => {
+    if (!selectedRequest) return;
+    if (selectedRequest.payment_method !== 'online') return;
+    if (selectedRequest.status !== 'awaiting_payment') return;
+
+    setPaying(true);
+    try {
+      const paymentResponse = await api.post('/payments/create-intent', {
+        requestId: selectedRequest.id,
+      }) as any;
+
+      if (!paymentResponse.success) {
+        toast.error('Payment Error', paymentResponse.message || 'Failed to initiate payment');
+        return;
+      }
+
+      const { clientSecret } = paymentResponse.data;
+      const { error: initError } = await initPaymentSheet({
+        merchantDisplayName: 'Bin Rental Inc',
+        paymentIntentClientSecret: clientSecret,
+        googlePay: {
+          merchantCountryCode: 'US',
+          testEnv: false,
+          currencyCode: 'USD',
+        },
+        defaultBillingDetails: {
+          name: user?.name,
+          email: user?.email,
+        }
+      });
+
+      if (initError) {
+        toast.error('Payment Error', initError.message);
+        return;
+      }
+
+      const { error: presentError } = await presentPaymentSheet();
+      if (presentError) {
+        if ((presentError as any).code === 'Canceled') {
+          toast.info('Payment Canceled', 'Payment was not completed. Your order is still pending payment.');
+        } else {
+          toast.error('Payment Failed', presentError.message);
+        }
+        return;
+      }
+
+      // Fallback confirmation for environments where webhook forwarding isn't active.
+      await api.post('/payments/confirm-success', {
+        requestId: selectedRequest.id,
+        paymentIntentId: (paymentResponse.data as any)?.paymentIntentId,
+      });
+
+      toast.success('Success', 'Payment submitted. Confirming...');
+      await fetchRequests();
+    } catch (e) {
+      console.error('Pay now error:', e);
+      toast.error('Error', 'Something went wrong while processing payment');
+    } finally {
+      setPaying(false);
+    }
   };
 
   const executeMarkReady = async () => {
@@ -290,7 +357,7 @@ const ServiceTrackingScreen: React.FC = () => {
             <Text style={styles.userNameText}>{userName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <Logo14_1 width={148} height={63} />
+            <HeaderActionIcons />
           </View>
         </View>
 
@@ -367,6 +434,23 @@ const ServiceTrackingScreen: React.FC = () => {
                 {selectedRequest && (
                   <>
                     {renderOrderDetails(selectedRequest)}
+
+                    {/* Pay Now Button (online orders after supplier acceptance) */}
+                    {selectedRequest.status === 'awaiting_payment' && selectedRequest.payment_method === 'online' && (
+                      <TouchableOpacity
+                        style={styles.actionButtonContainer}
+                        onPress={handlePayNow}
+                        activeOpacity={0.8}
+                        disabled={paying}
+                      >
+                        <LinearGradient
+                          colors={['#29B554', '#6EAD16']}
+                          style={[styles.actionButton, paying && { opacity: 0.7 }]}
+                        >
+                          <Text style={styles.actionButtonText}>{paying ? 'Opening Payment...' : 'Pay Now'}</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
 
                     {/* Ready to Pickup Button */}
                     {selectedRequest.status === 'delivered' && (
@@ -445,7 +529,27 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerProfileButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#29B554',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   orderButtonContainer: {
     marginHorizontal: 21,

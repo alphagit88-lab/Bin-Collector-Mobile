@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import AppModal from '../components/AppModal';
 import AppConfirmModal from '../components/AppConfirmModal';
 import { api } from '../config/api';
@@ -24,7 +25,6 @@ import { ENDPOINTS } from '../config/endpoints';
 import toast from '../utils/toast';
 
 // Header truck/logo SVGs
-import Logo14_1 from '../assets/images/14_1.svg';
 import Svg14 from '../assets/images/3_1.svg';
 import CloseIcon from '../assets/images/35 3.svg';
 import BinCollectBg from '../assets/images/Bin.Collect_2.svg';
@@ -152,17 +152,24 @@ const ServiceAreaScreen: React.FC = () => {
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newCity)}&format=json&limit=1`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newCity)}&format=json&limit=1&addressdetails=1`,
         { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
       );
       const data = await response.json();
       if (data && data.length > 0) {
-        const { lat, lon, display_name } = data[0];
+        const { lat, lon, display_name, address } = data[0];
         const newLat = parseFloat(lat);
         const newLon = parseFloat(lon);
         setNewLatitude(newLat);
         setNewLongitude(newLon);
-        setNewCity(display_name);
+        
+        // Extract city and country
+        const detectedCountry = address.country || '';
+        const detectedCity = address.city || address.town || address.village || address.suburb || display_name;
+        
+        setNewCountry(detectedCountry);
+        setNewCity(detectedCity);
+        
         setMapRegion({
           ...mapRegion,
           latitude: newLat,
@@ -187,12 +194,17 @@ const ServiceAreaScreen: React.FC = () => {
     setNewLongitude(newLon);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
+        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json&addressdetails=1`,
         { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
       );
       const data = await response.json();
       if (data && data.display_name) {
-        setNewCity(data.display_name);
+        const { address, display_name } = data;
+        const detectedCountry = address.country || '';
+        const detectedCity = address.city || address.town || address.village || address.suburb || display_name;
+        
+        setNewCountry(detectedCountry);
+        setNewCity(detectedCity);
       }
     } catch (error) {
       console.error('Reverse geocode error:', error);
@@ -256,8 +268,8 @@ const ServiceAreaScreen: React.FC = () => {
               <Text style={styles.headerSubtitle}>Edit service coverage</Text>
             </View>
 
-            <View style={styles.decorativeImageContainer}>
-              <Logo14_1 width={148} height={63} />
+            <View style={styles.headerIconsWrapper}>
+              <HeaderActionIcons useWhiteWrapper />
             </View>
 
             <View style={styles.headerSvgContainer} pointerEvents="none">
@@ -587,12 +599,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 4,
   },
-  decorativeImageContainer: {
+  headerIconsWrapper: {
     position: 'absolute',
-    right: 60,
+    right: 19,
     top: 9,
-    width: 148,
-    height: 63,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+    padding: 5,
     zIndex: 3,
   },
   headerSvgContainer: {

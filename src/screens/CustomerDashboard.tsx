@@ -18,8 +18,8 @@ import BottomNavBar from '../components/BottomNavBar';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 
-// Import SVG images
-import Logo14_1 from '../assets/images/14_1.svg';
+// Import Icons
+import { Ionicons, MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import BinCollectIcon from '../assets/images/Bin.Collect (1) 1.svg';
 import Group13Icon from '../assets/images/Group 13.svg';
 import Icon3_1 from '../assets/images/3_1.svg';
@@ -54,12 +54,25 @@ const CustomerDashboard: React.FC = () => {
   const [bookings, setBookings] = React.useState<Booking[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [refreshing, setRefreshing] = React.useState(false);
+  const [notificationCount, setNotificationCount] = React.useState(0);
+  const [messageCount, setMessageCount] = React.useState(0);
 
   const fetchBookings = React.useCallback(async () => {
     try {
-      const response = await api.get<{ requests: Booking[] }>(ENDPOINTS.BOOKINGS.MY_REQUESTS);
-      if (response.success && response.data) {
-        setBookings(response.data.requests);
+      const [bookingsRes, notificationRes, messageRes] = await Promise.all([
+        api.get<{ requests: Booking[] }>(ENDPOINTS.BOOKINGS.MY_REQUESTS),
+        api.get<{ count: number }>(ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT),
+        api.get<{ count: number }>(ENDPOINTS.MESSAGES.UNREAD_COUNT),
+      ]);
+
+      if (bookingsRes.success && bookingsRes.data) {
+        setBookings(bookingsRes.data.requests);
+      }
+      if (notificationRes.success && notificationRes.data) {
+        setNotificationCount(Number(notificationRes.data.count) || 0);
+      }
+      if (messageRes.success && messageRes.data) {
+        setMessageCount(Number(messageRes.data.count) || 0);
       }
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -118,7 +131,42 @@ const CustomerDashboard: React.FC = () => {
             <Text style={styles.userNameText}>{userName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <Logo14_1 width={148} height={63} />
+            <TouchableOpacity 
+              style={styles.headerIconButton} 
+              onPress={() => navigation.navigate('Notifications' as never)}
+            >
+              <View style={styles.iconCircle}>
+                <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+              </View>
+              {notificationCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.badgeText}>{notificationCount > 99 ? '99+' : notificationCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.headerIconButton} 
+              onPress={() => navigation.navigate('MessageInbox' as never)}
+            >
+              <View style={styles.iconCircle}>
+                <Ionicons name="chatbox-outline" size={22} color="#FFFFFF" />
+              </View>
+              {messageCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.badgeText}>{messageCount > 99 ? '99+' : messageCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.headerProfileButton} 
+              onPress={() => navigation.navigate('Account' as never)}
+            >
+              <View style={styles.iconCircle}>
+                <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -273,8 +321,8 @@ const CustomerDashboard: React.FC = () => {
                           {booking.service_category === 'service'
                             ? (booking.service_names?.split(',')[0] || 'General Service') + ((booking.selected_services_count || 0) > 1 ? ` (+${(booking.selected_services_count || 0) - 1})` : '')
                             : (booking.items && booking.items.length > 0
-                                ? booking.items[0].bin_type_name + (booking.items[0].bin_size ? ` - ${booking.items[0].bin_size}` : '')
-                                : booking.bin_type_name + (booking.bin_size ? ` - ${booking.bin_size}` : ''))
+                              ? booking.items[0].bin_type_name + (booking.items[0].bin_size ? ` - ${booking.items[0].bin_size}` : '')
+                              : booking.bin_type_name + (booking.bin_size ? ` - ${booking.bin_size}` : ''))
                           }
                         </Text>
                         <Text style={styles.bookingItemId}>#{booking.request_id}</Text>
@@ -343,7 +391,47 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#FF3B30',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    zIndex: 1,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: fonts.family.bold,
+  },
+  headerProfileButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#29B554',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   orderButtonContainer: {
     marginHorizontal: 21,

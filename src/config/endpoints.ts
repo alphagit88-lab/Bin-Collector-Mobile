@@ -49,5 +49,20 @@ export const ENDPOINTS = {
     },
     SERVICES: {
         CATEGORIES: '/service-categories',
+    },
+    NOTIFICATIONS: {
+        LIST: '/notifications',
+        UNREAD_COUNT: '/notifications/unread-count',
+    },
+    MESSAGES: {
+        CONVERSATIONS: '/messages/conversations',
+        UNREAD_COUNT: '/messages/unread-count',
+    },
+    BILLING: {
+        INVOICES: '/billing/invoices',
+        TOGGLE_VISIBILITY: '/billing/toggle-visibility',
+    },
+    PAYMENTS: {
+        CREATE_INTENT: '/payments/create-intent',
     }
 };

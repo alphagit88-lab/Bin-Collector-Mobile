@@ -15,13 +15,14 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Linking } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 import BottomNavBar from '../components/BottomNavBar';
 import AppModal from '../components/AppModal';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import BinAssignmentModal from '../components/BinAssignmentModal';
@@ -31,7 +32,6 @@ import { BASE_URL } from '../config/api';
 
 // Import SVG icons
 import BannerImage from '../assets/images/4 1.svg';
-import TruckIcon from '../assets/images/14_1.svg';
 
 interface OrderItem {
   id: number;
@@ -65,10 +65,14 @@ interface JobDetail {
   selected_services_count?: number;
   driver_id?: number | string;
   driver_name?: string;
+  supplier_id?: number | string;
+  po_number?: string;
+  additional_images?: string[];
 }
 
 const statusSteps = [
   { key: 'pending', label: 'Pending', icon: '⏳' },
+  { key: 'awaiting_payment', label: 'Awaiting Payment', icon: '💳' },
   { key: 'confirmed', label: 'Confirmed', icon: '✅' },
   { key: 'on_delivery', label: 'On Delivery', icon: '🚚', isPhysical: true },
   { key: 'cash_collected', label: 'Cash Collected', icon: '💵', cashOnly: true },
@@ -141,7 +145,10 @@ const JobDetailScreen: React.FC = () => {
       service_names: data.service_names,
       selected_services_count: data.selected_services_count,
       driver_id: data.driver_id,
-      driver_name: data.driver_name
+      driver_name: data.driver_name,
+      supplier_id: data.supplier_id || data.supplierId,
+      po_number: data.po_number,
+      additional_images: data.additional_images
     };
   };
 
@@ -379,15 +386,15 @@ const JobDetailScreen: React.FC = () => {
               end={{ x: 1, y: 1 }}
               style={styles.headerGradient}>
               <View style={styles.headerContent}>
-                <View style={styles.headerTextContainer}>
-                  <Text style={styles.headerTitle}>Job Management</Text>
-                  <Text style={styles.headerSubtitle}>
-                    Track. Manage. Collect.
-                  </Text>
-                </View>
-                <View style={styles.truckIconContainer}>
-                  <TruckIcon width={148} height={63} />
-                </View>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Job Management</Text>
+                <Text style={styles.headerSubtitle}>
+                  Track. Manage. Collect.
+                </Text>
+              </View>
+              <View style={styles.headerIconsWrapper}>
+                <HeaderActionIcons useWhiteWrapper />
+              </View>
               </View>
               <View style={styles.bannerContainer}>
                 <BannerImage width={428} height={177} />
@@ -482,6 +489,21 @@ const JobDetailScreen: React.FC = () => {
                 <Text style={styles.detailValue}>{jobDetail.total}</Text>
               </LinearGradient>
             </View>
+
+            {/* PO Number Row (If exists) */}
+            {jobDetail.po_number && (
+              <View style={styles.detailsRow}>
+                <LinearGradient
+                  colors={['#EFF2F0', '#EAFFCC']}
+                  locations={[0.2377, 0.6629]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.detailCardFull}>
+                  <Text style={styles.detailLabel}>PO Number</Text>
+                  <Text style={styles.detailValue}>{jobDetail.po_number}</Text>
+                </LinearGradient>
+              </View>
+            )}
 
             {/* Second Row - Delivery Date and Pickup Date */}
             <View style={styles.detailsRow}>
@@ -604,8 +626,8 @@ const JobDetailScreen: React.FC = () => {
               </LinearGradient>
             )}
 
-            {/* Attachment Section */}
-            {jobDetail.attachment_url && (
+            {/* Attachment Section (Legacy Single Image) */}
+            {jobDetail.attachment_url && !jobDetail.additional_images?.length && (
               <LinearGradient
                 colors={['#EFF2F0', '#EAFFCC']}
                 locations={[0.2377, 0.6629]}
@@ -623,6 +645,29 @@ const JobDetailScreen: React.FC = () => {
                     resizeMode="cover"
                   />
                 </TouchableOpacity>
+              </LinearGradient>
+            )}
+
+            {/* Multiple Attachments Section */}
+            {jobDetail.additional_images && jobDetail.additional_images.length > 0 && (
+              <LinearGradient
+                colors={['#EFF2F0', '#EAFFCC']}
+                locations={[0.2377, 0.6629]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.detailCardFull}>
+                <Text style={styles.detailLabel}>Attachments ({jobDetail.additional_images.length})</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentsHorizontalScroll}>
+                  {jobDetail.additional_images.map((img, idx) => (
+                    <TouchableOpacity key={idx} style={styles.attachmentThumbnailWrapper}>
+                      <Image
+                        source={{ uri: `${BASE_URL}${img}` }}
+                        style={styles.attachmentThumbnail}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
               </LinearGradient>
             )}
 
@@ -652,6 +697,70 @@ const JobDetailScreen: React.FC = () => {
               <View style={{ padding: 10, alignItems: 'center' }}>
                 <ActivityIndicator size="small" color={themeColors.primary} />
               </View>
+            )}
+
+            {/* Communication Actions */}
+            {!isPending && (
+              <View style={styles.communicationRow}>
+                <TouchableOpacity
+                  style={[styles.chatButtonContainer, { flex: 1, marginBottom: 0 }]}
+                  onPress={async () => {
+                    try {
+                      const recipientId = (user?.role === 'customer') 
+                        ? jobDetail.supplier_id 
+                        : jobDetail.customerId;
+                      
+                      if (!recipientId) {
+                        toast.error('Error', 'Cannot identify chat recipient');
+                        return;
+                      }
+
+                      const response = await api.post<{ id: number }>('/messages/start-order-chat', {
+                        orderId: jobDetail.id,
+                        recipientId: recipientId
+                      });
+                      
+                      if (response.success && response.data) {
+                        navigation.navigate('ChatDetail', { conversationId: response.data.id });
+                      }
+                    } catch (error) {
+                      toast.error('Error', 'Failed to start chat');
+                    }
+                  }}
+                >
+                  <Feather name="message-circle" size={20} color="#FFFFFF" />
+                  <Text style={styles.chatButtonText}>Chat</Text>
+                </TouchableOpacity>
+
+                {jobDetail.customerPhone && (
+                  <TouchableOpacity
+                    style={[styles.callButtonContainer, { flex: 1 }]}
+                    onPress={() => {
+                      if (jobDetail.customerPhone) {
+                        Linking.openURL(`tel:${jobDetail.customerPhone}`);
+                      } else {
+                        toast.error('Error', 'Phone number not available');
+                      }
+                    }}
+                  >
+                    <Ionicons name="call" size={20} color="#FFFFFF" />
+                    <Text style={styles.callButtonText}>Call</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* Repeat Order Button (Customer only) */}
+            {user?.role === 'customer' && (
+              <TouchableOpacity
+                style={styles.repeatOrderButton}
+                onPress={() => {
+                  navigation.navigate('OrderBin', { repeatData: initialData });
+                }}
+              >
+                <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                <Text style={styles.repeatOrderText}>Repeat Order</Text>
+              </TouchableOpacity>
             )}
 
             {/* Action Buttons */}
@@ -1109,8 +1218,8 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: '#FFFFFF',
   },
-  truckIconContainer: {
-    marginTop: -10,
+  headerIconsWrapper: {
+    zIndex: 3,
   },
   bannerContainer: {
     width: '100%',
@@ -1602,6 +1711,72 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.regular,
     fontSize: 14,
     color: '#666',
+  },
+  chatButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#373934',
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    gap: 8,
+  },
+  chatButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+  },
+  attachmentsHorizontalScroll: {
+    marginTop: 8,
+  },
+  attachmentThumbnailWrapper: {
+    marginRight: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  attachmentThumbnail: {
+    width: 80,
+    height: 80,
+  },
+  repeatOrderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: themeColors.primary,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  repeatOrderText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+  },
+  communicationRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 15,
+  },
+  callButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#29B554',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  callButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
   },
 });
 

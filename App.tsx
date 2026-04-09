@@ -16,6 +16,12 @@ SplashScreen.hideAsync().catch(() => {
   // Ignore if splash screen module is not available
 });
 
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { StripeProvider } from '@stripe/stripe-react-native';
+
+const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+const STRIPE_PUBLISHABLE_KEY = 'pk_test_51MAmskKsbtrRwEQuTQKHT6q8Kbq96wr0Chjtp4GhuVyF7KdVymkApOpf06sj4nP9bR0JHP26soqRYvrU1FVUd7Jk00rEf4bFu2';
+
 const App: React.FC = () => {
   const [fontsLoaded] = useFonts({
     LeagueSpartan_100Thin,
@@ -32,16 +38,22 @@ const App: React.FC = () => {
     // Ensure Expo splash is hidden on mount
     SplashScreen.hideAsync().catch(() => { });
 
-    // Listen for foreground FCM messages
-    const unsubscribe = subscribeToForegroundNotifications();
-    return () => unsubscribe();
+    // Listen for foreground FCM messages - only if not in Expo Go or build is linked
+    if (!isExpoGo) {
+      try {
+        const unsubscribe = subscribeToForegroundNotifications();
+        return () => unsubscribe?.();
+      } catch (err) {
+        console.warn('FCM registration failed. Rebuild your APK if you added new native modules.');
+      }
+    }
   }, []);
 
   if (!fontsLoaded) {
     return null;
   }
 
-  return (
+  const mainApp = (
     <AuthProvider>
       <SocketProvider>
         <StatusBar style="dark" />
@@ -51,6 +63,18 @@ const App: React.FC = () => {
         <FlashMessage position="top" />
       </SocketProvider>
     </AuthProvider>
+  );
+
+  // If in Expo Go or native Stripe is missing, skip the provider
+  // Note: Most apps crash if you import and it's missing, but this check helps if they have the lib but it's not registered
+  if (isExpoGo) {
+    return mainApp;
+  }
+
+  return (
+    <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+      {mainApp}
+    </StripeProvider>
   );
 };
 

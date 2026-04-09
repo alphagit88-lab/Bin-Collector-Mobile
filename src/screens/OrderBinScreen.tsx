@@ -16,7 +16,8 @@ import {
 import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
+import { useStripe } from '@stripe/stripe-react-native';
 import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -25,13 +26,13 @@ import { ENDPOINTS } from '../config/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import BottomNavBar from '../components/BottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import { Ionicons } from '@expo/vector-icons';
 import toast from '../utils/toast';
 import AppModal from '../components/AppModal';
 import AttachmentOptionModal from '../components/AttachmentOptionModal';
 
 // Import SVG images
-import Logo14_1 from '../assets/images/14_1.svg';
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import Icon4_1 from '../assets/images/4 1.svg';
 import Icon28_1 from '../assets/images/28 1 (1).svg';
@@ -119,7 +120,9 @@ interface ServiceCategory {
 
 const OrderBinScreen: React.FC = () => {
   const { user } = useAuth();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash'>(
     'online',
   );
@@ -144,8 +147,9 @@ const OrderBinScreen: React.FC = () => {
     longitudeDelta: 0.005,
   });
   const [isSearching, setIsSearching] = useState(false);
-  const [attachment, setAttachment] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [attachments, setAttachments] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [attachmentModalVisible, setAttachmentModalVisible] = useState(false);
+  const [poNumber, setPoNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetchingSizes, setFetchingSizes] = useState(false);
   const [binPrices, setBinPrices] = useState<PriceConfig[]>([]);
@@ -160,6 +164,11 @@ const OrderBinScreen: React.FC = () => {
   const [showPickupPicker, setShowPickupPicker] = useState(false);
   const [deliveryDateObj, setDeliveryDateObj] = useState(new Date());
   const [pickupDateObj, setPickupDateObj] = useState(new Date(Date.now() + 86400000)); // Default to tomorrow
+  const hasValidCoordinates =
+    typeof latitude === 'number' &&
+    typeof longitude === 'number' &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude);
 
   const formatDateForBackend = (date: Date) => {
     return date.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -195,11 +204,11 @@ const OrderBinScreen: React.FC = () => {
         setLatitude(newLat);
         setLongitude(newLon);
         setDeliveryAddress(display_name);
-        setMapRegion({
-          ...mapRegion,
+        setMapRegion(prev => ({
+          ...prev,
           latitude: newLat,
           longitude: newLon,
-        });
+        }));
       } else {
         toast.error('Address not found. Please try a more specific address.');
       }
@@ -215,6 +224,12 @@ const OrderBinScreen: React.FC = () => {
     const { latitude: newLat, longitude: newLon } = e.nativeEvent.coordinate;
     setLatitude(newLat);
     setLongitude(newLon);
+
+    setMapRegion(prev => ({
+      ...prev,
+      latitude: newLat,
+      longitude: newLon,
+    }));
 
     try {
       const response = await fetch(
@@ -240,6 +255,9 @@ const OrderBinScreen: React.FC = () => {
       const response = await api.get<{ prices: PriceConfig[] }>(`${ENDPOINTS.BINS.PRICES}?lat=${lat}&lon=${lon}`);
       if (response.success && response.data) {
         setBinPrices(response.data.prices);
+        if (response.data.prices.length === 0 && response.message) {
+          toast.info('Availability', response.message);
+        }
       }
     } catch (error) {
       console.error('Error fetching prices:', error);
@@ -356,6 +374,9 @@ const OrderBinScreen: React.FC = () => {
 
   useFocusEffect(
     React.useCallback(() => {
+      const routeParams = route.params;
+      const hasRepeatData = Boolean(routeParams?.repeatData);
+
       // Reset form on focus
       setPaymentMethod('online');
       setServiceType('residential');
@@ -373,14 +394,63 @@ const OrderBinScreen: React.FC = () => {
       setContactNumber(user?.phone || '');
       setAdditionalContact(user?.email || '');
       setNotes('');
+      setAttachments([]);
+      setPoNumber('');
       setBinSizesMap({});
       setSelectedServices([]);
       setCustomerBudget('');
 
-      loadDefaultLocation();
+      // Keep repeat-order location intact; default location should only apply on fresh orders.
+      if (!hasRepeatData) {
+        loadDefaultLocation();
+      }
       fetchBinTypes();
       fetchServiceCategories();
-    }, [user, loadDefaultLocation, fetchBinTypes, fetchServiceCategories])
+
+      // Handle Repeat Order if repeatData is passed in params
+      if (routeParams?.repeatData) {
+        const data = routeParams.repeatData;
+        const repeatLat = parseFloat(String(data.latitude));
+        const repeatLon = parseFloat(String(data.longitude));
+        const hasRepeatCoordinates = Number.isFinite(repeatLat) && Number.isFinite(repeatLon);
+
+        setServiceType(data.service_category || 'residential');
+        setDeliveryAddress(data.location || '');
+        setLatitude(hasRepeatCoordinates ? repeatLat : null);
+        setLongitude(hasRepeatCoordinates ? repeatLon : null);
+        setContactNumber(data.contact_number || '');
+        setAdditionalContact(data.contact_email || '');
+        setNotes(data.instructions || '');
+        setPoNumber(data.po_number || '');
+        
+        if (hasRepeatCoordinates) {
+          setMapRegion(prev => ({
+            ...prev,
+            latitude: repeatLat,
+            longitude: repeatLon,
+          }));
+        }
+
+        // Handle bins if it's a bin order
+        if (data.orderItems && data.orderItems.length > 0) {
+           setBins(data.orderItems.map((item: any) => ({
+             bin_type_id: item.bin_type_id?.toString() || '',
+             bin_type_name: item.bin_type_name || '',
+             bin_size_id: item.bin_size_id?.toString() || '',
+             bin_size_name: item.bin_size || '',
+             quantity: item.quantity?.toString() || '1',
+           })));
+        } else if (data.binType) {
+           setBins([{
+             bin_type_id: '', // We don't have ID in some legacy mock formats
+             bin_type_name: data.binType,
+             bin_size_id: '',
+             bin_size_name: data.binSize,
+             quantity: '1',
+           }]);
+        }
+      }
+    }, [user, loadDefaultLocation, fetchBinTypes, fetchServiceCategories, route.params])
   );
 
 
@@ -431,7 +501,7 @@ const OrderBinScreen: React.FC = () => {
 
   const selectBinSize = (size: BinSize) => {
     updateBin(activeBinIndex, {
-      bin_size_id: size.id,
+      bin_size_id: size.id.toString(),
       bin_size_name: size.size,
     });
     setSizeModalVisible(false);
@@ -474,7 +544,7 @@ const OrderBinScreen: React.FC = () => {
     });
 
     if (!result.canceled) {
-      setAttachment(result.assets[0]);
+      setAttachments(prev => [...prev, ...result.assets]);
     }
   };
 
@@ -492,12 +562,12 @@ const OrderBinScreen: React.FC = () => {
     });
 
     if (!result.canceled) {
-      setAttachment(result.assets[0]);
+      setAttachments(prev => [...prev, ...result.assets]);
     }
   };
 
-  const clearAttachment = () => {
-    setAttachment(null);
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleAttachmentPress = () => {
@@ -582,23 +652,39 @@ const OrderBinScreen: React.FC = () => {
       formData.append('contact_number', contactNumber);
       formData.append('contact_email', additionalContact);
       formData.append('instructions', notes);
+      formData.append('po_number', poNumber);
       if (finalLat !== null && finalLat !== undefined) formData.append('latitude', finalLat.toString());
       if (finalLon !== null && finalLon !== undefined) formData.append('longitude', finalLon.toString());
 
-      if (attachment) {
-        const uri = attachment.uri;
-        const fileType = uri.split('.').pop();
-        formData.append('attachment', {
-          uri,
-          name: `upload.${fileType}`,
-          type: `image/${fileType === 'jpg' ? 'jpeg' : fileType}`,
-        } as any);
+      if (attachments.length > 0) {
+        attachments.forEach((att, index) => {
+          const uri = att.uri;
+          const fileType = uri.split('.').pop();
+          formData.append('attachments', {
+            uri,
+            name: `upload_${index}.${fileType}`,
+            type: `image/${fileType === 'jpg' ? 'jpeg' : fileType}`,
+          } as any);
+        });
       }
 
-      const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, formData);
+      const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, formData) as any;
 
       if (response.success) {
-        toast.success('Success', 'Your order has been placed successfully!');
+        const bookingData = response.data.booking || response.data.request;
+        
+        if (!bookingData) {
+            console.error('Booking data missing from response:', response.data);
+            toast.error('Error', 'Failed to retrieve booking information');
+            setLoading(false);
+            return;
+        }
+
+        if (paymentMethod === 'online') {
+          toast.success('Success', 'Order placed. Payment will be requested after a supplier accepts.');
+        } else {
+          toast.success('Success', 'Your order has been placed successfully!');
+        }
         navigation.navigate('Bookings' as never);
       } else {
         toast.error('Sorry', response.message || 'Failed to place order');
@@ -631,8 +717,8 @@ const OrderBinScreen: React.FC = () => {
                   Track. Manage. Collect.
                 </Text>
               </View>
-              <View style={styles.headerLogoContainer}>
-                <Logo14_1 width={148} height={63} />
+              <View style={styles.headerIconsWrapper}>
+                <HeaderActionIcons useWhiteWrapper />
               </View>
             </View>
             <View style={styles.headerImageContainer}>
@@ -946,9 +1032,15 @@ const OrderBinScreen: React.FC = () => {
                   style={styles.map}
                   provider={PROVIDER_GOOGLE}
                   region={mapRegion}
-                  onRegionChangeComplete={setMapRegion}
+                  onRegionChangeComplete={(region) =>
+                    setMapRegion(prev => ({
+                      ...prev,
+                      latitudeDelta: region.latitudeDelta,
+                      longitudeDelta: region.longitudeDelta,
+                    }))
+                  }
                 >
-                  {latitude !== null && longitude !== null && (
+                  {hasValidCoordinates && (
                     <Marker
                       coordinate={{ latitude, longitude }}
                       draggable
@@ -1042,6 +1134,14 @@ const OrderBinScreen: React.FC = () => {
                   numberOfLines={4}
                 />
               </View>
+              <View style={{ marginTop: 10 }}>
+                <FormField
+                  label="PO Number (Optional)"
+                  placeholder="Enter Purchase Order Number"
+                  value={poNumber}
+                  onChangeText={setPoNumber}
+                />
+              </View>
             </LinearGradient>
           </View>}
 
@@ -1053,34 +1153,27 @@ const OrderBinScreen: React.FC = () => {
               start={{ x: 0.34, y: 0 }}
               end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
-              <Text style={styles.instructionsLabel}>Upload Attachment (Optional)</Text>
-              <TouchableOpacity
-                style={styles.attachmentButton}
-                activeOpacity={0.8}
-                onPress={handleAttachmentPress}>
-                <View style={styles.attachmentButtonContent}>
-                  {attachment ? (
-                    <View style={styles.selectedAttachmentContainer}>
-                      <Image source={{ uri: attachment.uri }} style={styles.previewImage} />
-                      <View style={styles.attachmentTextContainer}>
-                        <Text style={styles.attachmentText} numberOfLines={1}>
-                          Image Selected
-                        </Text>
-                        <TouchableOpacity onPress={clearAttachment}>
-                          <Text style={styles.removeAttachmentText}>Remove</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : (
-                    <>
-                      <Ionicons name="camera-outline" size={24} color="#979897" />
-                      <Text style={styles.attachmentPlaceholderText}>
-                        Upload Photo or Take Attachment
-                      </Text>
-                    </>
-                  )}
-                </View>
-              </TouchableOpacity>
+              <Text style={styles.instructionsLabel}>Upload Attachments (Optional)</Text>
+              <View style={styles.multiAttachmentContainer}>
+                {attachments.map((att, index) => (
+                  <View key={index} style={styles.attachmentThumbnail}>
+                    <Image source={{ uri: att.uri }} style={styles.thumbnailImage} />
+                    <TouchableOpacity
+                      style={styles.removeThumbnailButton}
+                      onPress={() => removeAttachment(index)}>
+                      <Ionicons name="close-circle" size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {attachments.length < 10 && (
+                  <TouchableOpacity
+                    style={styles.addAttachmentSquare}
+                    onPress={handleAttachmentPress}>
+                    <Ionicons name="add" size={32} color="#979897" />
+                    <Text style={styles.addAttachmentText}>Add</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </LinearGradient>
           </View>
 
@@ -1352,8 +1445,11 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 4,
   },
-  headerLogoContainer: {
-    marginTop: -10,
+  headerIconsWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+    padding: 5,
+    zIndex: 2,
   },
   headerImageContainer: {
     position: 'absolute',
@@ -1400,7 +1496,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontFamily: fonts.family.bold,
     fontSize: 22,
-    color: themeColors.primary,
+    color: '#111827',
   },
   optionItem: {
     flexDirection: 'row',
@@ -1421,6 +1517,47 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     padding: 20,
+  },
+  multiAttachmentContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 10,
+  },
+  attachmentThumbnail: {
+    position: 'relative',
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    overflow: 'visible',
+  },
+  thumbnailImage: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+  },
+  removeThumbnailButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+  },
+  addAttachmentSquare: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    borderStyle: 'dashed',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  addAttachmentText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 12,
+    color: '#979897',
   },
   formSection: {
     marginBottom: 6,

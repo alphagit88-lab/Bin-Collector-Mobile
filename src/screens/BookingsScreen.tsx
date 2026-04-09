@@ -16,13 +16,15 @@ import { useSocket } from '../contexts/SocketContext';
 import { useAuth } from '../contexts/AuthContext';
 import { fonts } from '../theme/fonts';
 import BottomNavBar from '../components/BottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import { api, BASE_URL } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import AppModal from '../components/AppModal';
 import { Image } from 'react-native';
+import { useStripe } from '@stripe/stripe-react-native';
+import toast from '../utils/toast';
 
 // Import SVG images
-import Logo14_1 from '../assets/images/14_1.svg';
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import Icon20_3 from '../assets/images/20_3.svg';
 import PlayIcon from '../assets/images/play.svg';
@@ -50,12 +52,15 @@ interface Booking {
   instructions?: string;
   payment_method?: string;
   location?: string;
+  po_number?: string;
+  additional_images?: string | string[];
 }
 
 const BookingsScreen: React.FC = () => {
   const { user } = useAuth();
   const { socket } = useSocket();
   const navigation = useNavigation();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const userName = user?.name || 'User';
 
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -63,6 +68,8 @@ const BookingsScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+
+  const [paying, setPaying] = useState(false);
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -118,6 +125,69 @@ const BookingsScreen: React.FC = () => {
     return isNaN(num) ? '$0.00' : `$${num.toFixed(2)}`;
   };
 
+  const handlePayNow = async () => {
+    if (!selectedBooking) return;
+    if (selectedBooking.payment_method !== 'online') return;
+
+    setPaying(true);
+    try {
+      const paymentResponse = await api.post('/payments/create-intent', {
+        requestId: selectedBooking.id,
+      }) as any;
+
+      if (!paymentResponse.success) {
+        toast.error('Payment Error', paymentResponse.message || 'Failed to initiate payment');
+        return;
+      }
+
+      const { clientSecret } = paymentResponse.data;
+      const { error: initError } = await initPaymentSheet({
+        merchantDisplayName: 'Bin Rental Inc',
+        paymentIntentClientSecret: clientSecret,
+        googlePay: {
+          merchantCountryCode: 'US',
+          testEnv: false,
+          currencyCode: 'USD',
+        },
+        defaultBillingDetails: {
+          name: user?.name,
+          email: user?.email,
+        }
+      });
+
+      if (initError) {
+        toast.error('Payment Error', initError.message);
+        return;
+      }
+
+      const { error: presentError } = await presentPaymentSheet();
+      if (presentError) {
+        if ((presentError as any).code === 'Canceled') {
+          toast.info('Payment Canceled', 'Payment was not completed. Your order is still pending payment.');
+        } else {
+          toast.error('Payment Failed', presentError.message);
+        }
+        return;
+      }
+
+      // Fallback confirmation for environments where webhook forwarding isn't active.
+      await api.post('/payments/confirm-success', {
+        requestId: selectedBooking.id,
+        paymentIntentId: (paymentResponse.data as any)?.paymentIntentId,
+      });
+
+      toast.success('Success', 'Payment submitted. Confirming...');
+      // Webhook will update status/payment; refresh list to reflect confirmed status
+      await fetchBookings();
+      setDetailsModalVisible(false);
+    } catch (e: any) {
+      console.error('Pay now error:', e);
+      toast.error('Error', 'Something went wrong while processing payment');
+    } finally {
+      setPaying(false);
+    }
+  };
+
   const formatDateRange = (start: string, end: string) => {
     const startDate = new Date(start);
     const endDate = new Date(end);
@@ -157,11 +227,7 @@ const BookingsScreen: React.FC = () => {
             <Text style={styles.userNameText}>{userName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity
-              style={styles.headerIconContainer}
-              activeOpacity={0.7}>
-              <Logo14_1 width={148} height={63} />
-            </TouchableOpacity>
+            <HeaderActionIcons />
           </View>
         </View>
 
@@ -412,6 +478,13 @@ const BookingsScreen: React.FC = () => {
                     <Text style={styles.modalValue}>#{selectedBooking.request_id}</Text>
                   </View>
 
+                  {selectedBooking.po_number && (
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>PO Number</Text>
+                      <Text style={styles.modalValue}>{selectedBooking.po_number}</Text>
+                    </View>
+                  )}
+
                   <View style={styles.modalRow}>
                     <Text style={styles.modalLabel}>Status</Text>
                     <Text style={styles.modalValue}>{getStatusDisplay(selectedBooking.status)}</Text>
@@ -426,6 +499,23 @@ const BookingsScreen: React.FC = () => {
                     <Text style={styles.modalLabel}>Total Amount</Text>
                     <Text style={styles.modalValue}>{formatPrice(selectedBooking.total_price || selectedBooking.estimated_price || 0)}</Text>
                   </View>
+
+                  {selectedBooking.status === 'awaiting_payment' && selectedBooking.payment_method === 'online' && (
+                    <TouchableOpacity
+                      style={[styles.closeButtonContainer, { marginTop: 0, marginBottom: 10, opacity: paying ? 0.7 : 1 }]}
+                      onPress={handlePayNow}
+                      disabled={paying}
+                    >
+                      <LinearGradient
+                        colors={['#29B554', '#6EAD16']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.closeButtonGradient}
+                      >
+                        <Text style={styles.closeButtonText}>{paying ? 'Opening Payment...' : 'Pay Now'}</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
 
                   <Text style={styles.modalSectionTitle}>
                     {selectedBooking.service_category === 'service' ? 'Requested Services' : 'Items'}
@@ -518,16 +608,53 @@ const BookingsScreen: React.FC = () => {
                     )}
                   </View>
 
-                  {selectedBooking.attachment_url && (
+                  {selectedBooking.attachment_url || (selectedBooking as any).additional_images ? (
                     <View style={styles.modalAttachmentSection}>
-                      <Text style={styles.modalSectionTitle}>Attachment</Text>
-                      <Image
-                        source={{ uri: `${BASE_URL}${selectedBooking.attachment_url}` }}
-                        style={styles.modalAttachmentPreview}
-                        resizeMode="cover"
-                      />
+                      <Text style={styles.modalSectionTitle}>Attachments</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                        {selectedBooking.attachment_url && (
+                          <Image
+                            source={{ uri: `${BASE_URL}${selectedBooking.attachment_url}` }}
+                            style={styles.modalAttachmentPreview}
+                            resizeMode="cover"
+                          />
+                        )}
+                        {(selectedBooking as any).additional_images && (() => {
+                          const imgs = (selectedBooking as any).additional_images;
+                          let parsed: string[] = [];
+                          if (Array.isArray(imgs)) parsed = imgs;
+                          else if (typeof imgs === 'string') {
+                            try { parsed = JSON.parse(imgs); } catch(e) {}
+                          }
+                          return Array.isArray(parsed) ? parsed.map((img, i) => (
+                            <Image
+                              key={i}
+                              source={{ uri: `${BASE_URL}${img}` }}
+                              style={styles.modalAttachmentPreview}
+                              resizeMode="cover"
+                            />
+                          )) : null;
+                        })()}
+                      </ScrollView>
                     </View>
-                  )}
+                  ) : null}
+
+                  <TouchableOpacity
+                    style={[styles.closeButtonContainer, { marginTop: 20, marginBottom: 10 }]}
+                    onPress={() => {
+                      setDetailsModalVisible(false);
+                      (navigation as any).navigate('OrderBin', { repeatData: selectedBooking });
+                    }}
+                  >
+                    <LinearGradient
+                      colors={['#10B981', '#059669']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.closeButtonGradient}
+                    >
+                      <Text style={styles.closeButtonText}>Repeat Order</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </>
               )}
             </ScrollView>
@@ -591,7 +718,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  headerIconContainer: {
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerProfileButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#29B554',
     alignItems: 'center',
     justifyContent: 'center',
   },

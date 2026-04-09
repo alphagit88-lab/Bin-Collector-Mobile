@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import AppModal from '../components/AppModal';
 import AppConfirmModal from '../components/AppConfirmModal';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,10 +21,12 @@ import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import BottomNavBar from '../components/BottomNavBar';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import toast from '../utils/toast';
+import { api } from '../config/api';
 
 // Import SVG icons
-import Logo14_1 from '../assets/images/14_1.svg';
+import { useNavigation } from '@react-navigation/native';
 import Icon11_1 from '../assets/images/11 1.svg';
 import Icon11_2 from '../assets/images/11 1 (1).svg';
 import Icon11_3 from '../assets/images/11 1 (2).svg';
@@ -67,6 +69,7 @@ const SettingsItem: React.FC<SettingsItemProps> = ({ icon, label, onPress }) => 
 
 const AccountScreen: React.FC = () => {
   const { user, logout, updateProfile, changePassword } = useAuth();
+  const navigation = useNavigation<any>();
   const userName = user?.name || 'Herper Russo';
   const userId = `BIN_User${user?.id || '1299'}`;
 
@@ -200,7 +203,7 @@ const AccountScreen: React.FC = () => {
             <Text style={styles.userNameText}>{userName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <Logo14_1 width={148} height={63} />
+            <HeaderActionIcons />
           </View>
         </View>
 
@@ -261,6 +264,27 @@ const AccountScreen: React.FC = () => {
             <Text style={styles.sectionTitle}>Information</Text>
 
             <View style={styles.settingsSection}>
+              {user?.can_view_billing && (
+                <SettingsItem
+                  icon={<MaterialCommunityIcons name="receipt" size={28} color="#9CCD17" style={{ marginRight: 8 }} />}
+                  label="Billing & Invoices"
+                  onPress={() => navigation.navigate('Billing')}
+                />
+              )}
+              <SettingsItem
+                icon={<Feather name="headphones" size={28} color="#9CCD17" style={{ marginRight: 8 }} />}
+                label="Customer Service"
+                onPress={async () => {
+                  try {
+                    const response = await api.post<{ id: number }>('/messages/start-support-chat', {});
+                    if (response.success && response.data) {
+                      navigation.navigate('ChatDetail', { conversationId: response.data.id });
+                    }
+                  } catch (error) {
+                    toast.error('Error', 'Failed to start support chat');
+                  }
+                }}
+              />
               <SettingsItem
                 icon={<Icon11_4 width={35} height={35} />}
                 label="About App"
@@ -484,6 +508,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerProfileButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#29B554',
     justifyContent: 'center',
     alignItems: 'center',
   },

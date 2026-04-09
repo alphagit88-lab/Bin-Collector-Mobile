@@ -14,6 +14,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import { api, BASE_URL } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { Image } from 'react-native';
@@ -21,7 +22,6 @@ import toast from '../utils/toast';
 
 // Shared visual style with SupplierJobsScreen
 import BannerImage from '../assets/images/4 1.svg';
-import TruckIcon from '../assets/images/14_1.svg';
 import ViewArrow from '../assets/images/Ellipse 11.svg';
 
 interface OrderItem {
@@ -199,8 +199,8 @@ const SupplierRequestsScreen: React.FC = () => {
                   Track. Manage. Collect.
                 </Text>
               </View>
-              <View style={styles.truckIconContainer}>
-                <TruckIcon width={148} height={63} />
+              <View style={styles.headerIconsWrapper}>
+                <HeaderActionIcons useWhiteWrapper />
               </View>
             </View>
             <View style={styles.bannerContainer}>
@@ -286,8 +286,8 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: '#FFFFFF',
   },
-  truckIconContainer: {
-    marginTop: -10,
+  headerIconsWrapper: {
+    zIndex: 3,
   },
   bannerContainer: {
     width: '100%',

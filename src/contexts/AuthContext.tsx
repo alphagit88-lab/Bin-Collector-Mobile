@@ -12,6 +12,7 @@ export interface User {
   role: 'customer' | 'supplier' | 'admin' | 'driver';
   supplierType?: string;
   supplierId?: number;
+  can_view_billing?: boolean;
 }
 
 export interface SignupData {

@@ -13,17 +13,17 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 
 // Header truck/logo SVGs
 import Svg14 from '../assets/images/14.svg';
-import Logo14_1 from '../assets/images/14_1.svg';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 const SupplierOperationsScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const [fleetCount, setFleetCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
@@ -92,9 +92,8 @@ const SupplierOperationsScreen: React.FC = () => {
               pointerEvents="none"
             />
 
-            {/* Decorative Image (truck/logo) */}
-            <View style={styles.decorativeImageContainer}>
-              <Logo14_1 width={148} height={63} />
+            <View style={styles.headerIconsWrapper}>
+              <HeaderActionIcons useWhiteWrapper />
             </View>
 
             {/* Large truck SVG placed inside header */}
@@ -275,12 +274,19 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 4,
   },
-  decorativeImageContainer: {
+  headerIconsWrapper: {
     position: 'absolute',
-    right: 0,
-    top: 9,
-    width: 148,
-    height: 63,
+    right: 19,
+    top: 30,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+    padding: 5,
+    zIndex: 3,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   overlayGradient: {
     position: 'absolute',

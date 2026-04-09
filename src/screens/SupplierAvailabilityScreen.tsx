@@ -13,15 +13,16 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import toast from '../utils/toast';
 
 // Header truck/logo SVGs
-import Logo14_1 from '../assets/images/14_1.svg';
 import Svg14 from '../assets/images/3_1.svg';
 
 const { width: screenWidth } = Dimensions.get('window');
@@ -190,8 +191,8 @@ const SupplierAvailabilityScreen: React.FC = () => {
               <Text style={styles.headerSubtitle}>Edit service coverage</Text>
             </View>
 
-            <View style={styles.decorativeImageContainer}>
-              <Logo14_1 width={148} height={63} />
+            <View style={styles.headerIconsWrapper}>
+              <HeaderActionIcons useWhiteWrapper />
             </View>
 
             <View style={styles.headerSvgContainer} pointerEvents="none">
@@ -397,13 +398,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 4,
   },
-  decorativeImageContainer: {
+  headerIconsWrapper: {
     position: 'absolute',
-    right: 0,
+    right: 19,
     top: 9,
-    width: 148,
-    height: 63,
-    zIndex: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 2,
+    padding: 5,
+    zIndex: 3,
   },
   headerSvgContainer: {
     position: 'absolute',

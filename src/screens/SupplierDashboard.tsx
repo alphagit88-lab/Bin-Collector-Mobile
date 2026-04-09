@@ -20,9 +20,9 @@ import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import toast from '../utils/toast';
 
-// Import SVG assets
+// Import Icons
+import { Ionicons, Feather } from '@expo/vector-icons';
 import BinCollectBg from '../assets/images/Bin.Collect_2.svg';
-import HeaderGreetingImage from '../assets/images/14_1.svg';
 import EarningsImage from '../assets/images/3_1.svg';
 import PlayIcon from '../assets/images/play.svg';
 
@@ -47,6 +47,8 @@ const SupplierDashboard: React.FC = () => {
   });
   const [wallet, setWallet] = React.useState<{ balance: string; pending_balance: string; total_earned: string } | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [notificationCount, setNotificationCount] = React.useState(0);
+  const [messageCount, setMessageCount] = React.useState(0);
 
   const fetchCounts = React.useCallback(async (showNotification = false) => {
     try {
@@ -56,6 +58,8 @@ const SupplierDashboard: React.FC = () => {
       const myJobsResponse = await api.get<{ requests: any[] }>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS);
       // Wallet data
       const walletResponse = await api.get<{ wallet: any }>(ENDPOINTS.WALLET.GET);
+      const notificationRes = await api.get<{ count: number }>(ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT);
+      const messageRes = await api.get<{ count: number }>(ENDPOINTS.MESSAGES.UNREAD_COUNT);
 
       if (pendingResponse.success && myJobsResponse.success) {
         const pending = pendingResponse.data?.requests?.length || 0;
@@ -69,6 +73,12 @@ const SupplierDashboard: React.FC = () => {
 
         if (walletResponse.success && walletResponse.data?.wallet) {
           setWallet(walletResponse.data.wallet);
+        }
+        if (notificationRes.success && notificationRes.data) {
+          setNotificationCount(Number(notificationRes.data.count) || 0);
+        }
+        if (messageRes.success && messageRes.data) {
+          setMessageCount(Number(messageRes.data.count) || 0);
         }
 
         // If there are pending requests, notify the user explicitly
@@ -137,7 +147,44 @@ const SupplierDashboard: React.FC = () => {
               <Text style={styles.greetingName}>{companyName}</Text>
             </Text>
           </View>
-          <HeaderGreetingImage width={148} height={63} />
+          <View style={styles.headerRight}>
+            <TouchableOpacity 
+              style={styles.headerIconButton} 
+              onPress={() => navigation.navigate('Notifications' as never)}
+            >
+              <View style={styles.iconCircle}>
+                <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
+              </View>
+              {notificationCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.badgeText}>{notificationCount > 99 ? '99+' : notificationCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.headerIconButton} 
+              onPress={() => navigation.navigate('MessageInbox' as never)}
+            >
+              <View style={styles.iconCircle}>
+                <Ionicons name="chatbox-outline" size={22} color="#FFFFFF" />
+              </View>
+              {messageCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.badgeText}>{messageCount > 99 ? '99+' : messageCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.headerProfileButton} 
+              onPress={() => navigation.navigate('Account' as never)}
+            >
+              <View style={styles.iconCircle}>
+                <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Top Cards Row - Pending & Active */}
@@ -360,6 +407,51 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     paddingTop: 40,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#FF3B30',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    zIndex: 1,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: fonts.family.bold,
+  },
+  headerProfileButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#29B554',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   greetingContainer: {
     width: 199,

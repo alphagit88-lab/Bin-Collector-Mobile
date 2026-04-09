@@ -9,12 +9,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 
 // Import SVG images
-import Logo14_1 from '../assets/images/14_1.svg';
 import BannerImage from '../assets/images/4 1.svg';
 import Icon35_1 from '../assets/images/35 1.svg';
 import Icon35_2 from '../assets/images/35 2.svg';
@@ -76,8 +76,22 @@ const SupplierOrderAcceptedScreen: React.FC = () => {
                   Track. Manage. Collect.
                 </Text>
               </View>
-              <View style={styles.truckIconContainer}>
-                <Logo14_1 width={148} height={63} />
+              <View style={styles.headerRight}>
+                <TouchableOpacity style={styles.headerIconButton} onPress={() => (navigation as any).navigate('Notifications')}>
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.headerIconButton} onPress={() => (navigation as any).navigate('MessageInbox')}>
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="mail-outline" size={20} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.headerProfileButton} onPress={() => (navigation as any).navigate('Account')}>
+                  <View style={styles.iconCircle}>
+                    <Ionicons name="person-outline" size={20} color="#FFFFFF" />
+                  </View>
+                </TouchableOpacity>
               </View>
             </View>
             <View style={styles.bannerContainer}>
@@ -257,8 +271,26 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     color: '#FFFFFF',
   },
-  truckIconContainer: {
-    marginTop: -10,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerIconButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  headerProfileButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#29B554',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   bannerContainer: {
     width: '100%',

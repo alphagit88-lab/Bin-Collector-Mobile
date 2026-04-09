@@ -25,6 +25,10 @@ import OrderSuccessScreen from '../screens/OrderSuccessScreen';
 import SupplierDriversScreen from '../screens/SupplierDriversScreen';
 import DriverDashboard from '../screens/DriverDashboard';
 import DriverJobsScreen from '../screens/DriverJobsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import MessageInboxScreen from '../screens/MessageInboxScreen';
+import ChatDetailScreen from '../screens/ChatDetailScreen';
+import BillingScreen from '../screens/BillingScreen';
 
 import { navigationRef } from './navigationRef';
 
@@ -63,6 +67,11 @@ const AppNavigator: React.FC = () => {
               component={ServiceTrackingScreen}
             />
             <Stack.Screen name="Account" component={AccountScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="MessageInbox" component={MessageInboxScreen} />
+            <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
+            <Stack.Screen name="Billing" component={BillingScreen} />
+            <Stack.Screen name="JobDetail" component={JobDetailScreen} />
           </>
         ) : user?.role === 'supplier' ? (
           <>
@@ -105,6 +114,10 @@ const AppNavigator: React.FC = () => {
               component={ServiceTrackingScreen}
             />
             <Stack.Screen name="Account" component={AccountScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="MessageInbox" component={MessageInboxScreen} />
+            <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
+            <Stack.Screen name="Billing" component={BillingScreen} />
           </>
         ) : user?.role === 'driver' ? (
           <>
@@ -112,6 +125,9 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="DriverJobs" component={DriverJobsScreen} />
             <Stack.Screen name="JobDetail" component={JobDetailScreen} />
             <Stack.Screen name="Account" component={AccountScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="MessageInbox" component={MessageInboxScreen} />
+            <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
           </>
         ) : (
           <Stack.Screen name="Login" component={LoginScreen} />

@@ -13,9 +13,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { fonts } from '../theme/fonts';
 import BottomNavBar from '../components/BottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 
 // Import SVG images
-import Logo14_1 from '../assets/images/14_1.svg';
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import Group14 from '../assets/images/Group 14.svg';
 import Icon20_1 from '../assets/images/20 1.svg';
@@ -95,8 +95,8 @@ const OrderConfirmationScreen: React.FC = () => {
                   Track. Manage. Collect.
                 </Text>
               </View>
-              <View style={styles.headerLogoContainer}>
-                <Logo14_1 width={148} height={63} />
+              <View style={styles.headerRight}>
+                <HeaderActionIcons />
               </View>
             </View>
             <View style={styles.headerImageContainer}>
@@ -321,8 +321,26 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginTop: 4,
   },
-  headerLogoContainer: {
-    marginTop: -10,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerIconButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  headerProfileButton: {
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#29B554',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerImageContainer: {
     position: 'absolute',
