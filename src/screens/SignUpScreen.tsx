@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   topSection: {
     width: '100%',
     alignItems: 'center',
-    paddingTop: 55,
+    paddingTop: 10,
   },
   topImage: {
     width: 218,

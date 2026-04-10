@@ -53,7 +53,7 @@ const BillingScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    if (user?.can_view_billing) {
+    if (user?.canViewBilling) {
       fetchInvoices();
     } else {
       setLoading(false);
@@ -94,7 +94,7 @@ const BillingScreen: React.FC = () => {
     </View>
   );
 
-  if (!user?.can_view_billing) {
+  if (!user?.canViewBilling) {
     return (
       <View style={styles.container}>
         <LinearGradient
@@ -180,8 +180,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   header: {
-    paddingTop: 60,
-    paddingBottom: 30,
+    paddingTop: 15,
+    paddingBottom: 20,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,

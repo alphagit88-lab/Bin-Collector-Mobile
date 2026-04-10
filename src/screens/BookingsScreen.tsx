@@ -54,6 +54,7 @@ interface Booking {
   location?: string;
   po_number?: string;
   additional_images?: string | string[];
+  delivery_photo_url?: string;
 }
 
 const BookingsScreen: React.FC = () => {
@@ -223,7 +224,7 @@ const BookingsScreen: React.FC = () => {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.greetingText}>Good Morning,</Text>
+            <Text style={styles.greetingText}>{new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 17 ? 'Good Afternoon' : 'Good Evening'},</Text>
             <Text style={styles.userNameText}>{userName}</Text>
           </View>
           <View style={styles.headerRight}>
@@ -528,16 +529,20 @@ const BookingsScreen: React.FC = () => {
                         <Text style={styles.modalValue}>{formatPrice(selectedBooking.estimated_price || 0)}</Text>
                       </View>
                       {selectedBooking.service_names ? (
-                        selectedBooking.service_names.split(',').map((name, index) => (
-                          <View key={index} style={[styles.modalRow, index > 0 && { marginTop: 8 }]}>
-                            <Text style={styles.modalLabel}>Service {index + 1}</Text>
-                            <Text style={styles.modalValue}>{name.trim()}</Text>
+                        <View style={[styles.modalRow, { marginTop: 8, alignItems: 'flex-start' }]}>
+                          <Text style={styles.modalLabel}>Services</Text>
+                          <View style={{ flex: 1 }}>
+                            {selectedBooking.service_names.split(',').map((name, index) => (
+                              <Text key={index} style={[styles.modalValue, { textAlign: 'right', marginBottom: 4, width: '100%' }]}>
+                                {name.trim()}
+                              </Text>
+                            ))}
                           </View>
-                        ))
+                        </View>
                       ) : (
                         <View style={styles.modalRow}>
                           <Text style={styles.modalLabel}>Service</Text>
-                          <Text style={styles.modalValue}>Unknown</Text>
+                          <Text style={styles.modalValue}>N/A</Text>
                         </View>
                       )}
                     </View>
@@ -619,22 +624,29 @@ const BookingsScreen: React.FC = () => {
                             resizeMode="cover"
                           />
                         )}
-                        {(selectedBooking as any).additional_images && (() => {
-                          const imgs = (selectedBooking as any).additional_images;
-                          let parsed: string[] = [];
-                          if (Array.isArray(imgs)) parsed = imgs;
-                          else if (typeof imgs === 'string') {
-                            try { parsed = JSON.parse(imgs); } catch(e) {}
-                          }
-                          return Array.isArray(parsed) ? parsed.map((img, i) => (
+                          {(selectedBooking as any).additional_images && (() => {
+                            const imgs = (selectedBooking as any).additional_images;
+                            let parsed: string[] = [];
+                            if (Array.isArray(imgs)) parsed = imgs;
+                            else if (typeof imgs === 'string') {
+                              try { parsed = JSON.parse(imgs); } catch(e) {}
+                            }
+                            return Array.isArray(parsed) ? parsed.map((img, i) => (
+                              <Image
+                                key={i}
+                                source={{ uri: `${BASE_URL}${img}` }}
+                                style={styles.modalAttachmentPreview}
+                                resizeMode="cover"
+                              />
+                            )) : null;
+                          })()}
+                          {selectedBooking.delivery_photo_url && (
                             <Image
-                              key={i}
-                              source={{ uri: `${BASE_URL}${img}` }}
+                              source={{ uri: `${BASE_URL}${selectedBooking.delivery_photo_url}` }}
                               style={styles.modalAttachmentPreview}
                               resizeMode="cover"
                             />
-                          )) : null;
-                        })()}
+                          )}
                       </ScrollView>
                     </View>
                   ) : null}
@@ -1074,10 +1086,9 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   modalAttachmentPreview: {
-    width: '100%',
-    height: 200,
+    width: 250,
+    height: 180,
     borderRadius: 12,
-    marginTop: 10,
     backgroundColor: '#F5F5F5',
   },
   modalSectionTitle: {

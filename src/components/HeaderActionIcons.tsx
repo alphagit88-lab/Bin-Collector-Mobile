@@ -43,7 +43,7 @@ const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper =
     <View style={styles.row}>
       <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
         <View style={styles.iconCircle}>
-          <Ionicons name="notifications-outline" size={20} color="#FFFFFF" />
+          <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
         </View>
         {notificationCount > 0 && (
           <View style={styles.badge}>
@@ -54,7 +54,7 @@ const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper =
 
       <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('MessageInbox')}>
         <View style={styles.iconCircle}>
-          <Ionicons name="mail-outline" size={20} color="#FFFFFF" />
+          <Ionicons name="chatbox-outline" size={22} color="#FFFFFF" />
         </View>
         {messageCount > 0 && (
           <View style={styles.badge}>
@@ -65,7 +65,7 @@ const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper =
 
       <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Account')}>
         <View style={styles.iconCircle}>
-          <Ionicons name="person-outline" size={20} color="#FFFFFF" />
+          <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
         </View>
       </TouchableOpacity>
     </View>

@@ -77,10 +77,16 @@ const SupplierOperationsScreen: React.FC = () => {
             start={{ x: 0.12, y: 0.05 }}
             end={{ x: 0.88, y: 0.95 }}
             style={styles.headerGradient}>
-            {/* Title and Subtitle */}
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Operations</Text>
-              <Text style={styles.headerSubtitle}>Edit service coverage</Text>
+            <View style={styles.headerContent}>
+              {/* Title and Subtitle */}
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Operations</Text>
+                <Text style={styles.headerSubtitle}>Edit service coverage</Text>
+              </View>
+
+              <View style={styles.headerIconsWrapper}>
+                <HeaderActionIcons useWhiteWrapper />
+              </View>
             </View>
 
             {/* subtle translucent overlay */}
@@ -91,10 +97,6 @@ const SupplierOperationsScreen: React.FC = () => {
               style={styles.overlayGradient}
               pointerEvents="none"
             />
-
-            <View style={styles.headerIconsWrapper}>
-              <HeaderActionIcons useWhiteWrapper />
-            </View>
 
             {/* Large truck SVG placed inside header */}
             <View style={styles.headerSvgContainer} pointerEvents="none">
@@ -254,11 +256,18 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     height: 241,
-    paddingTop: 20,
+    paddingTop: 15,
     paddingHorizontal: 19,
     position: 'relative',
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    zIndex: 3,
+  },
   headerTextContainer: {
+    flex: 1,
     zIndex: 3,
   },
   headerTitle: {
@@ -275,12 +284,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   headerIconsWrapper: {
-    position: 'absolute',
-    right: 19,
-    top: 30,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
-    padding: 5,
     zIndex: 3,
   },
   headerRight: {

@@ -148,8 +148,8 @@ const SupplierDashboard: React.FC = () => {
             </Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity 
-              style={styles.headerIconButton} 
+            <TouchableOpacity
+              style={styles.headerIconButton}
               onPress={() => navigation.navigate('Notifications' as never)}
             >
               <View style={styles.iconCircle}>
@@ -161,9 +161,9 @@ const SupplierDashboard: React.FC = () => {
                 </View>
               )}
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.headerIconButton} 
+
+            <TouchableOpacity
+              style={styles.headerIconButton}
               onPress={() => navigation.navigate('MessageInbox' as never)}
             >
               <View style={styles.iconCircle}>
@@ -176,8 +176,8 @@ const SupplierDashboard: React.FC = () => {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.headerProfileButton} 
+            <TouchableOpacity
+              style={styles.headerProfileButton}
               onPress={() => navigation.navigate('Account' as never)}
             >
               <View style={styles.iconCircle}>
@@ -399,14 +399,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 19,
-    paddingTop: 20,
+    paddingTop: 15,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
-    paddingTop: 40,
   },
   headerRight: {
     flexDirection: 'row',

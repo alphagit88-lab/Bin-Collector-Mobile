@@ -15,6 +15,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
+import BottomNavBar from '../components/BottomNavBar';
+import HeaderActionIcons from '../components/HeaderActionIcons';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,33 +36,21 @@ const DriverDashboard: React.FC = () => {
   const [recentJobs, setRecentJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(0);
-  const [messageCount, setMessageCount] = useState(0);
 
   const fetchDashboardData = useCallback(async () => {
     try {
-      const [jobsRes, notificationRes, messageRes] = await Promise.all([
-        api.get<any>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS),
-        api.get<{ count: number }>(ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT),
-        api.get<{ count: number }>(ENDPOINTS.MESSAGES.UNREAD_COUNT),
-      ]);
+      const jobsRes = await api.get<any>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS);
       if (jobsRes.success && jobsRes.data) {
         const jobs = jobsRes.data.requests || [];
         setRecentJobs(jobs.slice(0, 5));
-        
-        const active = jobs.filter((j: any) => 
+
+        const active = jobs.filter((j: any) =>
           ['confirmed', 'on_delivery', 'pickup', 'ready_to_pickup'].includes(j.status)
         ).length;
-        
+
         const completed = jobs.filter((j: any) => j.status === 'delivered' || j.status === 'completed').length;
-        
+
         setStats({ active, completed });
-      }
-      if (notificationRes.success && notificationRes.data) {
-        setNotificationCount(Number(notificationRes.data.count) || 0);
-      }
-      if (messageRes.success && messageRes.data) {
-        setMessageCount(Number(messageRes.data.count) || 0);
       }
     } catch (error) {
       console.error('Error fetching driver dashboard:', error);
@@ -104,42 +94,7 @@ const DriverDashboard: React.FC = () => {
                 <Text style={styles.userNameText}>{user?.name || 'Driver'}</Text>
               </View>
               <View style={styles.headerRight}>
-                <TouchableOpacity 
-                  style={styles.headerIconButton} 
-                  onPress={() => navigation.navigate('Notifications' as never)}
-                >
-                  <View style={styles.iconCircle}>
-                    <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
-                  </View>
-                  {notificationCount > 0 && (
-                    <View style={styles.notificationBadge}>
-                      <Text style={styles.badgeText}>{notificationCount > 99 ? '99+' : notificationCount}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.headerIconButton} 
-                  onPress={() => navigation.navigate('MessageInbox' as never)}
-                >
-                  <View style={styles.iconCircle}>
-                    <Ionicons name="chatbox-outline" size={22} color="#FFFFFF" />
-                  </View>
-                  {messageCount > 0 && (
-                    <View style={styles.notificationBadge}>
-                      <Text style={styles.badgeText}>{messageCount > 99 ? '99+' : messageCount}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity 
-                  style={styles.headerProfileButton} 
-                  onPress={() => navigation.navigate('Account' as never)}
-                >
-                  <View style={styles.iconCircle}>
-                    <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
-                  </View>
-                </TouchableOpacity>
+                <HeaderActionIcons useWhiteWrapper />
               </View>
             </View>
 
@@ -193,21 +148,21 @@ const DriverDashboard: React.FC = () => {
 
         {/* Quick Links */}
         <View style={styles.sectionContainer}>
-           <Text style={styles.sectionTitle}>Main Menu</Text>
-           <View style={styles.menuGrid}>
-             <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('DriverJobs' as never)}>
-                <View style={[styles.menuIconContainer, { backgroundColor: '#EBF7FF' }]}>
-                  <Ionicons name="list" size={24} color="#3B82F6" />
-                </View>
-                <Text style={styles.menuText}>My Jobs</Text>
-             </TouchableOpacity>
-             <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Account' as never)}>
-                <View style={[styles.menuIconContainer, { backgroundColor: '#F0FDF4' }]}>
-                  <Ionicons name="person" size={24} color="#10B981" />
-                </View>
-                <Text style={styles.menuText}>Account</Text>
-             </TouchableOpacity>
-           </View>
+          <Text style={styles.sectionTitle}>Main Menu</Text>
+          <View style={styles.menuGrid}>
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('DriverJobs' as never)}>
+              <View style={[styles.menuIconContainer, { backgroundColor: '#EBF7FF' }]}>
+                <Ionicons name="list" size={24} color="#3B82F6" />
+              </View>
+              <Text style={styles.menuText}>My Jobs</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Account' as never)}>
+              <View style={[styles.menuIconContainer, { backgroundColor: '#F0FDF4' }]}>
+                <Ionicons name="person" size={24} color="#10B981" />
+              </View>
+              <Text style={styles.menuText}>Account</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -218,15 +173,15 @@ const DriverDashboard: React.FC = () => {
 };
 
 const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed': return '#10B981';
-      case 'on_delivery': return '#3B82F6';
-      case 'delivered': return '#6B7280';
-      case 'ready_to_pickup': return '#F59E0B';
-      case 'pickup': return '#8B5CF6';
-      case 'completed': return '#059669';
-      default: return '#9CA3AF';
-    }
+  switch (status) {
+    case 'confirmed': return '#10B981';
+    case 'on_delivery': return '#3B82F6';
+    case 'delivered': return '#6B7280';
+    case 'ready_to_pickup': return '#F59E0B';
+    case 'pickup': return '#8B5CF6';
+    case 'completed': return '#059669';
+    default: return '#9CA3AF';
+  }
 };
 
 const styles = StyleSheet.create({
@@ -236,14 +191,15 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    marginBottom: 40,
   },
   headerContainer: {
     marginBottom: 20,
   },
   headerGradient: {
-    paddingTop: 50,
+    paddingTop: 15,
     paddingHorizontal: 20,
-    paddingBottom: 30,
+    paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
@@ -281,9 +237,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    zIndex: 10,
   },
   headerIconButton: {
     position: 'relative',
@@ -302,7 +256,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#29B554',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },

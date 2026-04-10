@@ -13,34 +13,34 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext'; // Ensure this exists and exports useSocket
 import { fonts } from '../theme/fonts';
 import BottomNavBar from '../components/BottomNavBar';
 import HeaderActionIcons from '../components/HeaderActionIcons';
-import { api } from '../config/api';
+import { api, BASE_URL } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import AppConfirmModal from '../components/AppConfirmModal';
 import toast from '../utils/toast';
 import { useStripe } from '@stripe/stripe-react-native';
 
 // Import SVG images
-import Icon6 from '../assets/images/6.svg';
+import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import BinCollectIcon from '../assets/images/Bin.Collect (1) 1.svg';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const statusSteps = [
-  { key: 'pending', label: 'Pending', icon: '⏳' },
-  { key: 'awaiting_payment', label: 'Awaiting Payment', icon: '💳' },
-  { key: 'confirmed', label: 'Confirmed', icon: '✅' },
-  { key: 'on_delivery', label: 'On Delivery', icon: '🚚' },
-  { key: 'cash_collected', label: 'Cash Collected', icon: '💵', cashOnly: true },
-  { key: 'delivered', label: 'Delivered', icon: '📦' },
-  { key: 'ready_to_pickup', label: 'Ready to Pickup', icon: '🔄' },
-  { key: 'pickup', label: 'Pickup', icon: '📥' },
-  { key: 'completed', label: 'Completed', icon: '🎉' },
+  { key: 'pending', label: 'Pending', icon: 'clock-outline', iconType: 'material' },
+  { key: 'awaiting_payment', label: 'Awaiting Payment', icon: 'card-outline', iconType: 'ionicon' },
+  { key: 'confirmed', label: 'Confirmed', icon: 'checkmark-circle-outline', iconType: 'ionicon' },
+  { key: 'on_delivery', label: 'On Delivery', icon: 'truck-delivery-outline', iconType: 'material' },
+  { key: 'cash_collected', label: 'Cash Collected', icon: 'cash-outline', iconType: 'ionicon', cashOnly: true },
+  { key: 'delivered', label: 'Delivered', icon: 'cube-outline', iconType: 'ionicon' },
+  { key: 'ready_to_pickup', label: 'Ready to Pickup', icon: 'sync-outline', iconType: 'ionicon' },
+  { key: 'pickup', label: 'Pickup', icon: 'download-outline', iconType: 'ionicon' },
+  { key: 'completed', label: 'Completed', icon: 'checkmark-done-circle-outline', iconType: 'ionicon' },
 ];
 
 const ServiceTrackingScreen: React.FC = () => {
@@ -260,7 +260,11 @@ const ServiceTrackingScreen: React.FC = () => {
                   styles.timelineIconContainer,
                   isCompleted ? styles.timelineIconActive : styles.timelineIconInactive
                 ]}>
-                  <Text style={styles.timelineIcon}>{step.icon}</Text>
+                  {step.iconType === 'material' ? (
+                    <MaterialCommunityIcons name={step.icon as any} size={22} color="#FFFFFF" />
+                  ) : (
+                    <Ionicons name={step.icon as any} size={22} color="#FFFFFF" />
+                  )}
                 </View>
                 <View style={styles.timelineContent}>
                   <Text style={[
@@ -338,6 +342,18 @@ const ServiceTrackingScreen: React.FC = () => {
             <Text style={styles.detailValue}>{new Date(request.start_date).toLocaleDateString()}</Text>
           </View>
         )}
+        {request.po_number && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>PO Number</Text>
+            <Text style={styles.detailValue}>{request.po_number}</Text>
+          </View>
+        )}
+        {request.instructions && (
+          <View style={[styles.detailRow, { flexDirection: 'column', gap: 4, marginTop: 8 }]}>
+            <Text style={styles.detailLabel}>Instructions</Text>
+            <Text style={[styles.detailValue, { maxWidth: '100%', textAlign: 'left' }]}>{request.instructions}</Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -353,7 +369,7 @@ const ServiceTrackingScreen: React.FC = () => {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.greetingText}>Good Morning,</Text>
+            <Text style={styles.greetingText}>{new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 17 ? 'Good Afternoon' : 'Good Evening'},</Text>
             <Text style={styles.userNameText}>{userName}</Text>
           </View>
           <View style={styles.headerRight}>
@@ -402,7 +418,7 @@ const ServiceTrackingScreen: React.FC = () => {
               /* No Active Services Content */
               <View style={styles.emptyStateContainer}>
                 <View style={styles.emptyStateIcon}>
-                  <Icon6 width={148} height={63} />
+                  <BinCollect2 width={148} height={100} style={{ opacity: 0.34 }} />
                 </View>
                 <Text style={styles.emptyStateText}>No active services</Text>
               </View>
@@ -469,6 +485,44 @@ const ServiceTrackingScreen: React.FC = () => {
                     )}
 
                     {renderTimeline(selectedRequest.status, selectedRequest.payment_method, selectedRequest.service_category)}
+
+                    {(selectedRequest.attachment_url || selectedRequest.additional_images || selectedRequest.delivery_photo_url) && (
+                      <View style={styles.attachmentsSection}>
+                        <Text style={styles.sectionTitle}>Attachments</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                          {selectedRequest.attachment_url && (
+                            <Image
+                              source={{ uri: `${BASE_URL}${selectedRequest.attachment_url}` }}
+                              style={styles.attachmentPreview}
+                              resizeMode="cover"
+                            />
+                          )}
+                          {selectedRequest.additional_images && (() => {
+                            let parsed = [];
+                            try {
+                              parsed = typeof selectedRequest.additional_images === 'string' 
+                                ? JSON.parse(selectedRequest.additional_images) 
+                                : selectedRequest.additional_images;
+                            } catch(e) {}
+                            return Array.isArray(parsed) ? parsed.map((img, i) => (
+                              <Image
+                                key={i}
+                                source={{ uri: `${BASE_URL}${img}` }}
+                                style={styles.attachmentPreview}
+                                resizeMode="cover"
+                              />
+                            )) : null;
+                          })()}
+                          {selectedRequest.delivery_photo_url && (
+                            <Image
+                              source={{ uri: `${BASE_URL}${selectedRequest.delivery_photo_url}` }}
+                              style={styles.attachmentPreview}
+                              resizeMode="cover"
+                            />
+                          )}
+                        </ScrollView>
+                      </View>
+                    )}
                   </>
                 )}
               </View>
@@ -789,6 +843,24 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#FFFFFF',
+  },
+  // Attachments
+  attachmentsSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  attachmentPreview: {
+    width: 250,
+    height: 180,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
   }
 });
 

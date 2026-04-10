@@ -66,7 +66,7 @@ const MessageInboxScreen: React.FC = () => {
   };
 
   const renderItem = ({ item }: { item: Conversation }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[styles.chatItem, (item.unread_count || 0) > 0 && styles.unreadChatItem]}
       onPress={() => navigation.navigate('ChatDetail', { conversationId: item.id })}
     >
@@ -83,23 +83,23 @@ const MessageInboxScreen: React.FC = () => {
           </View>
         )}
       </View>
-      
+
       <View style={styles.contentContainer}>
         <View style={styles.chatHeader}>
           <Text style={styles.name} numberOfLines={1}>
             {item.type === 'support' ? 'Customer Support' : getOtherParticipantName(item)}
           </Text>
           <Text style={styles.time}>
-            {item.last_message_at_actual 
-              ? new Date(item.last_message_at_actual).toLocaleDateString() 
+            {item.last_message_at_actual
+              ? new Date(item.last_message_at_actual).toLocaleDateString()
               : ''}
           </Text>
         </View>
-        
+
         <Text style={styles.lastMessage} numberOfLines={1}>
           {item.last_message_text || 'No messages yet'}
         </Text>
-        
+
         {item.order_id && (
           <View style={styles.orderLabel}>
             <Text style={styles.orderLabelText}>Order #{item.order_id}</Text>
@@ -124,11 +124,11 @@ const MessageInboxScreen: React.FC = () => {
           <Feather name="arrow-left" size={24} color="#373934" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Messages</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => {
             // Logic to start a new support chat directly
             api.post('/messages/start-support-chat', {}).then((res: any) => {
-               if(res.success) navigation.navigate('ChatDetail', { conversationId: res.data.id });
+              if (res.success) navigation.navigate('ChatDetail', { conversationId: res.data.id });
             });
           }}
           style={styles.headerIcon}
@@ -154,12 +154,12 @@ const MessageInboxScreen: React.FC = () => {
         <View style={styles.centerContainer}>
           <Feather name="message-square" size={64} color="#CCC" />
           <Text style={styles.emptyText}>No conversations yet</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.supportButton}
             onPress={() => {
-               api.post('/messages/start-support-chat', {}).then((res: any) => {
-                  if(res.success) navigation.navigate('ChatDetail', { conversationId: res.data.id });
-               });
+              api.post('/messages/start-support-chat', {}).then((res: any) => {
+                if (res.success) navigation.navigate('ChatDetail', { conversationId: res.data.id });
+              });
             }}
           >
             <Text style={styles.supportButtonText}>Contact Support</Text>
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
+    paddingTop: 15,
     paddingBottom: 15,
     paddingHorizontal: 20,
     backgroundColor: '#FFFFFF',

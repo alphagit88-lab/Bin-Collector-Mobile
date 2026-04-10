@@ -39,7 +39,7 @@ const SupplierDriversScreen: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -131,7 +131,7 @@ const SupplierDriversScreen: React.FC = () => {
         <View style={styles.content}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Fleet Drivers</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.addButton}
               onPress={() => setShowAddModal(true)}
             >
@@ -171,8 +171,8 @@ const SupplierDriversScreen: React.FC = () => {
         <View style={styles.bottomSpacing} />
       </ScrollView>
 
-      <AppModal 
-        visible={showAddModal} 
+      <AppModal
+        visible={showAddModal}
         onRequestClose={() => !submitting && setShowAddModal(false)}
         animationType="slide"
       >
@@ -188,7 +188,7 @@ const SupplierDriversScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView 
+            <ScrollView
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={{ paddingBottom: 20 }}
@@ -202,7 +202,7 @@ const SupplierDriversScreen: React.FC = () => {
                   onChangeText={setName}
                 />
               </View>
-              
+
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Phone Number *</Text>
                 <TextInput
@@ -237,7 +237,7 @@ const SupplierDriversScreen: React.FC = () => {
                 />
               </View>
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.submitButton}
                 onPress={handleAddDriver}
                 disabled={submitting}
@@ -269,14 +269,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   header: {
-    height: 100,
+    height: 70,
   },
   headerGradient: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 40,
     paddingHorizontal: 20,
   },
   backButton: {

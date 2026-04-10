@@ -47,8 +47,8 @@ interface Booking {
 }
 
 const CustomerDashboard: React.FC = () => {
-  const { user } = useAuth();
-  const navigation = useNavigation();
+  const { user, refreshUser } = useAuth();
+  const navigation = useNavigation<any>();
   const userName = user?.name || 'Customer';
 
   const [bookings, setBookings] = React.useState<Booking[]>([]);
@@ -59,6 +59,9 @@ const CustomerDashboard: React.FC = () => {
 
   const fetchBookings = React.useCallback(async () => {
     try {
+      // Refresh user profile to get latest permissions
+      refreshUser();
+
       const [bookingsRes, notificationRes, messageRes] = await Promise.all([
         api.get<{ requests: Booking[] }>(ENDPOINTS.BOOKINGS.MY_REQUESTS),
         api.get<{ count: number }>(ENDPOINTS.NOTIFICATIONS.UNREAD_COUNT),
@@ -127,7 +130,7 @@ const CustomerDashboard: React.FC = () => {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.greetingText}>Good Morning,</Text>
+            <Text style={styles.greetingText}>{new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 17 ? 'Good Afternoon' : 'Good Evening'},</Text>
             <Text style={styles.userNameText}>{userName}</Text>
           </View>
           <View style={styles.headerRight}>
@@ -261,7 +264,7 @@ const CustomerDashboard: React.FC = () => {
         <TouchableOpacity
           style={styles.paymentsCard}
           activeOpacity={0.9}
-          onPress={() => navigation.navigate('Bookings' as never)}>
+          onPress={() => navigation.navigate(user?.canViewBilling ? 'Billing' : 'Bookings')}>
           <LinearGradient
             colors={['#29B554', '#6EAD16']}
             start={{ x: 0, y: 0 }}

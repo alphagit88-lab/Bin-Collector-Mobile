@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DeviceEventEmitter } from 'react-native';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { requestUserPermission, getFcmToken, updatePushToken, registerAppWithFCM } from '../utils/fcmNotifications';
@@ -12,7 +13,7 @@ export interface User {
   role: 'customer' | 'supplier' | 'admin' | 'driver';
   supplierType?: string;
   supplierId?: number;
-  can_view_billing?: boolean;
+  canViewBilling?: boolean;
 }
 
 export interface SignupData {
@@ -33,6 +34,7 @@ interface AuthContextType {
   updateProfile: (email: string) => Promise<{ success: boolean; message?: string }>;
   changePassword: (newPassword: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
   rememberedPhone: string | null;
 }
@@ -47,6 +49,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     loadStoredAuth();
+
+    const authErrorSubscription = DeviceEventEmitter.addListener('auth_error', () => {
+      logout();
+    });
+
+    return () => {
+      authErrorSubscription.remove();
+    };
   }, []);
 
   // Sync FCM Push Token whenever user is authenticated
@@ -184,6 +194,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await api.get<{ user: User }>(ENDPOINTS.AUTH.ME);
+      if (response.success && response.data) {
+        const updatedUser = response.data.user;
+        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+        setUser(updatedUser);
+      }
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+    }
+  };
+
   const logout = async () => {
     try {
       await AsyncStorage.removeItem('token');
@@ -206,6 +229,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updateProfile,
         changePassword,
         logout,
+        refreshUser,
         isAuthenticated: !!token && !!user,
         rememberedPhone,
       }}

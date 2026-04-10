@@ -386,15 +386,15 @@ const JobDetailScreen: React.FC = () => {
               end={{ x: 1, y: 1 }}
               style={styles.headerGradient}>
               <View style={styles.headerContent}>
-              <View style={styles.headerTextContainer}>
-                <Text style={styles.headerTitle}>Job Management</Text>
-                <Text style={styles.headerSubtitle}>
-                  Track. Manage. Collect.
-                </Text>
-              </View>
-              <View style={styles.headerIconsWrapper}>
-                <HeaderActionIcons useWhiteWrapper />
-              </View>
+                <View style={styles.headerTextContainer}>
+                  <Text style={styles.headerTitle}>Job Management</Text>
+                  <Text style={styles.headerSubtitle}>
+                    Track. Manage. Collect.
+                  </Text>
+                </View>
+                <View style={styles.headerIconsWrapper}>
+                  <HeaderActionIcons useWhiteWrapper />
+                </View>
               </View>
               <View style={styles.bannerContainer}>
                 <BannerImage width={428} height={177} />
@@ -706,10 +706,10 @@ const JobDetailScreen: React.FC = () => {
                   style={[styles.chatButtonContainer, { flex: 1, marginBottom: 0 }]}
                   onPress={async () => {
                     try {
-                      const recipientId = (user?.role === 'customer') 
-                        ? jobDetail.supplier_id 
+                      const recipientId = (user?.role === 'customer')
+                        ? jobDetail.supplier_id
                         : jobDetail.customerId;
-                      
+
                       if (!recipientId) {
                         toast.error('Error', 'Cannot identify chat recipient');
                         return;
@@ -719,7 +719,7 @@ const JobDetailScreen: React.FC = () => {
                         orderId: jobDetail.id,
                         recipientId: recipientId
                       });
-                      
+
                       if (response.success && response.data) {
                         navigation.navigate('ChatDetail', { conversationId: response.data.id });
                       }
@@ -1189,7 +1189,7 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     width: '100%',
-    paddingTop: 20,
+    paddingTop: 15,
     borderBottomLeftRadius: 9,
     borderBottomRightRadius: 9,
     borderWidth: 1,
@@ -1200,7 +1200,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: 19,
-    paddingTop: 20,
   },
   headerTextContainer: {
     flex: 1,

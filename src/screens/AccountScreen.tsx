@@ -26,7 +26,7 @@ import toast from '../utils/toast';
 import { api } from '../config/api';
 
 // Import SVG icons
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import Icon11_1 from '../assets/images/11 1.svg';
 import Icon11_2 from '../assets/images/11 1 (1).svg';
 import Icon11_3 from '../assets/images/11 1 (2).svg';
@@ -68,7 +68,7 @@ const SettingsItem: React.FC<SettingsItemProps> = ({ icon, label, onPress }) => 
 );
 
 const AccountScreen: React.FC = () => {
-  const { user, logout, updateProfile, changePassword } = useAuth();
+  const { user, logout, updateProfile, changePassword, refreshUser } = useAuth();
   const navigation = useNavigation<any>();
   const userName = user?.name || 'Herper Russo';
   const userId = `BIN_User${user?.id || '1299'}`;
@@ -97,6 +97,12 @@ const AccountScreen: React.FC = () => {
   React.useEffect(() => {
     loadDefaultLocation();
   }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshUser();
+    }, [refreshUser])
+  );
 
   const loadDefaultLocation = async () => {
     try {
@@ -199,7 +205,7 @@ const AccountScreen: React.FC = () => {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.greetingText}>Good Morning,</Text>
+            <Text style={styles.greetingText}>{new Date().getHours() < 12 ? 'Good Morning' : new Date().getHours() < 17 ? 'Good Afternoon' : 'Good Evening'},</Text>
             <Text style={styles.userNameText}>{userName}</Text>
           </View>
           <View style={styles.headerRight}>
@@ -264,7 +270,7 @@ const AccountScreen: React.FC = () => {
             <Text style={styles.sectionTitle}>Information</Text>
 
             <View style={styles.settingsSection}>
-              {user?.can_view_billing && (
+              {user?.canViewBilling && (
                 <SettingsItem
                   icon={<MaterialCommunityIcons name="receipt" size={28} color="#9CCD17" style={{ marginRight: 8 }} />}
                   label="Billing & Invoices"
@@ -501,7 +507,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 19,
-    paddingTop: 20,
+    paddingTop: 15,
     paddingBottom: 10,
   },
   headerLeft: {

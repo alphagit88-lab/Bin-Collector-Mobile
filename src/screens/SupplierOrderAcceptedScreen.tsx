@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     width: '100%',
-    paddingTop: 20,
+    paddingTop: 15,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
@@ -253,7 +253,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     paddingHorizontal: 19,
-    paddingTop: 40,
   },
   headerTextContainer: {
     flex: 1,

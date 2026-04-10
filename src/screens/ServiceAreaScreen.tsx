@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -62,6 +62,7 @@ const ServiceAreaScreen: React.FC = () => {
     latitudeDelta: 0.1,
     longitudeDelta: 0.1,
   });
+  const mapRef = useRef<MapView>(null);
 
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [zoneToDelete, setZoneToDelete] = useState<string | null>(null);
@@ -107,6 +108,17 @@ const ServiceAreaScreen: React.FC = () => {
   };
 
   const handleAddNewServiceArea = () => {
+    setNewCountry('');
+    setNewCity('');
+    setNewRadius('');
+    setNewLatitude(null);
+    setNewLongitude(null);
+    setMapRegion({
+      latitude: -37.8136,
+      longitude: 144.9631,
+      latitudeDelta: 0.1,
+      longitudeDelta: 0.1,
+    });
     setModalVisible(true);
   };
 
@@ -157,26 +169,27 @@ const ServiceAreaScreen: React.FC = () => {
       );
       const data = await response.json();
       if (data && data.length > 0) {
-        const { lat, lon, display_name, address } = data[0];
+        const { lat, lon, display_name, address = {} } = data[0];
         const newLat = parseFloat(lat);
         const newLon = parseFloat(lon);
         setNewLatitude(newLat);
         setNewLongitude(newLon);
-        
-        // Extract city and country
+
+        // Extract city and country safely
         const detectedCountry = address.country || '';
-        const detectedCity = address.city || address.town || address.village || address.suburb || display_name;
-        
-        setNewCountry(detectedCountry);
+        const detectedCity = address.city || address.town || address.village || address.suburb || address.state || display_name;
+
+        if (detectedCountry) setNewCountry(detectedCountry);
         setNewCity(detectedCity);
-        
-        setMapRegion({
-          ...mapRegion,
+
+        const newRegion = {
           latitude: newLat,
           longitude: newLon,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        };
+        setMapRegion(newRegion);
+        mapRef.current?.animateToRegion(newRegion, 1000);
       } else {
         toast.error('Location not found. Please try another search.');
       }
@@ -199,11 +212,11 @@ const ServiceAreaScreen: React.FC = () => {
       );
       const data = await response.json();
       if (data && data.display_name) {
-        const { address, display_name } = data;
+        const { address = {}, display_name } = data;
         const detectedCountry = address.country || '';
-        const detectedCity = address.city || address.town || address.village || address.suburb || display_name;
-        
-        setNewCountry(detectedCountry);
+        const detectedCity = address.city || address.town || address.village || address.suburb || address.state || display_name;
+
+        if (detectedCountry) setNewCountry(detectedCountry);
         setNewCity(detectedCity);
       }
     } catch (error) {
@@ -262,14 +275,16 @@ const ServiceAreaScreen: React.FC = () => {
               pointerEvents="none"
             />
 
-            {/* Title and Subtitle */}
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Operations</Text>
-              <Text style={styles.headerSubtitle}>Edit service coverage</Text>
-            </View>
+            <View style={styles.headerContent}>
+              {/* Title and Subtitle */}
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Operations</Text>
+                <Text style={styles.headerSubtitle}>Edit service coverage</Text>
+              </View>
 
-            <View style={styles.headerIconsWrapper}>
-              <HeaderActionIcons useWhiteWrapper />
+              <View style={styles.headerIconsWrapper}>
+                <HeaderActionIcons useWhiteWrapper />
+              </View>
             </View>
 
             <View style={styles.headerSvgContainer} pointerEvents="none">
@@ -468,10 +483,17 @@ const ServiceAreaScreen: React.FC = () => {
 
               <View style={[styles.mapContainer, { height: 200, width: '100%', marginBottom: 15 }]}>
                 <MapView
+                  ref={mapRef}
                   provider={PROVIDER_GOOGLE}
                   style={StyleSheet.absoluteFillObject}
                   region={mapRegion}
-                  onRegionChangeComplete={setMapRegion}
+                  onRegionChangeComplete={(region) =>
+                    setMapRegion(prev => ({
+                      ...prev,
+                      latitudeDelta: region.latitudeDelta,
+                      longitudeDelta: region.longitudeDelta,
+                    }))
+                  }
                 >
                   {newLatitude && newLongitude && (
                     <>
@@ -559,20 +581,17 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 20,
-    paddingTop: 241,
   },
   headerContainer: {
-    position: 'absolute',
-    width: 430,
-    height: 241,
-    left: 0,
-    top: 0,
+    marginBottom: 16,
   },
   headerGradient: {
     height: 241,
-    paddingTop: 20,
+    paddingTop: 15,
     paddingHorizontal: 19,
     position: 'relative',
+    borderBottomLeftRadius: 9,
+    borderBottomRightRadius: 9,
   },
   overlayGradient: {
     position: 'absolute',
@@ -583,7 +602,14 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     zIndex: 1,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    zIndex: 3,
+  },
   headerTextContainer: {
+    flex: 1,
     zIndex: 3,
   },
   headerTitle: {
@@ -600,12 +626,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   headerIconsWrapper: {
-    position: 'absolute',
-    right: 19,
-    top: 9,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
-    padding: 5,
     zIndex: 3,
   },
   headerSvgContainer: {

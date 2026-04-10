@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
@@ -26,7 +26,7 @@ interface NotificationItem {
 }
 
 const NotificationsScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -45,9 +45,11 @@ const NotificationsScreen: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchNotifications();
+    }, [])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -57,7 +59,7 @@ const NotificationsScreen: React.FC = () => {
   const markAsRead = async (id: number) => {
     try {
       await api.put(`/notifications/${id}/read`, {});
-      setNotifications(prev => 
+      setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n)
       );
     } catch (error) {
@@ -67,7 +69,7 @@ const NotificationsScreen: React.FC = () => {
 
   const handleNotificationPress = (notification: NotificationItem) => {
     markAsRead(notification.id);
-    
+
     // Navigate based on type
     const nav = navigation as any;
     if (notification.type === 'order' || notification.type === 'status_update') {
@@ -78,15 +80,15 @@ const NotificationsScreen: React.FC = () => {
   };
 
   const renderItem = ({ item }: { item: NotificationItem }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[styles.notificationItem, !item.read_at && styles.unreadItem]}
       onPress={() => handleNotificationPress(item)}
     >
       <View style={styles.iconContainer}>
-        <Feather 
-          name={item.type === 'message' ? 'mail' : (item.type === 'order' ? 'package' : 'bell')} 
-          size={24} 
-          color={item.read_at ? '#999' : '#9CCD17'} 
+        <Feather
+          name={item.type === 'message' ? 'mail' : (item.type === 'order' ? 'package' : 'bell')}
+          size={24}
+          color={item.read_at ? '#999' : '#9CCD17'}
         />
       </View>
       <View style={styles.contentContainer}>
@@ -141,7 +143,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 50,
+    paddingTop: 15,
     paddingBottom: 15,
     paddingHorizontal: 20,
     backgroundColor: '#FFFFFF',

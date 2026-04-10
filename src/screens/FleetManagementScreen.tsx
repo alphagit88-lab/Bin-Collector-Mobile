@@ -321,15 +321,17 @@ const FleetManagementScreen: React.FC = () => {
               pointerEvents="none"
             />
 
-            {/* Title and Subtitle */}
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Operations</Text>
-              <Text style={styles.headerSubtitle}>Edit service coverage</Text>
-            </View>
+            <View style={styles.headerContent}>
+              {/* Title and Subtitle */}
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Operations</Text>
+                <Text style={styles.headerSubtitle}>Edit service coverage</Text>
+              </View>
 
-            {/* Header Right Icons */}
-            <View style={styles.headerIconsWrapper}>
-              <HeaderActionIcons useWhiteWrapper />
+              {/* Header Right Icons */}
+              <View style={styles.headerIconsWrapper}>
+                <HeaderActionIcons useWhiteWrapper />
+              </View>
             </View>
 
             {/* Large truck SVG */}
@@ -550,7 +552,7 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     height: 241,
-    paddingTop: 20,
+    paddingTop: 15,
     paddingHorizontal: 19,
     position: 'relative',
     borderBottomLeftRadius: 9,
@@ -564,7 +566,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    zIndex: 3,
+  },
   headerTextContainer: {
+    flex: 1,
     zIndex: 3,
   },
   headerTitle: {
@@ -581,12 +590,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   headerIconsWrapper: {
-    position: 'absolute',
-    right: 19,
-    top: 9,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
-    padding: 5,
     zIndex: 3,
   },
   headerSvgContainer: {

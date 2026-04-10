@@ -185,14 +185,16 @@ const SupplierAvailabilityScreen: React.FC = () => {
               pointerEvents="none"
             />
 
-            {/* Title and Subtitle */}
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Operations</Text>
-              <Text style={styles.headerSubtitle}>Edit service coverage</Text>
-            </View>
+            <View style={styles.headerContent}>
+              {/* Title and Subtitle */}
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Operations</Text>
+                <Text style={styles.headerSubtitle}>Edit service coverage</Text>
+              </View>
 
-            <View style={styles.headerIconsWrapper}>
-              <HeaderActionIcons useWhiteWrapper />
+              <View style={styles.headerIconsWrapper}>
+                <HeaderActionIcons useWhiteWrapper />
+              </View>
             </View>
 
             <View style={styles.headerSvgContainer} pointerEvents="none">
@@ -366,7 +368,7 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     height: 241,
-    paddingTop: 20,
+    paddingTop: 15,
     paddingHorizontal: 19,
     position: 'relative',
     borderBottomLeftRadius: 9,
@@ -382,7 +384,14 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 9,
     zIndex: 1,
   },
+  headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    zIndex: 3,
+  },
   headerTextContainer: {
+    flex: 1,
     zIndex: 3,
   },
   headerTitle: {
@@ -399,12 +408,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   headerIconsWrapper: {
-    position: 'absolute',
-    right: 19,
-    top: 9,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 2,
-    padding: 5,
     zIndex: 3,
   },
   headerSvgContainer: {

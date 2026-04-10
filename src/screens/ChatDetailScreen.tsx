@@ -60,7 +60,7 @@ const ChatDetailScreen: React.FC = () => {
     try {
       const response = await api.get<{ data: any }>(`/messages/conversations/${conversationId}/messages`); // The endpoint also returns conversation context if needed, but let's assume we need a separate one or just derive from messages.
       // For now, let's just get the participant name from the first message or another source.
-    } catch (error) {}
+    } catch (error) { }
   };
 
   useEffect(() => {
@@ -126,8 +126,8 @@ const ChatDetailScreen: React.FC = () => {
   };
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container} 
+    <KeyboardAvoidingView
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
     >
@@ -171,8 +171,8 @@ const ChatDetailScreen: React.FC = () => {
           onChangeText={setInputText}
           multiline
         />
-        <TouchableOpacity 
-          style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]} 
+        <TouchableOpacity
+          style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
           onPress={handleSend}
           disabled={!inputText.trim() || sending}
         >
@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 50,
+    paddingTop: 15,
     paddingBottom: 15,
     paddingHorizontal: 20,
     backgroundColor: '#FFFFFF',

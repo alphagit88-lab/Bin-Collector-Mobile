@@ -103,14 +103,14 @@ const DriverJobsScreen: React.FC = () => {
 
       {/* Filter Tabs */}
       <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, filter === 'active' && styles.activeTab]} 
+        <TouchableOpacity
+          style={[styles.tab, filter === 'active' && styles.activeTab]}
           onPress={() => setFilter('active')}
         >
           <Text style={[styles.tabText, filter === 'active' && styles.activeTabText]}>Active</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, filter === 'completed' && styles.activeTab]} 
+        <TouchableOpacity
+          style={[styles.tab, filter === 'completed' && styles.activeTab]}
           onPress={() => setFilter('completed')}
         >
           <Text style={[styles.tabText, filter === 'completed' && styles.activeTabText]}>Completed</Text>
@@ -133,8 +133,8 @@ const DriverJobsScreen: React.FC = () => {
             </View>
           ) : (
             filteredJobs.map((job) => (
-              <TouchableOpacity 
-                key={job.id} 
+              <TouchableOpacity
+                key={job.id}
                 style={styles.jobCard}
                 onPress={() => navigation.navigate('JobDetail', { booking: job })}
               >
@@ -189,14 +189,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   header: {
-    height: 100,
+    height: 70,
   },
   headerGradient: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 40,
     paddingHorizontal: 20,
   },
   backButton: {
