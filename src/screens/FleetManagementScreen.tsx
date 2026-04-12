@@ -73,6 +73,11 @@ const FleetManagementScreen: React.FC = () => {
   const [statusLoading, setStatusLoading] = useState<number | null>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState<{ binId: number; status: string } | null>(null);
+  const [areaPrices, setAreaPrices] = useState<{ [areaId: string]: string }>({});
+  const [fetchingPrices, setFetchingPrices] = useState(false);
+  const [areasList, setAreasList] = useState<any[]>([]);
+  const [isEditingPrices, setIsEditingPrices] = useState(false);
+  const [editingBinId, setEditingBinId] = useState<number | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -122,12 +127,52 @@ const FleetManagementScreen: React.FC = () => {
   useEffect(() => {
     if (selectedTypeId) {
       setSelectedSizeId(''); // Clear previous size selection when type changes
+      setAreaPrices({}); // Immediately clear previous prices
+      setAreasList([]); // Immediately clear previous areas
       fetchSizes(parseInt(selectedTypeId));
     } else {
       setBinSizes([]);
       setSelectedSizeId('');
+      setAreaPrices({});
+      setAreasList([]);
     }
   }, [selectedTypeId]);
+
+  const fetchAreaPrices = async () => {
+    if (!selectedTypeId) return;
+
+    // Check if current type has sizes but none selected
+    if (binSizes.length > 0 && !selectedSizeId) {
+      setAreaPrices({});
+      setAreasList([]);
+      return;
+    }
+
+    setFetchingPrices(true);
+    try {
+      const response = await api.get<{ areas: any[] }>(
+        ENDPOINTS.BINS.SUPPLIER_PRICES(parseInt(selectedTypeId), selectedSizeId ? parseInt(selectedSizeId) : undefined)
+      );
+      if (response.success && response.data?.areas) {
+        setAreasList(response.data.areas);
+        const prices: { [key: string]: string } = {};
+        response.data.areas.forEach((area: any) => {
+          // If active, use the final approved price. If pending, use the submitted supplier price.
+          const displayPrice = area.isActive ? area.adminPrice : area.currentPrice;
+          prices[area.id] = displayPrice ? displayPrice.toString() : '';
+        });
+        setAreaPrices(prices);
+      }
+    } catch (error) {
+      console.error('Error fetching area prices:', error);
+    } finally {
+      setFetchingPrices(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAreaPrices();
+  }, [selectedTypeId, selectedSizeId, binSizes.length]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -146,30 +191,90 @@ const FleetManagementScreen: React.FC = () => {
       return;
     }
 
+    // Validate at least one price is entered
+    const validPrices = Object.entries(areaPrices)
+      .filter(([_, price]) => price && parseFloat(price) > 0)
+      .map(([areaId, price]) => ({
+        service_area_id: parseInt(areaId),
+        price: parseFloat(price)
+      }));
+
+    if (validPrices.length === 0) {
+      toast.error('Validation Error', 'Please enter a price for at least one service area');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const response = await api.post(ENDPOINTS.BINS.PHYSICAL, {
-        bin_type_id: parseInt(selectedTypeId),
-        bin_size_id: selectedSizeId ? parseInt(selectedSizeId) : null,
-        notes: notes || undefined,
-      });
+      let response;
+      if (isEditingPrices && editingBinId) {
+        response = await api.put(ENDPOINTS.BINS.UPDATE_PHYSICAL(editingBinId), {
+          area_prices: validPrices,
+          notes: notes || undefined,
+        });
+      } else {
+        response = await api.post(ENDPOINTS.BINS.PHYSICAL, {
+          bin_type_id: parseInt(selectedTypeId),
+          bin_size_id: selectedSizeId ? parseInt(selectedSizeId) : null,
+          notes: notes || undefined,
+          area_prices: validPrices,
+        });
+      }
 
       if (response.success) {
-        toast.success('Success', 'Bin added successfully');
+        toast.success('Success', isEditingPrices ? 'Prices updated successfully' : 'Bin added successfully');
         setShowAddModal(false);
         setSelectedTypeId('');
         setSelectedSizeId('');
         setNotes('');
+        setAreaPrices({});
+        setAreasList([]);
+        setIsEditingPrices(false);
+        setEditingBinId(null);
         fetchData();
       } else {
-        toast.error('Error', response.message || 'Failed to add bin');
+        toast.error('Error', response.message || 'Failed to process request');
       }
     } catch (error) {
-      toast.error('Error', 'An error occurred while adding bin');
+      toast.error('Error', 'An error occurred while processing request');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleEditPrices = (bin: BinItem) => {
+    setEditingBinId(bin.id);
+    setIsEditingPrices(true);
+    // Find type and size IDs from names or just assume strings work if IDs were available
+    // Actually, we need IDs. BinItem should probably include type/size IDs.
+    // Let's assume we can find them.
+    // Wait, the bin card renders bin_type_name.
+    // I need to find the ID from binTypes.
+    const foundType = binTypes.find(t => t.name === bin.bin_type_name);
+    if (foundType) {
+      setSelectedTypeId(foundType.id.toString());
+      // We'll need to fetch sizes first to find the size ID
+      fetchSizes(foundType.id).then(() => {
+        // This is tricky because binSizes state updates asynchronously
+        // I'll handle size selection in a useEffect or inside the promise
+      });
+    }
+
+    setShowAddModal(true);
+  };
+
+  // Improved handleEditPrices that handles size as well
+  useEffect(() => {
+    if (isEditingPrices && binSizes.length > 0 && editingBinId) {
+      const bin = bins.find(b => b.id === editingBinId);
+      if (bin) {
+        const foundSize = binSizes.find(s => s.size === bin.bin_size);
+        if (foundSize) {
+          setSelectedSizeId(foundSize.id.toString());
+        }
+      }
+    }
+  }, [binSizes, isEditingPrices, editingBinId]);
 
   const handleUpdateStatus = (binId: number, status: string) => {
     setPendingUpdate({ binId, status });
@@ -249,14 +354,13 @@ const FleetManagementScreen: React.FC = () => {
       {/* Action Buttons */}
       <View style={styles.actionButtonsRow}>
         <TouchableOpacity
-          style={[styles.editButton, { backgroundColor: '#CCC' }]}
-          onPress={() => { }}
-          disabled={true}
+          style={styles.editButton}
+          onPress={() => handleEditPrices(bin)}
           activeOpacity={0.8}>
           <View style={styles.buttonIconContainer}>
             <EditIcon width={21} height={17} />
           </View>
-          <Text style={styles.editButtonText}>Edit Bin</Text>
+          <Text style={styles.editButtonText}>Edit Prices</Text>
         </TouchableOpacity>
 
         {bin.status === 'available' ? (
@@ -437,31 +541,33 @@ const FleetManagementScreen: React.FC = () => {
         onRequestClose={() => setShowAddModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add New Bin</Text>
+            <Text style={styles.modalTitle}>{isEditingPrices ? 'Edit Bin Prices' : 'Add New Bin'}</Text>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Bin Type</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
-                {binTypes.map(type => (
-                  <TouchableOpacity
-                    key={type.id}
-                    onPress={() => setSelectedTypeId(type.id.toString())}
-                    style={[
-                      styles.typeChip,
-                      selectedTypeId === type.id.toString() && styles.typeChipSelected
-                    ]}>
-                    <Text style={[
-                      styles.typeChipText,
-                      selectedTypeId === type.id.toString() && styles.typeChipTextSelected
-                    ]}>
-                      {type.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+            {!isEditingPrices && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Bin Type</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
+                  {binTypes.map(type => (
+                    <TouchableOpacity
+                      key={type.id}
+                      onPress={() => setSelectedTypeId(type.id.toString())}
+                      style={[
+                        styles.typeChip,
+                        selectedTypeId === type.id.toString() && styles.typeChipSelected
+                      ]}>
+                      <Text style={[
+                        styles.typeChipText,
+                        selectedTypeId === type.id.toString() && styles.typeChipTextSelected
+                      ]}>
+                        {type.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
-            {(!selectedTypeId || (selectedTypeId && binSizes.length > 0)) && (
+            {!isEditingPrices && (!selectedTypeId || (selectedTypeId && binSizes.length > 0)) && (
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Bin Size</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeSelector}>
@@ -489,33 +595,98 @@ const FleetManagementScreen: React.FC = () => {
               </View>
             )}
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Notes (Optional)</Text>
-              <TextInput
-                style={styles.textArea}
-                multiline
-                numberOfLines={3}
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Ex: Located at south gate..."
-                placeholderTextColor="#999"
-              />
-            </View>
+            {isEditingPrices && (
+              <View style={[styles.inputGroup, { backgroundColor: '#F0F9FF', padding: 10, borderRadius: 8, marginBottom: 20 }]}>
+                <Text style={{ fontFamily: fonts.family.bold, fontSize: 16, color: '#0369A1' }}>
+                  {bins.find(b => b.id === editingBinId)?.bin_code} - {bins.find(b => b.id === editingBinId)?.bin_type_name} {bins.find(b => b.id === editingBinId)?.bin_size ? `(${bins.find(b => b.id === editingBinId)?.bin_size})` : ''}
+                </Text>
+              </View>
+            )}
+
+            {fetchingPrices ? (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <ActivityIndicator color={themeColors.primary} size="small" />
+                <Text style={{ marginTop: 8, color: '#666', fontSize: 12 }}>Loading area prices...</Text>
+              </View>
+            ) : areasList.length > 0 ? (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Service Area Pricing (Required at least one)</Text>
+                {areasList.map(area => (
+                  <View key={area.id} style={styles.priceRow}>
+                    <View style={styles.areaInfoContainer}>
+                      <Text style={styles.areaName}>{area.city}, {area.country}</Text>
+                      {area.currentPrice && (
+                        <View style={[
+                          styles.statusBadge,
+                          { backgroundColor: area.isActive ? '#D1FAE5' : '#FEF3C7' }
+                        ]}>
+                          <Text style={[
+                            styles.statusBadgeText,
+                            { color: area.isActive ? '#065F46' : '#92400E' }
+                          ]}>
+                            {area.isActive ? 'Active' : 'Pending Approval'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.priceInputWrapper}>
+                      <Text style={styles.currencyPrefix}>$</Text>
+                      <TextInput
+                        style={styles.priceInput}
+                        keyboardType="decimal-pad"
+                        value={areaPrices[area.id] || ''}
+                        onChangeText={(text) => setAreaPrices(prev => ({ ...prev, [area.id]: text }))}
+                        placeholder="0.00"
+                        placeholderTextColor="#999"
+                        editable={!submitting}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : selectedTypeId && !fetchingSizes && (binSizes.length === 0 || selectedSizeId) && (
+              <View style={{ marginBottom: 15 }}>
+                <Text style={{ color: '#EF4444', fontSize: 12 }}>No service areas found. Please add service areas first.</Text>
+              </View>
+            )}
+
+            {!isEditingPrices && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Notes (Optional)</Text>
+                <TextInput
+                  style={styles.textArea}
+                  multiline
+                  numberOfLines={3}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Ex: Located at south gate..."
+                  placeholderTextColor="#999"
+                />
+              </View>
+            )}
 
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.cancelButton}
-                onPress={() => setShowAddModal(false)}>
+                onPress={() => {
+                  setShowAddModal(false);
+                  setAreaPrices({});
+                  setAreasList([]);
+                  setIsEditingPrices(false);
+                  setEditingBinId(null);
+                  setSelectedTypeId('');
+                  setSelectedSizeId('');
+                }}>
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.confirmButton, (submitting || fetchingSizes) && { opacity: 0.7 }]}
+                style={[styles.confirmButton, (submitting || fetchingSizes || fetchingPrices) && { opacity: 0.7 }]}
                 onPress={handleAddNewBin}
-                disabled={submitting || fetchingSizes}>
-                {submitting || fetchingSizes ? (
+                disabled={submitting || fetchingSizes || fetchingPrices}>
+                {submitting || fetchingSizes || fetchingPrices ? (
                   <ActivityIndicator color="#FFF" size="small" />
                 ) : (
-                  <Text style={styles.confirmButtonText}>Add Bin</Text>
+                  <Text style={styles.confirmButtonText}>{isEditingPrices ? 'Update Prices' : 'Add Bin'}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -928,6 +1099,60 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    backgroundColor: '#F9F9F9',
+    padding: 10,
+    borderRadius: 8,
+  },
+  areaName: {
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#444',
+    flex: 1,
+  },
+  areaInfoContainer: {
+    flex: 1,
+    flexDirection: 'column',
+  },
+  statusBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  statusBadgeText: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 10,
+  },
+  priceInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 6,
+    width: 100,
+    paddingHorizontal: 8,
+  },
+  currencyPrefix: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 14,
+    color: '#37B112',
+    marginRight: 2,
+  },
+  priceInput: {
+    flex: 1,
+    height: 36,
+    fontFamily: fonts.family.semiBold,
+    fontSize: 14,
+    color: '#333',
+    padding: 0,
   },
   modalButtons: {
     flexDirection: 'row',

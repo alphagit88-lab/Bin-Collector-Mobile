@@ -13,6 +13,7 @@ export const ENDPOINTS = {
         PRICES: '/bins/prices',
         PHYSICAL: '/bins/physical',
         UPDATE_PHYSICAL: (id: number) => `/bins/physical/${id}`,
+        SUPPLIER_PRICES: (typeId: number, sizeId?: number) => `/bins/supplier-prices?binTypeId=${typeId}${sizeId ? `&binSizeId=${sizeId}` : ''}`,
     },
     BOOKINGS: {
         CREATE: '/bookings',
