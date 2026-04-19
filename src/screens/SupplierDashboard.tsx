@@ -43,6 +43,7 @@ const SupplierDashboard: React.FC = () => {
     pending: 0,
     confirmed: 0,
     inProgress: 0,
+    readyToPickup: 0,
     completed: 0
   });
   const [wallet, setWallet] = React.useState<{ balance: string; pending_balance: string; total_earned: string } | null>(null);
@@ -66,10 +67,11 @@ const SupplierDashboard: React.FC = () => {
         const myJobs = myJobsResponse.data?.requests || [];
 
         const confirmed = myJobs.filter((j: any) => j.status === 'confirmed').length;
-        const inProgress = myJobs.filter((j: any) => ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(j.status)).length;
+        const inProgress = myJobs.filter((j: any) => ['on_delivery', 'delivered', 'pickup'].includes(j.status)).length;
+        const readyToPickup = myJobs.filter((j: any) => j.status === 'ready_to_pickup').length;
         const completed = myJobs.filter((j: any) => j.status === 'completed').length;
-
-        setCounts({ pending, confirmed, inProgress, completed });
+ 
+        setCounts({ pending, confirmed, inProgress, readyToPickup, completed });
 
         if (walletResponse.success && walletResponse.data?.wallet) {
           setWallet(walletResponse.data.wallet);
@@ -187,62 +189,7 @@ const SupplierDashboard: React.FC = () => {
           </View>
         </View>
 
-        {/* Top Cards Row - Pending & Active */}
-        <View style={styles.topCardsRow}>
-          {/* Pending Card */}
-          <LinearGradient
-            colors={['#C0F96F', '#90B93E']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.7, y: 1 }}
-            style={styles.topCardGradient}>
-            <View style={styles.topCardContent}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.topCardTitle}>Pending</Text>
-                <TouchableOpacity style={styles.playButtonContainer}>
-                  <PlayIcon width={45} height={45} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.cardStats}>
-                <Text style={styles.topCardNumber}>{counts.pending.toString().padStart(2, '0')}</Text>
-                <Text style={styles.topCardSubtitle}>Pending Quotes</Text>
-              </View>
-              <View style={styles.binCollectOverlay}>
-                <BinCollectBg width={192} height={128} />
-              </View>
-            </View>
-          </LinearGradient>
 
-          {/* Active Card */}
-          <LinearGradient
-            colors={['#A7DB3D', '#D6EF72', '#D8FF3A']}
-            locations={[0.1651, 0.6554, 0.8017]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.7, y: 1 }}
-            style={styles.topCardGradient}>
-            <View style={styles.topCardContent}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.topCardTitle}>Active</Text>
-                <TouchableOpacity style={styles.playButtonContainer}>
-                  <PlayIcon width={45} height={45} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.cardStats}>
-                <Text style={styles.topCardNumber}>{counts.inProgress.toString().padStart(2, '0')}</Text>
-                <Text style={styles.topCardSubtitle}>Active Jobs</Text>
-              </View>
-              <View style={styles.binCollectOverlayUpsideDown}>
-                <View
-                  style={{
-                    width: 192,
-                    height: 128,
-                    transform: [{ rotate: '180deg' }],
-                  }}>
-                  <BinCollectBg width={192} height={128} />
-                </View>
-              </View>
-            </View>
-          </LinearGradient>
-        </View>
 
         {/* Payouts & Earnings Section */}
         <TouchableOpacity
@@ -358,10 +305,29 @@ const SupplierDashboard: React.FC = () => {
                     <PlayIcon width={18} height={18} />
                   </View>
                 </TouchableOpacity>
-
-                {/* Completed Jobs */}
+ 
+                {/* Ready To Pickup */}
                 <TouchableOpacity
                   style={styles.jobCard}
+                  onPress={() => navigation.navigate('SupplierJobs', { initialCategory: 'ready_to_pickup' })}
+                >
+                  <View style={styles.jobCardContent}>
+                    <Text style={[styles.jobNumber, styles.pickupColor]}>
+                      {counts.readyToPickup.toString().padStart(2, '0')}
+                    </Text>
+                    <Text style={styles.jobLabel}>Ready To Pickup</Text>
+                  </View>
+                  <View style={styles.jobCardIcon}>
+                    <PlayIcon width={18} height={18} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              {/* Row 3 */}
+              <View style={[styles.jobGridRow, { justifyContent: 'center' }]}>
+                {/* Completed Jobs */}
+                <TouchableOpacity
+                  style={[styles.jobCard, { flex: 0, width: '48.5%' }]}
                   onPress={() => navigation.navigate('SupplierJobs', { initialCategory: 'completed' })}
                 >
                   <View style={styles.jobCardContent}>
@@ -467,97 +433,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: '#29B554',
   },
-  topCardsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 0,
-    marginBottom: 10,
-    gap: 7,
-  },
-  topCardGradient: {
-    flex: 1,
-    height: 183,
-    borderRadius: 9,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  topCardContent: {
-    flex: 1,
-    position: 'relative',
-    padding: 14,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-  },
-  topCardTitle: {
-    fontFamily: fonts.family.medium,
-    fontSize: 20,
-    lineHeight: 24,
-    color: '#373934',
-  },
-  playButtonContainer: {
-    width: 45,
-    height: 45,
-  },
-  cardStats: {
-    marginTop: 'auto',
-    paddingTop: 20,
-  },
-  topCardNumber: {
-    fontFamily: fonts.family.bold,
-    fontSize: 36,
-    lineHeight: 43,
-    color: '#161616',
-  },
-  topCardSubtitle: {
-    fontFamily: fonts.family.medium,
-    fontSize: 17,
-    lineHeight: 20,
-    color: '#373934',
-    marginTop: 4,
-  },
-  binCollectOverlay: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    opacity: 0.34,
-  },
-  binCollectOverlayUpsideDown: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    opacity: 0.34,
-  },
-  cardTitle: {
-    fontFamily: fonts.family.medium,
-    fontSize: 20,
-    lineHeight: 24,
-    color: '#373934',
-  },
-  notificationCircle: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: '#424141',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  bigNumber: {
-    fontFamily: fonts.family.bold,
-    fontSize: 36,
-    lineHeight: 43,
-    color: '#161616',
-    marginTop: 20,
-  },
-  cardSubtitle: {
-    fontFamily: fonts.family.medium,
-    fontSize: 17,
-    lineHeight: 20,
-    color: '#373934',
-    marginTop: 5,
-  },
+
   earningsCard: {
     width: '100%',
     height: 246,
@@ -724,6 +600,9 @@ const styles = StyleSheet.create({
   },
   progressColor: {
     color: '#66E91F',
+  },
+  pickupColor: {
+    color: '#FF9500',
   },
   completedColor: {
     color: '#2E8015',

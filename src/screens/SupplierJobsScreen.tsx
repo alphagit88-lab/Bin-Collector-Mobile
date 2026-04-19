@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,9 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Dimensions,
 } from 'react-native';
+import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
@@ -82,6 +84,8 @@ const SupplierJobsScreen: React.FC = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const mapRef = useRef<MapView>(null);
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -130,6 +134,33 @@ const SupplierJobsScreen: React.FC = () => {
       };
     }
   }, [socket, fetchJobs]);
+
+  const fitMapToPins = useCallback(() => {
+    if (!mapRef.current) return;
+
+    const filteredJobs = getFilteredJobs();
+    const coords = filteredJobs
+      .filter(j => j.latitude && j.longitude)
+      .map(j => ({
+        latitude: parseFloat(j.latitude as string),
+        longitude: parseFloat(j.longitude as string),
+      }));
+
+    if (coords.length > 0) {
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+        animated: true,
+      });
+    }
+  }, [jobs, selectedCategory]);
+
+  useEffect(() => {
+    if (viewMode === 'map') {
+      // Small delay to ensure map is ready
+      const timer = setTimeout(fitMapToPins, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, jobs, selectedCategory, fitMapToPins]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -240,26 +271,43 @@ const SupplierJobsScreen: React.FC = () => {
     </View>
   );
 
-  // always render grid below
-
   const categoryColor = (category: JobCategory) => {
     switch (category) {
       case 'pending':
-        return '#FF8A00';
+        return '#C4CA00';
       case 'confirmed':
-        return '#0B63FF';
+        return '#408FC7';
       case 'inProgress':
+        return '#66E91F';
       case 'completed':
-      case 'cancelled':
-        return '#2F9E00';
+        return '#2E8015';
       default:
         return '#2F9E00';
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'on_delivery':
+      case 'delivered':
+      case 'pickup':
+        return '#66E91F';
+      case 'ready_to_pickup':
+        return '#FF9500';
+      case 'confirmed':
+      case 'awaiting_payment':
+        return '#408FC7';
+      case 'completed':
+        return '#2E8015';
+      case 'pending':
+        return '#C4CA00';
+      default:
+        return '#999';
+    }
+  };
+
   const renderGridCard = (category: JobCategory) => {
     const label = categoryLabels[category];
-    // Use design counts to match the provided screenshot (second image)
     const count = String(getCategoryCount(category)).padStart(2, '0');
     const color = categoryColor(category);
     const isSelected = selectedCategory === category;
@@ -348,18 +396,94 @@ const SupplierJobsScreen: React.FC = () => {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.jobsListGradient}>
-              <View style={styles.jobsListContainer}>
+              <View style={styles.jobsListHeader}>
                 <Text style={styles.sectionTitle}>
                   {categoryLabels[selectedCategory]}
                 </Text>
+                <View style={styles.viewToggleContainer}>
+                  <TouchableOpacity
+                    style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
+                    onPress={() => setViewMode('list')}
+                  >
+                    <Text style={[styles.toggleButtonText, viewMode === 'list' && styles.toggleButtonTextActive]}>List</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.toggleButton, viewMode === 'map' && styles.toggleButtonActive]}
+                    onPress={() => setViewMode('map')}
+                  >
+                    <Text style={[styles.toggleButtonText, viewMode === 'map' && styles.toggleButtonTextActive]}>Map</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.jobsListContainer}>
                 {loading && !refreshing ? (
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="small" color="#37B112" />
                   </View>
-                ) : getFilteredJobs().length > 0 ? (
-                  getFilteredJobs().map((job: Job, index: number) => renderJobItem(job, index))
+                ) : viewMode === 'list' ? (
+                  getFilteredJobs().length > 0 ? (
+                    getFilteredJobs().map((job: Job, index: number) => renderJobItem(job, index))
+                  ) : (
+                    <Text style={styles.emptyText}>No jobs in this category</Text>
+                  )
                 ) : (
-                  <Text style={styles.emptyText}>No jobs in this category</Text>
+                  <View style={styles.mapWrapper}>
+                    <MapView
+                      ref={mapRef}
+                      provider={PROVIDER_GOOGLE}
+                      style={styles.map}
+                      initialRegion={{
+                        latitude: 6.9271, // Colombo default
+                        longitude: 79.8612,
+                        latitudeDelta: 0.1,
+                        longitudeDelta: 0.1,
+                      }}
+                    >
+                      {getFilteredJobs().map(job => (
+                        job.latitude && job.longitude ? (
+                          <Marker
+                            key={job.id}
+                            coordinate={{
+                              latitude: parseFloat(job.latitude as string),
+                              longitude: parseFloat(job.longitude as string),
+                            }}
+                            pinColor={getStatusColor(job.status)}
+                          >
+                            <Callout onPress={() => handleViewJob(job)}>
+                              <View style={styles.calloutContainer}>
+                                <Text style={styles.calloutTitle}>{job.request_id}</Text>
+                                <Text style={styles.calloutText}>
+                                  {job.service_category === 'service'
+                                    ? (job.service_names?.split(',')[0] || 'General Service')
+                                    : job.bin_type_name}
+                                  {job.bin_size ? ` (${job.bin_size})` : ''}
+                                  {job.service_category === 'service' 
+                                    ? ((job.selected_services_count || 0) > 1 && (
+                                      <Text style={{ color: '#37B112', fontFamily: fonts.family.medium }}>
+                                        {` +${(job.selected_services_count || 0) - 1} more`}
+                                      </Text>
+                                    ))
+                                    : ((job.order_items_count || 0) > 1 && (
+                                      <Text style={{ color: '#37B112', fontFamily: fonts.family.medium }}>
+                                        {` +${(job.order_items_count || 0) - 1} more`}
+                                      </Text>
+                                    ))
+                                  }
+                                </Text>
+                                <Text style={[styles.calloutStatus, { color: getStatusColor(job.status) }]}>
+                                  {job.status.replace(/_/g, ' ').toUpperCase()}
+                                </Text>
+                                <TouchableOpacity style={styles.calloutButton}>
+                                  <Text style={styles.calloutButtonText}>View Details</Text>
+                                </TouchableOpacity>
+                              </View>
+                            </Callout>
+                          </Marker>
+                        ) : null
+                      ))}
+                    </MapView>
+                  </View>
                 )}
               </View>
             </LinearGradient>
@@ -644,6 +768,85 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 100,
+  },
+  jobsListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 14,
+  },
+  viewToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+    padding: 2,
+  },
+  toggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  toggleButtonText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 12,
+    color: '#666',
+  },
+  toggleButtonTextActive: {
+    color: '#242424',
+  },
+  mapWrapper: {
+    width: '100%',
+    height: 400,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  map: {
+    flex: 1,
+  },
+  calloutContainer: {
+    width: 200,
+    padding: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  calloutTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 14,
+    color: '#242424',
+    marginBottom: 2,
+  },
+  calloutText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  calloutStatus: {
+    fontFamily: fonts.family.bold,
+    fontSize: 10,
+    marginBottom: 8,
+  },
+  calloutButton: {
+    backgroundColor: '#242424',
+    paddingVertical: 6,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  calloutButtonText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontFamily: fonts.family.bold,
   },
 });
 
