@@ -65,5 +65,12 @@ export const ENDPOINTS = {
     },
     PAYMENTS: {
         CREATE_INTENT: '/payments/create-intent',
+    },
+    PROJECTS: {
+        MY: '/projects/my',
+        CREATE: '/projects',
+        DETAILS: (id: number | string) => `/projects/${id}`,
+        UPDATE: (id: number | string) => `/projects/${id}`,
+        DELETE: (id: number | string) => `/projects/${id}`,
     }
 };

@@ -29,6 +29,7 @@ import NotificationsScreen from '../screens/NotificationsScreen';
 import MessageInboxScreen from '../screens/MessageInboxScreen';
 import ChatDetailScreen from '../screens/ChatDetailScreen';
 import BillingScreen from '../screens/BillingScreen';
+import ProjectsScreen from '../screens/ProjectsScreen';
 
 import { navigationRef } from './navigationRef';
 
@@ -72,6 +73,7 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
             <Stack.Screen name="Billing" component={BillingScreen} />
             <Stack.Screen name="JobDetail" component={JobDetailScreen} />
+            <Stack.Screen name="Projects" component={ProjectsScreen} />
           </>
         ) : user?.role === 'supplier' ? (
           <>
@@ -118,6 +120,7 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="MessageInbox" component={MessageInboxScreen} />
             <Stack.Screen name="ChatDetail" component={ChatDetailScreen} />
             <Stack.Screen name="Billing" component={BillingScreen} />
+            <Stack.Screen name="Projects" component={ProjectsScreen} />
           </>
         ) : user?.role === 'driver' ? (
           <>

@@ -9,8 +9,10 @@ import {
   Alert,
   RefreshControl,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
@@ -85,6 +87,7 @@ const SupplierJobsScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [searchQuery, setSearchQuery] = useState('');
   const mapRef = useRef<MapView>(null);
 
   const fetchJobs = useCallback(async () => {
@@ -152,7 +155,7 @@ const SupplierJobsScreen: React.FC = () => {
         animated: true,
       });
     }
-  }, [jobs, selectedCategory]);
+  }, [jobs, selectedCategory, searchQuery]);
 
   useEffect(() => {
     if (viewMode === 'map') {
@@ -160,7 +163,7 @@ const SupplierJobsScreen: React.FC = () => {
       const timer = setTimeout(fitMapToPins, 500);
       return () => clearTimeout(timer);
     }
-  }, [viewMode, jobs, selectedCategory, fitMapToPins]);
+  }, [viewMode, jobs, selectedCategory, searchQuery, fitMapToPins]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -168,14 +171,28 @@ const SupplierJobsScreen: React.FC = () => {
   };
 
   const getFilteredJobs = () => {
-    if (selectedCategory === 'all') return jobs;
+    let filtered = jobs;
     if (selectedCategory === 'inProgress') {
-      return jobs.filter(j => ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(j.status));
+      filtered = jobs.filter(j => ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(j.status));
+    } else if (selectedCategory === 'confirmed') {
+      filtered = jobs.filter(j => ['confirmed', 'awaiting_payment'].includes(j.status));
+    } else if (selectedCategory !== 'all') {
+      filtered = jobs.filter(j => j.status === selectedCategory);
     }
-    if (selectedCategory === 'confirmed') {
-      return jobs.filter(j => ['confirmed', 'awaiting_payment'].includes(j.status));
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(job => {
+        return (
+          job.request_id.toLowerCase().includes(query) ||
+          job.customer_name?.toLowerCase().includes(query) ||
+          job.location?.toLowerCase().includes(query) ||
+          job.bin_type_name?.toLowerCase().includes(query) ||
+          job.service_names?.toLowerCase().includes(query)
+        );
+      });
     }
-    return jobs.filter(j => j.status === selectedCategory);
+    return filtered;
   };
 
   const getCategoryCount = (category: JobCategory) => {
@@ -416,6 +433,22 @@ const SupplierJobsScreen: React.FC = () => {
                 </View>
               </View>
 
+              <View style={styles.searchBarContainer}>
+                <Ionicons name="search" size={20} color="#979897" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search by ID, customer or location..."
+                  placeholderTextColor="#979897"
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={20} color="#979897" />
+                  </TouchableOpacity>
+                )}
+              </View>
+
               <View style={styles.jobsListContainer}>
                 {loading && !refreshing ? (
                   <View style={styles.loadingContainer}>
@@ -425,7 +458,7 @@ const SupplierJobsScreen: React.FC = () => {
                   getFilteredJobs().length > 0 ? (
                     getFilteredJobs().map((job: Job, index: number) => renderJobItem(job, index))
                   ) : (
-                    <Text style={styles.emptyText}>No jobs in this category</Text>
+                    <Text style={styles.emptyText}>No jobs found</Text>
                   )
                 ) : (
                   <View style={styles.mapWrapper}>
@@ -434,53 +467,29 @@ const SupplierJobsScreen: React.FC = () => {
                       provider={PROVIDER_GOOGLE}
                       style={styles.map}
                       initialRegion={{
-                        latitude: 6.9271, // Colombo default
+                        latitude: 6.9271,
                         longitude: 79.8612,
                         latitudeDelta: 0.1,
                         longitudeDelta: 0.1,
                       }}
                     >
-                      {getFilteredJobs().map(job => (
-                        job.latitude && job.longitude ? (
-                          <Marker
-                            key={job.id}
-                            coordinate={{
-                              latitude: parseFloat(job.latitude as string),
-                              longitude: parseFloat(job.longitude as string),
-                            }}
-                            pinColor={getStatusColor(job.status)}
-                          >
-                            <Callout onPress={() => handleViewJob(job)}>
-                              <View style={styles.calloutContainer}>
-                                <Text style={styles.calloutTitle}>{job.request_id}</Text>
-                                <Text style={styles.calloutText}>
-                                  {job.service_category === 'service'
-                                    ? (job.service_names?.split(',')[0] || 'General Service')
-                                    : job.bin_type_name}
-                                  {job.bin_size ? ` (${job.bin_size})` : ''}
-                                  {job.service_category === 'service' 
-                                    ? ((job.selected_services_count || 0) > 1 && (
-                                      <Text style={{ color: '#37B112', fontFamily: fonts.family.medium }}>
-                                        {` +${(job.selected_services_count || 0) - 1} more`}
-                                      </Text>
-                                    ))
-                                    : ((job.order_items_count || 0) > 1 && (
-                                      <Text style={{ color: '#37B112', fontFamily: fonts.family.medium }}>
-                                        {` +${(job.order_items_count || 0) - 1} more`}
-                                      </Text>
-                                    ))
-                                  }
-                                </Text>
-                                <Text style={[styles.calloutStatus, { color: getStatusColor(job.status) }]}>
-                                  {job.status.replace(/_/g, ' ').toUpperCase()}
-                                </Text>
-                                <TouchableOpacity style={styles.calloutButton}>
-                                  <Text style={styles.calloutButtonText}>View Details</Text>
-                                </TouchableOpacity>
-                              </View>
-                            </Callout>
-                          </Marker>
-                        ) : null
+                      {getFilteredJobs().filter(j => j.latitude && j.longitude).map(job => (
+                        <Marker
+                          key={job.id}
+                          coordinate={{
+                            latitude: parseFloat(job.latitude as string),
+                            longitude: parseFloat(job.longitude as string),
+                          }}
+                          onPress={() => handleViewJob(job)}
+                        >
+                          <Callout>
+                            <View style={styles.calloutContainer}>
+                              <Text style={styles.calloutTitle}>{job.request_id}</Text>
+                              <Text style={styles.calloutText}>{job.customer_name}</Text>
+                              <Text style={styles.calloutText}>{job.location}</Text>
+                            </View>
+                          </Callout>
+                        </Marker>
                       ))}
                     </MapView>
                   </View>
@@ -497,6 +506,7 @@ const SupplierJobsScreen: React.FC = () => {
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -552,8 +562,33 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   sectionContainer: {
-    paddingHorizontal: 19,
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginVertical: 12,
+    marginHorizontal: 14,
+    height: 44,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#373934',
+  },
+  myJobsCard: {
+    marginBottom: 12,
   },
   sectionTitle: {
     fontFamily: fonts.family.medium,

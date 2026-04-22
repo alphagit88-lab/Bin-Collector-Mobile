@@ -54,6 +54,7 @@ interface FormFieldProps {
   multiline?: boolean;
   keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad';
   secureTextEntry?: boolean;
+  style?: any;
 }
 
 const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
@@ -67,12 +68,13 @@ const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
   multiline = false,
   keyboardType = 'default',
   secureTextEntry = false,
+  style,
 }) => (
   <TouchableOpacity
     activeOpacity={isDropdown ? 0.7 : 1}
     onPress={isDropdown ? onPress : undefined}
-    style={styles.formField}>
-    <Text style={styles.formFieldLabel}>{label}</Text>
+    style={[styles.formField, style]}>
+    {label ? <Text style={styles.formFieldLabel}>{label}</Text> : null}
     <View style={styles.formFieldInputContainer}>
       <TextInput
         style={[styles.formFieldInput, multiline && { height: 80, textAlignVertical: 'top' }]}
@@ -158,6 +160,12 @@ const OrderBinScreen: React.FC = () => {
   const [selectedServices, setSelectedServices] = useState<number[]>([]);
   const [customerBudget, setCustomerBudget] = useState('');
   const [fetchingCategories, setFetchingCategories] = useState(false);
+  const [systemSettings, setSystemSettings] = useState<Record<string, string>>({});
+  const [fetchingSettings, setFetchingSettings] = useState(true);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
+  const [selectedProjectName, setSelectedProjectName] = useState('');
+  const [projectModalVisible, setProjectModalVisible] = useState(false);
 
   // Date Picker State
   const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
@@ -372,6 +380,24 @@ const OrderBinScreen: React.FC = () => {
     }
   }, []);
 
+  const fetchSystemSettings = React.useCallback(async () => {
+    setFetchingSettings(true);
+    try {
+      const response = await api.get<{ settings: any[] }>('/settings?includePublic=true');
+      if (response.success && response.data) {
+        const settingsMap: Record<string, string> = {};
+        response.data.settings.forEach(s => {
+          settingsMap[s.key] = s.value;
+        });
+        setSystemSettings(settingsMap);
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error);
+    } finally {
+      setFetchingSettings(false);
+    }
+  }, []);
+
   useFocusEffect(
     React.useCallback(() => {
       const routeParams = route.params;
@@ -406,6 +432,8 @@ const OrderBinScreen: React.FC = () => {
       }
       fetchBinTypes();
       fetchServiceCategories();
+      fetchSystemSettings();
+      fetchProjects();
 
       // Handle Repeat Order if repeatData is passed in params
       if (routeParams?.repeatData) {
@@ -422,7 +450,7 @@ const OrderBinScreen: React.FC = () => {
         setAdditionalContact(data.contact_email || '');
         setNotes(data.instructions || '');
         setPoNumber(data.po_number || '');
-        
+
         if (hasRepeatCoordinates) {
           setMapRegion(prev => ({
             ...prev,
@@ -433,21 +461,21 @@ const OrderBinScreen: React.FC = () => {
 
         // Handle bins if it's a bin order
         if (data.orderItems && data.orderItems.length > 0) {
-           setBins(data.orderItems.map((item: any) => ({
-             bin_type_id: item.bin_type_id?.toString() || '',
-             bin_type_name: item.bin_type_name || '',
-             bin_size_id: item.bin_size_id?.toString() || '',
-             bin_size_name: item.bin_size || '',
-             quantity: item.quantity?.toString() || '1',
-           })));
+          setBins(data.orderItems.map((item: any) => ({
+            bin_type_id: item.bin_type_id?.toString() || '',
+            bin_type_name: item.bin_type_name || '',
+            bin_size_id: item.bin_size_id?.toString() || '',
+            bin_size_name: item.bin_size || '',
+            quantity: item.quantity?.toString() || '1',
+          })));
         } else if (data.binType) {
-           setBins([{
-             bin_type_id: '', // We don't have ID in some legacy mock formats
-             bin_type_name: data.binType,
-             bin_size_id: '',
-             bin_size_name: data.binSize,
-             quantity: '1',
-           }]);
+          setBins([{
+            bin_type_id: '', // We don't have ID in some legacy mock formats
+            bin_type_name: data.binType,
+            bin_size_id: '',
+            bin_size_name: data.binSize,
+            quantity: '1',
+          }]);
         }
       }
     }, [user, loadDefaultLocation, fetchBinTypes, fetchServiceCategories, route.params])
@@ -481,6 +509,17 @@ const OrderBinScreen: React.FC = () => {
     setTypeModalVisible(true);
   };
 
+  const fetchProjects = async () => {
+    try {
+      const response = await api.get<{ projects: any[] }>(ENDPOINTS.PROJECTS.MY);
+      if (response.success && response.data) {
+        setProjects(response.data.projects);
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  };
+
   const openSizeModal = (index: number) => {
     const bin = bins[index];
     if (bin.bin_type_id) {
@@ -497,6 +536,12 @@ const OrderBinScreen: React.FC = () => {
     });
     setTypeModalVisible(false);
     fetchBinSizes(type.id);
+  };
+
+  const selectProject = (project: any) => {
+    setSelectedProjectId(project.id);
+    setSelectedProjectName(project.name);
+    setProjectModalVisible(false);
   };
 
   const selectBinSize = (size: BinSize) => {
@@ -606,6 +651,15 @@ const OrderBinScreen: React.FC = () => {
       }
     }
 
+    // Strict pricing settings validation
+    if (serviceType !== 'service') {
+      const limitKey = serviceType === 'commercial' ? 'commercial_duration_limit' : 'residential_duration_limit';
+      if (!systemSettings[limitKey] || !systemSettings['additional_day_charge']) {
+        toast.error('System Error', 'Pricing configuration is missing. Please contact support.');
+        return;
+      }
+    }
+
     if (!deliveryDate || !pickupDate) {
       toast.error('Error', 'Please select both start and end dates');
       return;
@@ -652,7 +706,10 @@ const OrderBinScreen: React.FC = () => {
       formData.append('contact_number', contactNumber);
       formData.append('contact_email', additionalContact);
       formData.append('instructions', notes);
-      formData.append('po_number', poNumber);
+      if (selectedProjectId) {
+        formData.append('project_id', selectedProjectId.toString());
+      }
+      if (poNumber) formData.append('po_number', poNumber);
       if (finalLat !== null && finalLat !== undefined) formData.append('latitude', finalLat.toString());
       if (finalLon !== null && finalLon !== undefined) formData.append('longitude', finalLon.toString());
 
@@ -672,12 +729,12 @@ const OrderBinScreen: React.FC = () => {
 
       if (response.success) {
         const bookingData = response.data.booking || response.data.request;
-        
+
         if (!bookingData) {
-            console.error('Booking data missing from response:', response.data);
-            toast.error('Error', 'Failed to retrieve booking information');
-            setLoading(false);
-            return;
+          console.error('Booking data missing from response:', response.data);
+          toast.error('Error', 'Failed to retrieve booking information');
+          setLoading(false);
+          return;
         }
 
         if (paymentMethod === 'online') {
@@ -737,6 +794,29 @@ const OrderBinScreen: React.FC = () => {
 
           {/* Divider Line */}
           <View style={styles.dividerLine} />
+
+          {/* Section 0: Project Assignment (Optional) */}
+          <View style={styles.formSection}>
+            <LinearGradient
+              colors={['#EFF2F0', '#F8FFEE']}
+              locations={[0.2377, 0.6629]}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
+              style={styles.formSectionGradient}>
+              <Text style={[styles.paymentMethodTitle, { marginBottom: 25 }]}>
+                Assign to Project (Optional)
+              </Text>
+              <FormField
+                label=""
+                placeholder={projects.length > 0 ? "Select a project" : "No projects to select"}
+                value={selectedProjectName}
+                onChangeText={() => { }}
+                isDropdown={true}
+                onPress={() => projects.length > 0 && setProjectModalVisible(true)}
+                style={{ marginBottom: 0, marginTop: -10 }}
+              />
+            </LinearGradient>
+          </View>
 
           {/* Section 1: Service Type */}
           <View style={styles.formSection}>
@@ -1091,7 +1171,7 @@ const OrderBinScreen: React.FC = () => {
             </LinearGradient>
           </View>
 
-          {/* Section 4: Contact Details */}
+          {/* Section 4: Project & Contact Details */}
           <View style={styles.formSection}>
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
@@ -1104,6 +1184,7 @@ const OrderBinScreen: React.FC = () => {
                 placeholder="Enter Mobile number"
                 value={contactNumber}
                 onChangeText={setContactNumber}
+                keyboardType="phone-pad"
               />
               <FormField
                 label="Email Address"
@@ -1264,7 +1345,7 @@ const OrderBinScreen: React.FC = () => {
           </View>
 
           {/* Order Summary / Estimated Total */}
-          {bins.some(b => b.bin_size_id) && (
+          {serviceType !== 'service' && bins.some(b => b.bin_size_id) && (
             <View style={styles.formSection}>
               <LinearGradient
                 colors={['#EFF2F0', '#F8FFEE']}
@@ -1272,15 +1353,70 @@ const OrderBinScreen: React.FC = () => {
                 start={{ x: 0.34, y: 0 }}
                 end={{ x: 0.66, y: 1 }}
                 style={styles.formSectionGradient}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Estimated Total:</Text>
-                  <Text style={styles.summaryValue}>
-                    ${bins.reduce((acc, b) => {
-                      const price = binPrices.find(p => p.bin_size_id.toString() === b.bin_size_id)?.admin_final_price;
-                      return acc + (parseFloat(price || '0') * (parseInt(b.quantity) || 1));
-                    }, 0).toFixed(2)}
-                  </Text>
-                </View>
+
+                {(() => {
+                  const diffTime = Math.abs(pickupDateObj.getTime() - deliveryDateObj.getTime());
+                  const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+                  if (fetchingSettings) {
+                    return <ActivityIndicator size="small" color={themeColors.primary} />;
+                  }
+
+                  const commercialLimit = systemSettings['commercial_duration_limit'];
+                  const residentialLimit = systemSettings['residential_duration_limit'];
+                  const dailyRateStr = systemSettings['additional_day_charge'];
+
+                  if (!commercialLimit || !residentialLimit || !dailyRateStr) {
+                    return (
+                      <View style={styles.errorContainer}>
+                        <Ionicons name="alert-circle" size={20} color="#E53E3E" />
+                        <Text style={styles.errorText}>Pricing configuration missing. Please contact support.</Text>
+                      </View>
+                    );
+                  }
+
+                  const limitDays = serviceType === 'commercial' ? parseInt(commercialLimit!) : parseInt(residentialLimit!);
+                  const dailyRate = parseFloat(dailyRateStr!);
+
+                  const exceededDays = durationDays > limitDays ? durationDays - limitDays : 0;
+                  const additionalCharge = exceededDays * dailyRate;
+
+                  const basePrice = bins.reduce((acc, b) => {
+                    const price = binPrices.find(p => p.bin_size_id.toString() === b.bin_size_id)?.admin_final_price;
+                    return acc + (parseFloat(price || '0') * (parseInt(b.quantity) || 1));
+                  }, 0);
+
+                  return (
+                    <>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { fontSize: 16 }]}>Base Price ({limitDays} Days):</Text>
+                        <Text style={[styles.summaryValue, { fontSize: 18 }]}>${basePrice.toFixed(2)}</Text>
+                      </View>
+
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { fontSize: 16 }]}>Duration:</Text>
+                        <Text style={[styles.summaryValue, { fontSize: 18 }]}>{durationDays} Day(s)</Text>
+                      </View>
+
+                      {exceededDays > 0 && (
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { fontSize: 16, color: '#E53E3E' }]}>Extra Days ({exceededDays} × ${dailyRate}):</Text>
+                          <Text style={[styles.summaryValue, { fontSize: 18, color: '#E53E3E' }]}>+${additionalCharge.toFixed(2)}</Text>
+                        </View>
+                      )}
+
+                      <View style={[styles.dividerLine, { marginVertical: 8 }]} />
+
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Estimated Total:</Text>
+                        <Text style={[styles.summaryValue, { color: '#29B554' }]}>
+                          ${(basePrice + additionalCharge).toFixed(2)}
+                        </Text>
+                      </View>
+                    </>
+                  );
+                })()}
+
                 {fetchingPrices && <ActivityIndicator size="small" color={themeColors.primary} style={{ marginTop: 5 }} />}
               </LinearGradient>
             </View>
@@ -1397,6 +1533,34 @@ const OrderBinScreen: React.FC = () => {
         onTakePhoto={takePhoto}
         onChooseGallery={pickImage}
       />
+
+      <AppModal
+        visible={projectModalVisible}
+        onClose={() => setProjectModalVisible(false)}
+        title="Select Project">
+        <ScrollView style={{ maxHeight: 400 }}>
+          {projects.map((project) => (
+            <TouchableOpacity
+              key={project.id}
+              style={styles.modalItem}
+              onPress={() => selectProject(project)}>
+              <Text style={styles.modalItemText}>{project.name}</Text>
+              {selectedProjectId === project.id && (
+                <Ionicons name="checkmark-circle" size={20} color="#9CCD17" />
+              )}
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[styles.modalItem, { borderBottomWidth: 0, marginTop: 10 }]}
+            onPress={() => {
+              setSelectedProjectId(null);
+              setSelectedProjectName('None');
+              setProjectModalVisible(false);
+            }}>
+            <Text style={[styles.modalItemText, { color: '#FF3B30' }]}>None / Clear Selection</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </AppModal>
     </View>
   );
 };
@@ -1857,6 +2021,19 @@ const styles = StyleSheet.create({
     color: '#9AD346',
     fontFamily: fonts.family.semiBold,
   },
+  modalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalItemText: {
+    fontSize: 16,
+    fontFamily: fonts.family.regular,
+    color: '#333',
+  },
   removeBinButton: {
     position: 'absolute',
     top: 5,
@@ -1894,6 +2071,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 5,
     fontFamily: fonts.family.medium,
+  },
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FEB2B2',
+  },
+  errorText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#C53030',
+    marginLeft: 8,
+    flex: 1,
   },
   servicesGrid: {
     flexDirection: 'row',

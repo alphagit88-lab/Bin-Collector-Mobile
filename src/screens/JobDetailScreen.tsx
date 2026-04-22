@@ -758,7 +758,7 @@ const JobDetailScreen: React.FC = () => {
                   navigation.navigate('OrderBin', { repeatData: initialData });
                 }}
               >
-                <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                <Ionicons name="refresh" size={20} color={themeColors.primaryDark} />
                 <Text style={styles.repeatOrderText}>Repeat Order</Text>
               </TouchableOpacity>
             )}
@@ -1754,7 +1754,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   repeatOrderText: {
-    color: '#FFFFFF',
+    color: themeColors.primaryDark,
     fontFamily: fonts.family.bold,
     fontSize: 16,
   },

@@ -134,8 +134,8 @@ const CustomerDashboard: React.FC = () => {
             <Text style={styles.userNameText}>{userName}</Text>
           </View>
           <View style={styles.headerRight}>
-            <TouchableOpacity 
-              style={styles.headerIconButton} 
+            <TouchableOpacity
+              style={styles.headerIconButton}
               onPress={() => navigation.navigate('Notifications' as never)}
             >
               <View style={styles.iconCircle}>
@@ -147,9 +147,9 @@ const CustomerDashboard: React.FC = () => {
                 </View>
               )}
             </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.headerIconButton} 
+
+            <TouchableOpacity
+              style={styles.headerIconButton}
               onPress={() => navigation.navigate('MessageInbox' as never)}
             >
               <View style={styles.iconCircle}>
@@ -162,8 +162,8 @@ const CustomerDashboard: React.FC = () => {
               )}
             </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.headerProfileButton} 
+            <TouchableOpacity
+              style={styles.headerProfileButton}
               onPress={() => navigation.navigate('Account' as never)}
             >
               <View style={styles.iconCircle}>
@@ -193,7 +193,10 @@ const CustomerDashboard: React.FC = () => {
         {/* Tracking and History Cards Row */}
         <View style={styles.trackingBookingRow}>
           {/* Tracking Card */}
-          <View style={styles.trackingCard}>
+          <TouchableOpacity
+            style={styles.trackingCard}
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('ServiceTracking' as never)}>
             <LinearGradient
               colors={['#C0F96F', '#90B93E']}
               start={{ x: 0, y: 0 }}
@@ -202,13 +205,9 @@ const CustomerDashboard: React.FC = () => {
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Tracking</Text>
-                  <TouchableOpacity
-                    style={styles.playButtonContainer}
-                    activeOpacity={0.7}
-                    onPress={() => navigation.navigate('ServiceTracking' as never)}
-                  >
+                  <View style={styles.playButtonContainer}>
                     <PlayIcon width={45} height={45} />
-                  </TouchableOpacity>
+                  </View>
                 </View>
                 <View style={styles.cardStats}>
                   <Text style={styles.cardStatValue}>{activeBookingsCount.toString().padStart(2, '0')}</Text>
@@ -219,10 +218,13 @@ const CustomerDashboard: React.FC = () => {
                 </View>
               </View>
             </LinearGradient>
-          </View>
+          </TouchableOpacity>
 
           {/* History Card */}
-          <View style={styles.bookingCard}>
+          <TouchableOpacity
+            style={styles.bookingCard}
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('Bookings' as never)}>
             <LinearGradient
               colors={['#A7DB3D', '#D6EF72', '#D8FF3A']}
               locations={[0.1651, 0.6554, 0.8017]}
@@ -232,13 +234,9 @@ const CustomerDashboard: React.FC = () => {
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>History</Text>
-                  <TouchableOpacity
-                    style={styles.playButtonContainer}
-                    activeOpacity={0.7}
-                    onPress={() => navigation.navigate('Bookings' as never)}
-                  >
+                  <View style={styles.playButtonContainer}>
                     <PlayIcon width={45} height={45} />
-                  </TouchableOpacity>
+                  </View>
                 </View>
                 <View style={styles.cardStats}>
                   <Text style={styles.cardStatValue}>{completedServicesCount.toString().padStart(2, '0')}</Text>
@@ -257,8 +255,34 @@ const CustomerDashboard: React.FC = () => {
                 </View>
               </View>
             </LinearGradient>
-          </View>
+          </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={[styles.paymentsCard, { height: 'auto', minHeight: 80, marginBottom: 10 }]}
+          activeOpacity={0.9}
+          onPress={() => navigation.navigate('Projects' as never)}>
+          <LinearGradient
+            colors={['#9CCD17', '#29B554']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.paymentsCardGradient}>
+            <View style={styles.cardContent}>
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>Projects</Text>
+                  <Text style={[styles.cardStatLabel, { color: '#FFFFFF', marginTop: 0, fontSize: 14 }]}>Group your orders into projects</Text>
+                </View>
+                <View style={styles.playButtonContainer}>
+                  <PlayIcon width={45} height={45} />
+                </View>
+              </View>
+              <View style={[styles.binCollectOverlay, { bottom: -20, right: -20, opacity: 0.2 }]}>
+                <BinCollect2 width={150} height={100} />
+              </View>
+            </View>
+          </LinearGradient>
+        </TouchableOpacity>
 
         {/* Payments Card */}
         <TouchableOpacity

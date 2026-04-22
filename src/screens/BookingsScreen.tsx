@@ -8,9 +8,11 @@ import {
   Dimensions,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { useSocket } from '../contexts/SocketContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +30,7 @@ import toast from '../utils/toast';
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import Icon20_3 from '../assets/images/20_3.svg';
 import PlayIcon from '../assets/images/play.svg';
+import BinCollectIcon from '../assets/images/Bin.Collect (1) 1.svg';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -55,6 +58,13 @@ interface Booking {
   po_number?: string;
   additional_images?: string | string[];
   delivery_photo_url?: string;
+  latitude?: number | string;
+  longitude?: number | string;
+  base_price?: string | number;
+  additional_duration_charge?: string | number;
+  duration_days?: number;
+  exceeded_days?: number;
+  project_name?: string;
 }
 
 const BookingsScreen: React.FC = () => {
@@ -71,6 +81,20 @@ const BookingsScreen: React.FC = () => {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
 
   const [paying, setPaying] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [showAll, setShowAll] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const mapRef = React.useRef<MapView>(null);
+
+  const filteredBookings = bookings.filter(booking => {
+    const query = searchQuery.toLowerCase();
+    const requestIdMatch = booking.request_id.toLowerCase().includes(query);
+    const binTypeMatch = booking.bin_type_name?.toLowerCase().includes(query);
+    const locationMatch = booking.location?.toLowerCase().includes(query);
+    const serviceMatch = booking.service_names?.toLowerCase().includes(query);
+    
+    return requestIdMatch || binTypeMatch || locationMatch || serviceMatch;
+  });
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -111,6 +135,54 @@ const BookingsScreen: React.FC = () => {
   const onRefresh = () => {
     setRefreshing(true);
     fetchBookings();
+  };
+
+  const fitMapToPins = useCallback(() => {
+    if (!mapRef.current) return;
+
+    const coords = bookings
+      .filter(b => b.latitude && b.longitude)
+      .map(b => ({
+        latitude: parseFloat(b.latitude as string),
+        longitude: parseFloat(b.longitude as string),
+      }));
+
+    if (coords.length > 0) {
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+        animated: true,
+      });
+    }
+  }, [bookings]);
+
+  useEffect(() => {
+    if (viewMode === 'map') {
+      const timer = setTimeout(fitMapToPins, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, bookings, fitMapToPins]);
+
+  const getStatusColor = (status: string) => {
+    const s = status.toLowerCase();
+    switch (s) {
+      case 'on_delivery':
+      case 'delivered':
+      case 'pickup':
+        return '#66E91F';
+      case 'ready_to_pickup':
+        return '#FF9500';
+      case 'confirmed':
+      case 'awaiting_payment':
+        return '#408FC7';
+      case 'completed':
+        return '#2E8015';
+      case 'pending':
+        return '#C4CA00';
+      case 'cancelled':
+        return '#FF3B30';
+      default:
+        return '#999';
+    }
   };
 
   const activeBookingsCount = bookings.filter(b =>
@@ -243,7 +315,7 @@ const BookingsScreen: React.FC = () => {
             end={{ x: 1, y: 0 }}
             style={styles.orderButtonGradient}>
             <View style={styles.orderButtonIconContainer}>
-              <Ionicons name="add" size={24} color="#FFFFFF" />
+              <BinCollectIcon width={39} height={32} />
             </View>
             <Text style={styles.orderButtonText}>Order New Bin</Text>
           </LinearGradient>
@@ -251,8 +323,10 @@ const BookingsScreen: React.FC = () => {
 
         {/* Tracking and Booking Cards Row */}
         <View style={styles.trackingBookingRow}>
-          {/* Tracking Card */}
-          <View style={styles.trackingCard}>
+          <TouchableOpacity
+            style={styles.trackingCard}
+            activeOpacity={0.9}
+            onPress={() => navigation.navigate('ServiceTracking' as never)}>
             <LinearGradient
               colors={['#C0F96F', '#90B93E']}
               start={{ x: 0, y: 0 }}
@@ -261,28 +335,25 @@ const BookingsScreen: React.FC = () => {
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Tracking</Text>
-                  <TouchableOpacity
-                    style={styles.playButtonContainer}
-                    activeOpacity={0.7}
-                    onPress={() => { }}>
+                  <View style={styles.playButtonContainer}>
                     <PlayIcon width={45} height={45} />
-                  </TouchableOpacity>
+                  </View>
                 </View>
                 <View style={styles.cardStats}>
                   <Text style={styles.cardStatValue}>{activeBookingsCount.toString().padStart(2, '0')}</Text>
                   <Text style={styles.cardStatLabel}>Active Bookings</Text>
                 </View>
                 <View style={styles.binCollectOverlay}>
-                  <View style={{ opacity: 0.34 }}>
-                    <BinCollect2 width={192} height={128} />
-                  </View>
+                  <BinCollect2 width={192} height={128} />
                 </View>
               </View>
             </LinearGradient>
-          </View>
+          </TouchableOpacity>
 
-          {/* Booking Card */}
-          <View style={styles.bookingCard}>
+          <TouchableOpacity
+            style={styles.bookingCard}
+            activeOpacity={0.9}
+            onPress={() => setViewMode('list')}>
             <LinearGradient
               colors={['#A7DB3D', '#D6EF72', '#D8FF3A']}
               locations={[0.1651, 0.6554, 0.8017]}
@@ -291,11 +362,9 @@ const BookingsScreen: React.FC = () => {
               style={styles.bookingCardGradient}>
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>Bookings</Text>
-                  <View style={styles.ellipseContainer}>
-                    <View style={styles.ellipse2}>
-                      <Icon20_3 width={21} height={22} />
-                    </View>
+                  <Text style={styles.cardTitle}>History</Text>
+                  <View style={styles.playButtonContainer}>
+                    <PlayIcon width={45} height={45} />
                   </View>
                 </View>
                 <View style={styles.cardStats}>
@@ -315,7 +384,7 @@ const BookingsScreen: React.FC = () => {
                 </View>
               </View>
             </LinearGradient>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* My Bookings Section */}
@@ -328,121 +397,213 @@ const BookingsScreen: React.FC = () => {
             style={styles.myBookingsCard}>
             <View style={styles.myBookingsHeader}>
               <Text style={styles.myBookingsTitle}>My Bookings</Text>
+              <View style={styles.viewToggleContainer}>
+                <TouchableOpacity
+                  style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
+                  onPress={() => setViewMode('list')}
+                >
+                  <Text style={[styles.toggleButtonText, viewMode === 'list' && styles.toggleButtonTextActive]}>List</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggleButton, viewMode === 'map' && styles.toggleButtonActive]}
+                  onPress={() => setViewMode('map')}
+                >
+                  <Text style={[styles.toggleButtonText, viewMode === 'map' && styles.toggleButtonTextActive]}>Map</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.searchBarContainer}>
+              <Ionicons name="search" size={20} color="#979897" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by ID, bin type or location..."
+                placeholderTextColor="#979897"
+                value={searchQuery}
+                onChangeText={(text) => {
+                  setSearchQuery(text);
+                  if (text.length > 0) setShowAll(false);
+                }}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={20} color="#979897" />
+                </TouchableOpacity>
+              )}
             </View>
 
             {loading && !refreshing ? (
               <View style={{ paddingVertical: 40 }}>
                 <ActivityIndicator size="large" color="#9CCD17" />
               </View>
-            ) : bookings.length > 0 ? (
-              bookings.slice(0, 5).map((booking, index) => {
-                const colors = getCardColors(index);
-                return (
-                  <View key={booking.id} style={styles.bookingCardItem}>
-                    <LinearGradient
-                      colors={colors}
-                      locations={[0.2377, 0.6629]}
-                      start={{ x: 0.85, y: 0 }}
-                      end={{ x: 0.15, y: 1 }}
-                      style={styles.bookingCardGradientItem}>
-                      <View style={styles.bookingCardContent}>
-                        {/* First Row: Booking ID, Service, Dates */}
-                        <View style={styles.bookingInfoRow}>
-                          <View style={styles.bookingInfoItem}>
-                            <Text style={styles.bookingLabel}>Booking ID</Text>
-                            <Text style={styles.bookingValue}>#{booking.request_id.slice(-5).toUpperCase()}</Text>
-                          </View>
-                          <View style={styles.bookingInfoItem}>
-                            <Text style={styles.bookingLabel}>{booking.service_category === 'service' ? 'Service(s)' : 'Bin(s)'}</Text>
-                            {booking.items && booking.items.length > 0 ? (
-                              <Text numberOfLines={1} style={styles.bookingValue}>
-                                {booking.items.length}x {booking.items[0].bin_type_name}
-                                {booking.items.length > 1 ? '...' : ''}
+            ) : viewMode === 'list' ? (
+              filteredBookings.length > 0 ? (
+                (showAll ? filteredBookings : filteredBookings.slice(0, 5)).map((booking, index) => {
+                  const colors = getCardColors(index);
+                  return (
+                    <View key={booking.id} style={styles.bookingCardItem}>
+                      <LinearGradient
+                        colors={colors}
+                        locations={[0.2377, 0.6629]}
+                        start={{ x: 0.85, y: 0 }}
+                        end={{ x: 0.15, y: 1 }}
+                        style={styles.bookingCardGradientItem}>
+                        <View style={styles.bookingCardContent}>
+                          {/* First Row: Booking ID, Service, Dates */}
+                          <View style={styles.bookingInfoRow}>
+                            <View style={styles.bookingInfoItem}>
+                              <Text style={styles.bookingLabel}>Booking ID</Text>
+                              <Text style={styles.bookingValue}>#{booking.request_id.slice(-5).toUpperCase()}</Text>
+                            </View>
+                            <View style={styles.bookingInfoItem}>
+                              <Text style={styles.bookingLabel}>{booking.service_category === 'service' ? 'Service(s)' : 'Bin(s)'}</Text>
+                              {booking.items && booking.items.length > 0 ? (
+                                <Text numberOfLines={1} style={styles.bookingValue}>
+                                  {booking.items.length}x {booking.items[0].bin_type_name}
+                                  {booking.items.length > 1 ? '...' : ''}
+                                </Text>
+                              ) : booking.service_names && booking.service_names.length > 0 ? (
+                                <Text numberOfLines={1} style={styles.bookingValue}>
+                                  {booking.service_names.split(',').length}x {booking.service_names.split(',')[0]}
+                                  {booking.service_names.split(',').length > 1 ? '...' : ''}
+                                </Text>
+                              ) : (
+                                <Text numberOfLines={1} style={styles.bookingValue}>{booking.bin_type_name}</Text>
+                              )}
+                            </View>
+                            <View style={styles.bookingInfoItem}>
+                              <Text style={styles.bookingLabel}>Dates</Text>
+                              <Text style={styles.bookingValue}>
+                                {formatDateRange(booking.start_date, booking.end_date)}
                               </Text>
-                            ) : booking.service_names && booking.service_names.length > 0 ? (
-                              <Text numberOfLines={1} style={styles.bookingValue}>
-                                {booking.service_names.split(',').length}x {booking.service_names.split(',')[0]}
-                                {booking.service_names.split(',').length > 1 ? '...' : ''}
-                              </Text>
-                            ) : (
-                              <Text numberOfLines={1} style={styles.bookingValue}>{booking.bin_type_name}</Text>
-                            )}
+                            </View>
                           </View>
-                          <View style={styles.bookingInfoItem}>
-                            <Text style={styles.bookingLabel}>Dates</Text>
-                            <Text style={styles.bookingValue}>
-                              {formatDateRange(booking.start_date, booking.end_date)}
-                            </Text>
+                          {/* Second Row: Amount, Status */}
+                          <View style={styles.amountStatusRow}>
+                            <View style={styles.amountBox}>
+                              <LinearGradient
+                                colors={[
+                                  'rgba(110, 173, 22, 0.1)',
+                                  'rgba(201, 226, 101, 0.1)',
+                                ]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.amountStatusGradient}>
+                                <View style={styles.amountStatusContent}>
+                                  <Text style={styles.bookingLabel}>Amount</Text>
+                                  <Text style={styles.bookingValue}>{formatPrice(booking.total_price || booking.estimated_price || 0)}</Text>
+                                </View>
+                              </LinearGradient>
+                            </View>
+                            <View style={styles.statusBox}>
+                              <LinearGradient
+                                colors={[
+                                  'rgba(110, 173, 22, 0.1)',
+                                  'rgba(201, 226, 101, 0.1)',
+                                ]}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.amountStatusGradient}>
+                                <View style={styles.amountStatusContent}>
+                                  <Text style={styles.bookingLabel}>Status</Text>
+                                  <Text style={styles.bookingValue}>{getStatusDisplay(booking.status)}</Text>
+                                </View>
+                              </LinearGradient>
+                            </View>
+                          </View>
+                          {/* Buttons Row */}
+                          <View style={styles.bookingActionsRow}>
+                            <TouchableOpacity
+                              style={styles.viewButtonNew}
+                              activeOpacity={0.7}
+                              onPress={() => {
+                                setSelectedBooking(booking);
+                                setDetailsModalVisible(true);
+                                console.log(booking)
+                              }}>
+                              <PlayIcon width={21} height={17} />
+                              <Text style={styles.viewButtonTextNew}>View</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.trackButtonNew}
+                              activeOpacity={0.7}
+                              onPress={() => (navigation as any).navigate('ServiceTracking', { requestId: booking.id })}>
+                              <PlayIcon width={21} height={17} />
+                              <Text style={styles.trackButtonTextNew}>Track Order</Text>
+                            </TouchableOpacity>
                           </View>
                         </View>
-                        {/* Second Row: Amount, Status */}
-                        <View style={styles.amountStatusRow}>
-                          <View style={styles.amountBox}>
-                            <LinearGradient
-                              colors={[
-                                'rgba(110, 173, 22, 0.1)',
-                                'rgba(201, 226, 101, 0.1)',
-                              ]}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 0 }}
-                              style={styles.amountStatusGradient}>
-                              <View style={styles.amountStatusContent}>
-                                <Text style={styles.bookingLabel}>Amount</Text>
-                                <Text style={styles.bookingValue}>{formatPrice(booking.total_price || booking.estimated_price || 0)}</Text>
-                              </View>
-                            </LinearGradient>
-                          </View>
-                          <View style={styles.statusBox}>
-                            <LinearGradient
-                              colors={[
-                                'rgba(110, 173, 22, 0.1)',
-                                'rgba(201, 226, 101, 0.1)',
-                              ]}
-                              start={{ x: 0, y: 0 }}
-                              end={{ x: 1, y: 0 }}
-                              style={styles.amountStatusGradient}>
-                              <View style={styles.amountStatusContent}>
-                                <Text style={styles.bookingLabel}>Status</Text>
-                                <Text style={styles.bookingValue}>{getStatusDisplay(booking.status)}</Text>
-                              </View>
-                            </LinearGradient>
-                          </View>
-                        </View>
-                        {/* Buttons Row */}
-                        <View style={styles.bookingActionsRow}>
-                          <TouchableOpacity
-                            style={styles.viewButtonNew}
-                            activeOpacity={0.7}
-                            onPress={() => {
-                              setSelectedBooking(booking);
-                              setDetailsModalVisible(true);
-                              console.log(booking)
-                            }}>
-                            <PlayIcon width={21} height={17} />
-                            <Text style={styles.viewButtonTextNew}>View</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.trackButtonNew}
-                            activeOpacity={0.7}
-                            onPress={() => (navigation as any).navigate('ServiceTracking', { requestId: booking.id })}>
-                            <PlayIcon width={21} height={17} />
-                            <Text style={styles.trackButtonTextNew}>Track Order</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </LinearGradient>
-                  </View>
-                );
-              })
+                      </LinearGradient>
+                    </View>
+                  );
+                })
+              ) : (
+                <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+                  <Text style={{ fontFamily: fonts.family.medium, color: '#666' }}>No bookings found</Text>
+                </View>
+              )
             ) : (
-              <View style={{ paddingVertical: 40, alignItems: 'center' }}>
-                <Text style={{ fontFamily: fonts.family.medium, color: '#666' }}>No bookings found</Text>
+              <View style={styles.mapWrapper}>
+                <MapView
+                  ref={mapRef}
+                  provider={PROVIDER_GOOGLE}
+                  style={styles.map}
+                  initialRegion={{
+                    latitude: 6.9271,
+                    longitude: 79.8612,
+                    latitudeDelta: 0.1,
+                    longitudeDelta: 0.1,
+                  }}
+                >
+                  {filteredBookings.filter(b => b.latitude && b.longitude).map((booking) => (
+                    <Marker
+                      key={booking.id}
+                      coordinate={{
+                        latitude: parseFloat(booking.latitude as string),
+                        longitude: parseFloat(booking.longitude as string),
+                      }}
+                      pinColor={getStatusColor(booking.status)}
+                      onPress={() => {
+                        setSelectedBooking(booking);
+                        setDetailsModalVisible(true);
+                      }}
+                    >
+                      <Callout>
+                          <View style={styles.calloutContainer}>
+                            <Text style={styles.calloutTitle}>{booking.request_id}</Text>
+                            <Text style={styles.calloutText}>
+                              {booking.service_category === 'service'
+                                ? (booking.service_names?.split(',')[0] || 'General Service')
+                                : booking.bin_type_name}
+                              {booking.bin_size ? ` (${booking.bin_size})` : ''}
+                            </Text>
+                            <Text style={[styles.calloutStatus, { color: getStatusColor(booking.status) }]}>
+                              {booking.status.replace(/_/g, ' ').toUpperCase()}
+                            </Text>
+                            <TouchableOpacity style={styles.calloutButton}>
+                              <Text style={styles.calloutButtonText}>View Details</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </Callout>
+                      </Marker>
+                    )
+                  )}
+                </MapView>
               </View>
             )}
 
-            {bookings.length > 5 && (
-              <TouchableOpacity style={styles.viewAllLink} activeOpacity={0.7}>
-                <Text style={styles.viewAllLinkText}>View all</Text>
+            {bookings.length > 5 && viewMode === 'list' && (
+              <TouchableOpacity
+                style={styles.viewAllLink}
+                activeOpacity={0.7}
+                onPress={() => {
+                  setSearchQuery('');
+                  setShowAll(!showAll);
+                }}
+              >
+                <Text style={styles.viewAllLinkText}>
+                  {showAll ? 'View less' : `View all (${bookings.length})`}
+                </Text>
               </TouchableOpacity>
             )}
           </LinearGradient>
@@ -479,6 +640,13 @@ const BookingsScreen: React.FC = () => {
                     <Text style={styles.modalValue}>#{selectedBooking.request_id}</Text>
                   </View>
 
+                  {selectedBooking.project_name && (
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Assigned Project</Text>
+                      <Text style={styles.modalValue}>{selectedBooking.project_name}</Text>
+                    </View>
+                  )}
+
                   {selectedBooking.po_number && (
                     <View style={styles.modalRow}>
                       <Text style={styles.modalLabel}>PO Number</Text>
@@ -491,14 +659,38 @@ const BookingsScreen: React.FC = () => {
                     <Text style={styles.modalValue}>{getStatusDisplay(selectedBooking.status)}</Text>
                   </View>
 
-                  <View style={styles.modalRow}>
+                   <View style={styles.modalRow}>
                     <Text style={styles.modalLabel}>Date Range</Text>
                     <Text style={styles.modalValue}>{formatDateRange(selectedBooking.start_date, selectedBooking.end_date)}</Text>
                   </View>
 
+                  {selectedBooking.duration_days && (
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>Duration</Text>
+                      <Text style={styles.modalValue}>{selectedBooking.duration_days} Day(s)</Text>
+                    </View>
+                  )}
+
+                  {parseFloat(selectedBooking.additional_duration_charge as string) > 0 && (
+                    <>
+                      <View style={styles.modalRow}>
+                        <Text style={styles.modalLabel}>
+                          Base Price ({parseInt(String(selectedBooking.duration_days)) - parseInt(String(selectedBooking.exceeded_days || 0))} Days)
+                        </Text>
+                        <Text style={styles.modalValue}>{formatPrice(selectedBooking.base_price || 0)}</Text>
+                      </View>
+                      <View style={styles.modalRow}>
+                        <Text style={styles.modalLabel}>Extra Duration Charge ({selectedBooking.exceeded_days} days)</Text>
+                        <Text style={[styles.modalValue, { color: '#E53E3E' }]}>+{formatPrice(selectedBooking.additional_duration_charge || 0)}</Text>
+                      </View>
+                    </>
+                  )}
+
                   <View style={styles.modalRow}>
                     <Text style={styles.modalLabel}>Total Amount</Text>
-                    <Text style={styles.modalValue}>{formatPrice(selectedBooking.total_price || selectedBooking.estimated_price || 0)}</Text>
+                    <Text style={[styles.modalValue, { fontSize: 18, color: '#29B554' }]}>
+                      {formatPrice(selectedBooking.total_price || selectedBooking.estimated_price || 0)}
+                    </Text>
                   </View>
 
                   {selectedBooking.status === 'awaiting_payment' && selectedBooking.payment_method === 'online' && (
@@ -624,29 +816,29 @@ const BookingsScreen: React.FC = () => {
                             resizeMode="cover"
                           />
                         )}
-                          {(selectedBooking as any).additional_images && (() => {
-                            const imgs = (selectedBooking as any).additional_images;
-                            let parsed: string[] = [];
-                            if (Array.isArray(imgs)) parsed = imgs;
-                            else if (typeof imgs === 'string') {
-                              try { parsed = JSON.parse(imgs); } catch(e) {}
-                            }
-                            return Array.isArray(parsed) ? parsed.map((img, i) => (
-                              <Image
-                                key={i}
-                                source={{ uri: `${BASE_URL}${img}` }}
-                                style={styles.modalAttachmentPreview}
-                                resizeMode="cover"
-                              />
-                            )) : null;
-                          })()}
-                          {selectedBooking.delivery_photo_url && (
+                        {(selectedBooking as any).additional_images && (() => {
+                          const imgs = (selectedBooking as any).additional_images;
+                          let parsed: string[] = [];
+                          if (Array.isArray(imgs)) parsed = imgs;
+                          else if (typeof imgs === 'string') {
+                            try { parsed = JSON.parse(imgs); } catch (e) { }
+                          }
+                          return Array.isArray(parsed) ? parsed.map((img, i) => (
                             <Image
-                              source={{ uri: `${BASE_URL}${selectedBooking.delivery_photo_url}` }}
+                              key={i}
+                              source={{ uri: `${BASE_URL}${img}` }}
                               style={styles.modalAttachmentPreview}
                               resizeMode="cover"
                             />
-                          )}
+                          )) : null;
+                        })()}
+                        {selectedBooking.delivery_photo_url && (
+                          <Image
+                            source={{ uri: `${BASE_URL}${selectedBooking.delivery_photo_url}` }}
+                            style={styles.modalAttachmentPreview}
+                            resizeMode="cover"
+                          />
+                        )}
                       </ScrollView>
                     </View>
                   ) : null}
@@ -750,6 +942,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  notificationBadge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#FF3B30',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+    zIndex: 1,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: fonts.family.bold,
+  },
   orderButtonContainer: {
     marginHorizontal: 33,
     marginTop: 10,
@@ -771,7 +982,7 @@ const styles = StyleSheet.create({
     width: 35,
     height: 35,
     borderRadius: 17.5,
-    backgroundColor: '#424141',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -788,6 +999,27 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 10,
     gap: 7,
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginVertical: 12,
+    height: 44,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#373934',
   },
   trackingCard: {
     flex: 1,
@@ -890,6 +1122,9 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   myBookingsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
   },
   myBookingsTitle: {
@@ -897,6 +1132,78 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 18,
     color: '#242424',
+  },
+  viewToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+    padding: 2,
+  },
+  toggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  toggleButtonText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 12,
+    color: '#666',
+  },
+  toggleButtonTextActive: {
+    color: '#242424',
+  },
+  mapWrapper: {
+    width: '100%',
+    height: 400,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  map: {
+    flex: 1,
+  },
+  calloutContainer: {
+    width: 200,
+    padding: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  calloutTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 14,
+    color: '#242424',
+    marginBottom: 2,
+  },
+  calloutText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  calloutStatus: {
+    fontFamily: fonts.family.bold,
+    fontSize: 10,
+    marginBottom: 8,
+  },
+  calloutButton: {
+    backgroundColor: '#242424',
+    paddingVertical: 6,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  calloutButtonText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontFamily: fonts.family.bold,
   },
   bookingCardItem: {
     marginBottom: 17,
@@ -1027,7 +1334,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 16,
     lineHeight: 19,
-    color: '#FFFFFF',
+    color: '#242424',
   },
   // Modal Styles
   modalOverlay: {
