@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { useStripe } from '@stripe/stripe-react-native';
@@ -342,11 +343,60 @@ const OrderBinScreen: React.FC = () => {
 
   const loadDefaultLocation = React.useCallback(async () => {
     try {
-      const savedLocation = await AsyncStorage.getItem('defaultLocation');
-      if (savedLocation) {
-        setDeliveryAddress(savedLocation);
+      const raw = await AsyncStorage.getItem('defaultLocation');
+      if (raw) {
+        // ── Has a saved default location ──────────────────────────────
+        try {
+          const parsed = JSON.parse(raw);
+          const addr = parsed.address || raw;
+          const defLat = parsed.latitude ? parseFloat(String(parsed.latitude)) : null;
+          const defLon = parsed.longitude ? parseFloat(String(parsed.longitude)) : null;
+
+          setDeliveryAddress(addr);
+
+          if (defLat !== null && defLon !== null && Number.isFinite(defLat) && Number.isFinite(defLon)) {
+            setLatitude(defLat);
+            setLongitude(defLon);
+            setMapRegion(prev => ({ ...prev, latitude: defLat, longitude: defLon }));
+          }
+        } catch {
+          // Legacy plain-string fallback
+          setDeliveryAddress(raw);
+        }
       } else {
-        setDeliveryAddress('');
+        // ── No saved default → fall back to current GPS location ──────
+        try {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const pos = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            const { latitude: gpsLat, longitude: gpsLon } = pos.coords;
+
+            setLatitude(gpsLat);
+            setLongitude(gpsLon);
+            setMapRegion(prev => ({ ...prev, latitude: gpsLat, longitude: gpsLon }));
+
+            // Reverse-geocode to get a human-readable address
+            try {
+              const geoResp = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?lat=${gpsLat}&lon=${gpsLon}&format=json`,
+                { headers: { 'User-Agent': 'BinDropApp/1.0' } }
+              );
+              const geoData = await geoResp.json();
+              if (geoData && geoData.display_name) {
+                setDeliveryAddress(geoData.display_name);
+              }
+            } catch {
+              // Silent — map pin is placed even without a text address
+            }
+          } else {
+            setDeliveryAddress('');
+          }
+        } catch (gpsError) {
+          console.error('GPS location error:', gpsError);
+          setDeliveryAddress('');
+        }
       }
     } catch (error) {
       console.error('Error loading default location:', error);
@@ -1112,13 +1162,6 @@ const OrderBinScreen: React.FC = () => {
                   style={styles.map}
                   provider={PROVIDER_GOOGLE}
                   region={mapRegion}
-                  onRegionChangeComplete={(region) =>
-                    setMapRegion(prev => ({
-                      ...prev,
-                      latitudeDelta: region.latitudeDelta,
-                      longitudeDelta: region.longitudeDelta,
-                    }))
-                  }
                 >
                   {hasValidCoordinates && (
                     <Marker

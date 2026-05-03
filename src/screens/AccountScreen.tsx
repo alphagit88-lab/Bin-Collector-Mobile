@@ -10,7 +10,13 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  Keyboard,
+  Dimensions,
 } from 'react-native';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import AppModal from '../components/AppModal';
 import AppConfirmModal from '../components/AppConfirmModal';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -38,13 +44,7 @@ import BinCollectDelete from '../assets/images/Bin.Collect_2.svg';
 import Group14 from '../assets/images/Group 14.svg';
 import ArrowIcon from '../assets/images/20 1.svg';
 
-const USA_STATES = [
-  'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
-  'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
-  'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
-  'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
-  'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'
-];
+const { width } = Dimensions.get('window');
 
 interface SettingsItemProps {
   icon: React.ReactNode;
@@ -68,7 +68,7 @@ const SettingsItem: React.FC<SettingsItemProps> = ({ icon, label, onPress }) => 
 );
 
 const AccountScreen: React.FC = () => {
-  const { user, logout, updateProfile, changePassword, refreshUser } = useAuth();
+  const { user, logout, updateProfile, updateProfilePhoto, changePassword, refreshUser } = useAuth();
   const navigation = useNavigation<any>();
   const userName = user?.name || 'Herper Russo';
   const userId = `BIN_User${user?.id || '1299'}`;
@@ -93,7 +93,23 @@ const AccountScreen: React.FC = () => {
     isDestructive: false,
   });
 
-  // Load default location on mount
+  // Profile picture state
+  const [profilePhoto, setProfilePhoto] = React.useState<string | null>(null);
+
+  // Map / location picker state
+  const [mapAddress, setMapAddress] = React.useState('');
+  const [mapSearching, setMapSearching] = React.useState(false);
+  const [gpsLoading, setGpsLoading] = React.useState(false);
+  const [mapLat, setMapLat] = React.useState<number | null>(null);
+  const [mapLon, setMapLon] = React.useState<number | null>(null);
+  const [mapRegion, setMapRegion] = React.useState({
+    latitude: -37.8136,
+    longitude: 144.9631,
+    latitudeDelta: 0.005,
+    longitudeDelta: 0.005,
+  });
+
+  // Load default location + profile photo on mount
   React.useEffect(() => {
     loadDefaultLocation();
   }, []);
@@ -106,10 +122,203 @@ const AccountScreen: React.FC = () => {
 
   const loadDefaultLocation = async () => {
     try {
-      const location = await AsyncStorage.getItem('defaultLocation');
-      if (location) setDefaultLocation(location);
+      const raw = await AsyncStorage.getItem('defaultLocation');
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          setDefaultLocation(parsed.address || raw);
+        } catch {
+          setDefaultLocation(raw);
+        }
+      }
     } catch (error) {
       console.error('Error loading location:', error);
+    }
+  };
+
+  const handleUpdateProfilePhoto = async () => {
+    Alert.alert(
+      'Update Profile Photo',
+      'Choose an option',
+      [
+        {
+          text: 'Camera',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              toast.error('Permission Denied', 'Camera permission is required.');
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+            });
+            if (!result.canceled && result.assets.length > 0) {
+              const uri = result.assets[0].uri;
+              setProfilePhoto(uri);
+              const uploadResult = await updateProfilePhoto(uri);
+              if (uploadResult.success) {
+                toast.success('Success', 'Profile photo updated');
+              } else {
+                toast.error('Error', uploadResult.message || 'Upload failed');
+              }
+            }
+          },
+        },
+        {
+          text: 'Gallery',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+              toast.error('Permission Denied', 'Gallery permission is required.');
+              return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.7,
+            });
+            if (!result.canceled && result.assets.length > 0) {
+              const uri = result.assets[0].uri;
+              setProfilePhoto(uri);
+              const uploadResult = await updateProfilePhoto(uri);
+              if (uploadResult.success) {
+                toast.success('Success', 'Profile photo updated');
+              } else {
+                toast.error('Error', uploadResult.message || 'Upload failed');
+              }
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleSearchMapAddress = async () => {
+    if (!mapAddress.trim()) return;
+    Keyboard.dismiss();
+    setMapSearching(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapAddress)}&format=json&limit=1`,
+        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
+      );
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const { lat, lon, display_name } = data[0];
+        const newLat = parseFloat(lat);
+        const newLon = parseFloat(lon);
+        setMapLat(newLat);
+        setMapLon(newLon);
+        setMapAddress(display_name);
+        setMapRegion(prev => ({ ...prev, latitude: newLat, longitude: newLon }));
+      } else {
+        toast.error('Address not found', 'Please try a more specific address.');
+      }
+    } catch (error) {
+      toast.error('Error', 'Failed to search address.');
+    } finally {
+      setMapSearching(false);
+    }
+  };
+
+  const handleMapPress = async (e: any) => {
+    const { latitude: newLat, longitude: newLon } = e.nativeEvent.coordinate;
+    setMapLat(newLat);
+    setMapLon(newLon);
+    setMapRegion(prev => ({ ...prev, latitude: newLat, longitude: newLon }));
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
+        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
+      );
+      const data = await response.json();
+      if (data && data.display_name) setMapAddress(data.display_name);
+    } catch (error) {
+      console.error('Reverse geocode error:', error);
+    }
+  };
+
+  const handleMarkerDragEnd = async (e: any) => {
+    const { latitude: newLat, longitude: newLon } = e.nativeEvent.coordinate;
+    setMapLat(newLat);
+    setMapLon(newLon);
+    setMapRegion(prev => ({ ...prev, latitude: newLat, longitude: newLon }));
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
+        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
+      );
+      const data = await response.json();
+      if (data && data.display_name) setMapAddress(data.display_name);
+    } catch (error) {
+      console.error('Reverse geocode error:', error);
+    }
+  };
+
+  const openLocationModal = async () => {
+    // Pre-fill modal with existing default location if available
+    let hasExistingLocation = false;
+    try {
+      const raw = await AsyncStorage.getItem('defaultLocation');
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          setMapAddress(parsed.address || '');
+          if (parsed.latitude && parsed.longitude) {
+            setMapLat(parsed.latitude);
+            setMapLon(parsed.longitude);
+            setMapRegion(prev => ({ ...prev, latitude: parsed.latitude, longitude: parsed.longitude }));
+          }
+          hasExistingLocation = true;
+        } catch {
+          setMapAddress(raw);
+          hasExistingLocation = true;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading location for modal:', error);
+    }
+
+    // Open modal immediately so user sees it right away
+    setLocationModalVisible(true);
+
+    // If no saved location, fetch GPS in background with visible loader
+    if (!hasExistingLocation) {
+      setGpsLoading(true);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          const { latitude, longitude } = pos.coords;
+          setMapLat(latitude);
+          setMapLon(longitude);
+          setMapRegion(prev => ({ ...prev, latitude, longitude }));
+
+          // Reverse geocode
+          try {
+            const geoResp = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+              { headers: { 'User-Agent': 'BinDropApp/1.0' } }
+            );
+            const geoData = await geoResp.json();
+            if (geoData && geoData.display_name) {
+              setMapAddress(geoData.display_name);
+            }
+          } catch {
+            // Silent failure for reverse geocoding
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching GPS for modal:', err);
+        toast.error('Location Error', 'Could not get current location. You can search manually.');
+      } finally {
+        setGpsLoading(false);
+      }
     }
   };
 
@@ -130,10 +339,19 @@ const AccountScreen: React.FC = () => {
     }
   };
 
-  const handleUpdateLocation = async (location: string) => {
+  const handleUpdateLocation = async () => {
+    if (!mapAddress.trim()) {
+      toast.error('Error', 'Please select a location on the map');
+      return;
+    }
     try {
-      await AsyncStorage.setItem('defaultLocation', location);
-      setDefaultLocation(location);
+      const locationData = JSON.stringify({
+        address: mapAddress,
+        latitude: mapLat,
+        longitude: mapLon,
+      });
+      await AsyncStorage.setItem('defaultLocation', locationData);
+      setDefaultLocation(mapAddress);
       setLocationModalVisible(false);
       toast.success('Success', 'Default location updated');
     } catch (error) {
@@ -223,19 +441,37 @@ const AccountScreen: React.FC = () => {
             {/* Profile Header Section */}
             <View style={styles.profileHeader}>
               {/* Profile Avatar */}
-              <View style={styles.avatarContainer}>
-                <LinearGradient
-                  colors={['#6EAD16', '#E1FFB7']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={styles.avatarGradient}>
-                  <View style={styles.avatarInner}>
-                    <Text style={styles.avatarText}>
-                      {userName.charAt(0).toUpperCase()}
-                    </Text>
+              <TouchableOpacity style={styles.avatarContainer} onPress={handleUpdateProfilePhoto} activeOpacity={0.8}>
+                {user?.profilePhoto || profilePhoto ? (
+                  <View style={styles.avatarGradient}>
+                    <Image 
+                      source={{ 
+                        uri: profilePhoto && profilePhoto.startsWith('file://') 
+                          ? profilePhoto 
+                          : (user?.profilePhoto?.startsWith('http') 
+                              ? user.profilePhoto 
+                              : api.getBaseUrl() + user?.profilePhoto) 
+                      }} 
+                      style={styles.avatarPhoto} 
+                    />
                   </View>
-                </LinearGradient>
-              </View>
+                ) : (
+                  <LinearGradient
+                    colors={['#6EAD16', '#E1FFB7']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                    style={styles.avatarGradient}>
+                    <View style={styles.avatarInner}>
+                      <Text style={styles.avatarText}>
+                        {userName.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                )}
+                <View style={styles.avatarCameraIcon}>
+                  <Ionicons name="camera" size={14} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
 
               {/* User Name and ID */}
               <Text style={styles.profileName}>{userName}</Text>
@@ -257,7 +493,7 @@ const AccountScreen: React.FC = () => {
               <SettingsItem
                 icon={<Icon11_2 width={35} height={35} />}
                 label={defaultLocation ? "Change Default Location" : "Add Default Location"}
-                onPress={() => setLocationModalVisible(true)}
+                onPress={openLocationModal}
               />
               <SettingsItem
                 icon={<Icon11_3 width={30} height={30} />}
@@ -408,39 +644,80 @@ const AccountScreen: React.FC = () => {
         </TouchableOpacity>
       </AppModal>
 
-      {/* Location Modal */}
+      {/* Location Map Modal */}
       <AppModal
         animationType="slide"
         transparent={true}
         visible={locationModalVisible}
         onRequestClose={() => setLocationModalVisible(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setLocationModalVisible(false)}
-        >
-          <View style={[styles.modalContent, { maxHeight: '60%' }]}>
-            <TouchableOpacity
-              style={styles.closeIcon}
-              onPress={() => setLocationModalVisible(false)}
-            >
+        <View style={styles.mapModalContainer}>
+          {/* Header */}
+          <View style={styles.mapModalHeader}>
+            <Text style={styles.mapModalTitle}>Set Default Location</Text>
+            <TouchableOpacity onPress={() => setLocationModalVisible(false)} style={styles.closeIcon}>
               <Ionicons name="close" size={24} color="#373934" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Select Default Location</Text>
-            <ScrollView style={styles.statesList}>
-              {USA_STATES.map((state) => (
-                <TouchableOpacity
-                  key={state}
-                  style={styles.stateItem}
-                  onPress={() => handleUpdateLocation(state)}
-                >
-                  <Text style={[styles.stateText, defaultLocation === state && styles.selectedStateText]}>{state}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
           </View>
-        </TouchableOpacity>
+
+          {/* Search bar */}
+          <View style={styles.mapSearchRow}>
+            <TextInput
+              style={styles.mapSearchInput}
+              placeholder="Search address..."
+              placeholderTextColor="#979897"
+              value={mapAddress}
+              onChangeText={setMapAddress}
+              onSubmitEditing={handleSearchMapAddress}
+              returnKeyType="search"
+            />
+            <TouchableOpacity style={styles.mapSearchBtn} onPress={handleSearchMapAddress} disabled={mapSearching}>
+              {mapSearching
+                ? <ActivityIndicator size="small" color="#FFFFFF" />
+                : <Ionicons name="search" size={18} color="#FFFFFF" />}
+            </TouchableOpacity>
+          </View>
+
+          {/* Map */}
+          <View style={{ flex: 1 }}>
+            <MapView
+              provider={PROVIDER_GOOGLE}
+              style={styles.mapView}
+              region={mapRegion}
+              onPress={handleMapPress}
+            >
+              {mapLat !== null && mapLon !== null && (
+                <Marker
+                  coordinate={{ latitude: mapLat, longitude: mapLon }}
+                  draggable
+                  onDragEnd={handleMarkerDragEnd}
+                />
+              )}
+            </MapView>
+            {gpsLoading && (
+              <View style={styles.gpsLoadingOverlay}>
+                <ActivityIndicator size="large" color="#9AD346" />
+                <Text style={styles.gpsLoadingText}>Detecting your location...</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Address preview + confirm */}
+          {mapAddress ? (
+            <View style={styles.mapAddressRow}>
+              <Ionicons name="location" size={16} color="#9AD346" />
+              <Text style={styles.mapAddressText} numberOfLines={2}>{mapAddress}</Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={[styles.mapConfirmBtn, !mapAddress && { opacity: 0.5 }]}
+            onPress={handleUpdateLocation}
+            disabled={!mapAddress}
+          >
+            <Text style={styles.mapConfirmBtnText}>Confirm Location</Text>
+          </TouchableOpacity>
+        </View>
       </AppModal>
 
       {/* Password Modal */}
@@ -580,6 +857,7 @@ const styles = StyleSheet.create({
     height: 102,
     borderRadius: 51,
     marginBottom: 10,
+    position: 'relative',
   },
   avatarGradient: {
     width: 102,
@@ -587,6 +865,24 @@ const styles = StyleSheet.create({
     borderRadius: 51,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarPhoto: {
+    width: 102,
+    height: 102,
+    borderRadius: 51,
+  },
+  avatarCameraIcon: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#9AD346',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   avatarInner: {
     width: 98,
@@ -760,29 +1056,104 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
   },
-  statesList: {
-    width: '100%',
-  },
-  stateItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  stateText: {
-    fontFamily: fonts.family.regular,
-    fontSize: 16,
-    color: '#414141',
-  },
-  selectedStateText: {
-    color: '#9AD346',
-    fontFamily: fonts.family.semiBold,
-  },
   closeIcon: {
     position: 'absolute',
     top: 15,
     right: 15,
     zIndex: 1,
     padding: 5,
+  },
+  // Map modal styles
+  mapModalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  mapModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  mapModalTitle: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 18,
+    color: '#373934',
+  },
+  mapSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  mapSearchInput: {
+    flex: 1,
+    height: 44,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#373934',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  mapSearchBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#9AD346',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapView: {
+    flex: 1,
+  },
+  mapAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 6,
+    backgroundColor: '#F9FFF0',
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  mapAddressText: {
+    flex: 1,
+    fontFamily: fonts.family.regular,
+    fontSize: 13,
+    color: '#414141',
+    lineHeight: 18,
+  },
+  mapConfirmBtn: {
+    margin: 16,
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: '#9AD346',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapConfirmBtnText: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#FFFFFF',
+  },
+  gpsLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  gpsLoadingText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#555',
   },
 });
 

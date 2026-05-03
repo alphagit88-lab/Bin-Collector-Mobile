@@ -71,9 +71,9 @@ const LoginScreen: React.FC = () => {
         {/* Hello, Guest */}
         <Text style={styles.helloGuest}>Hello, Guest</Text>
 
-        {/* Welcome to BinCollect */}
+        {/* Welcome to Bin Drop */}
         <Text style={styles.welcomeBinCollect}>
-          Welcome to <Text style={styles.binCollectGreen}>BinCollect</Text>
+          Welcome to <Text style={styles.binCollectGreen}>Bin Drop</Text>
         </Text>
 
         {/* Line 1 - Partial divider */}

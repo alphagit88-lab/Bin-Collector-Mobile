@@ -23,6 +23,8 @@ import AppConfirmModal from '../components/AppConfirmModal';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import toast from '../utils/toast';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 
 // Header truck/logo SVGs
 import Svg14 from '../assets/images/3_1.svg';
@@ -56,6 +58,7 @@ const ServiceAreaScreen: React.FC = () => {
   const [newLatitude, setNewLatitude] = useState<number | null>(null);
   const [newLongitude, setNewLongitude] = useState<number | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
   const [mapRegion, setMapRegion] = useState({
     latitude: -37.8136, // Default (e.g. Melbourne)
     longitude: 144.9631,
@@ -107,7 +110,7 @@ const ServiceAreaScreen: React.FC = () => {
     });
   };
 
-  const handleAddNewServiceArea = () => {
+  const handleAddNewServiceArea = async () => {
     setNewCountry('');
     setNewCity('');
     setNewRadius('');
@@ -119,7 +122,80 @@ const ServiceAreaScreen: React.FC = () => {
       latitudeDelta: 0.1,
       longitudeDelta: 0.1,
     });
+    
+    // Open modal immediately
     setModalVisible(true);
+
+    let hasExistingLocation = false;
+    try {
+      const raw = await AsyncStorage.getItem('defaultLocation');
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          setNewCity(parsed.address || '');
+          if (parsed.latitude && parsed.longitude) {
+            setNewLatitude(parsed.latitude);
+            setNewLongitude(parsed.longitude);
+            setMapRegion({
+              latitude: parsed.latitude,
+              longitude: parsed.longitude,
+              latitudeDelta: 0.1,
+              longitudeDelta: 0.1,
+            });
+            hasExistingLocation = true;
+          }
+        } catch {
+          setNewCity(raw);
+          hasExistingLocation = true;
+        }
+      }
+    } catch (error) {
+      console.error('Error loading location:', error);
+    }
+
+    if (!hasExistingLocation) {
+      setGpsLoading(true);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          const { latitude, longitude } = pos.coords;
+          setNewLatitude(latitude);
+          setNewLongitude(longitude);
+          setMapRegion({
+            latitude,
+            longitude,
+            latitudeDelta: 0.1,
+            longitudeDelta: 0.1,
+          });
+
+          // Reverse geocode
+          try {
+            const geoResp = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
+              { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
+            );
+            const geoData = await geoResp.json();
+            if (geoData && geoData.display_name) {
+              const { address = {}, display_name } = geoData;
+              const detectedCountry = address.country || '';
+              const detectedCity = address.city || address.town || address.village || address.suburb || address.state || display_name;
+              if (detectedCountry) setNewCountry(detectedCountry);
+              setNewCity(detectedCity);
+            }
+          } catch {
+            // Silent failure for reverse geocoding
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching GPS:', err);
+        toast.error('Location Error', 'Could not get current location.');
+      } finally {
+        setGpsLoading(false);
+      }
+    }
   };
 
   const submitNewServiceArea = async () => {
@@ -487,13 +563,6 @@ const ServiceAreaScreen: React.FC = () => {
                   provider={PROVIDER_GOOGLE}
                   style={StyleSheet.absoluteFillObject}
                   region={mapRegion}
-                  onRegionChangeComplete={(region) =>
-                    setMapRegion(prev => ({
-                      ...prev,
-                      latitudeDelta: region.latitudeDelta,
-                      longitudeDelta: region.longitudeDelta,
-                    }))
-                  }
                 >
                   {newLatitude && newLongitude && (
                     <>
@@ -512,6 +581,12 @@ const ServiceAreaScreen: React.FC = () => {
                     </>
                   )}
                 </MapView>
+                {gpsLoading && (
+                  <View style={styles.gpsLoadingOverlay}>
+                    <ActivityIndicator size="large" color="#9AD346" />
+                    <Text style={styles.gpsLoadingText}>Detecting your location...</Text>
+                  </View>
+                )}
               </View>
 
               <TextInput
@@ -893,6 +968,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  gpsLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  gpsLoadingText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#555',
   },
 });
 

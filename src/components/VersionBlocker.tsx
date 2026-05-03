@@ -47,7 +47,7 @@ export const VersionBlocker: React.FC<VersionBlockerProps> = ({ children }) => {
       <View style={styles.container}>
         <Text style={styles.title}>Update Required</Text>
         <Text style={styles.message}>
-          A new version of the app is available. (Current Version: {currentVersion}.) Please update to continue using BinRental.
+          A new version of the app is available. (Current Version: {currentVersion}.) Please update to continue using Bin Drop.
         </Text>
         <TouchableOpacity
           style={styles.button}

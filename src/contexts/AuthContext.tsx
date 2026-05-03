@@ -14,6 +14,7 @@ export interface User {
   supplierType?: string;
   supplierId?: number;
   canViewBilling?: boolean;
+  profilePhoto?: string;
 }
 
 export interface SignupData {
@@ -32,6 +33,7 @@ interface AuthContextType {
   login: (phone: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; message?: string }>;
   signup: (data: SignupData) => Promise<{ success: boolean; message?: string }>;
   updateProfile: (email: string) => Promise<{ success: boolean; message?: string }>;
+  updateProfilePhoto: (uri: string) => Promise<{ success: boolean; message?: string }>;
   changePassword: (newPassword: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -177,6 +179,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const updateProfilePhoto = async (uri: string) => {
+    try {
+      const fileType = uri.split('.').pop();
+      const formData = new FormData();
+      formData.append('profilePhoto', {
+        uri,
+        name: `avatar_${Date.now()}.${fileType}`,
+        type: `image/${fileType === 'jpg' ? 'jpeg' : fileType}`,
+      } as any);
+
+      const response = await api.put<{ user: User }>('/auth/profile/photo', formData);
+
+      if (response.success && response.data) {
+        const { user: updatedUser } = response.data;
+        const newUser = { ...user, ...updatedUser };
+        await AsyncStorage.setItem('user', JSON.stringify(newUser));
+        setUser(newUser as User);
+        return { success: true };
+      } else {
+        return { success: false, message: response.message || 'Update failed' };
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Update failed',
+      };
+    }
+  };
+
   const changePassword = async (newPassword: string) => {
     try {
       const response = await api.put(ENDPOINTS.AUTH.UPDATE_PASSWORD, { newPassword });
@@ -227,6 +258,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         signup,
         updateProfile,
+        updateProfilePhoto,
         changePassword,
         logout,
         refreshUser,

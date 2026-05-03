@@ -1,4 +1,4 @@
-rootProject.name = 'Bin Rental'
+rootProject.name = 'Bin Drop'
 
 dependencyResolutionManagement {
   versionCatalogs {

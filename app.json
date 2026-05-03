@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Bin Rental",
+    "name": "Bin Drop",
     "slug": "binrental-mobile",
     "version": "1.0.1",
     "orientation": "portrait",
@@ -41,6 +41,12 @@
         {
           "photosPermission": "The app accesses your photos to let you share them with suppliers.",
           "cameraPermission": "The app accesses your camera to let you take photos of bin placements."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Bin Drop to use your location to auto-fill your delivery address."
         }
       ],
       [

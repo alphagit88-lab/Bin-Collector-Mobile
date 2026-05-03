@@ -169,7 +169,7 @@ const ServiceTrackingScreen: React.FC = () => {
 
       const { clientSecret } = paymentResponse.data;
       const { error: initError } = await initPaymentSheet({
-        merchantDisplayName: 'Bin Rental Inc',
+        merchantDisplayName: 'Bin Drop',
         paymentIntentClientSecret: clientSecret,
         googlePay: {
           merchantCountryCode: 'US',
