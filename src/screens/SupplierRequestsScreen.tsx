@@ -8,7 +8,10 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
+import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { themeColors } from '../theme/colors';
@@ -62,6 +65,9 @@ const SupplierRequestsScreen: React.FC = () => {
   const [pendingJobs, setPendingJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [searchQuery, setSearchQuery] = useState('');
+  const mapRef = React.useRef<MapView>(null);
 
   const fetchPendingRequests = useCallback(async () => {
     try {
@@ -92,6 +98,46 @@ const SupplierRequestsScreen: React.FC = () => {
     setRefreshing(true);
     fetchPendingRequests();
   }, [fetchPendingRequests]);
+
+  const getFilteredRequests = () => {
+    if (!searchQuery.trim()) return pendingJobs;
+    const query = searchQuery.toLowerCase();
+    return pendingJobs.filter(job => {
+      return (
+        job.request_id.toLowerCase().includes(query) ||
+        job.location?.toLowerCase().includes(query) ||
+        job.bin_type_name?.toLowerCase().includes(query) ||
+        job.service_names?.toLowerCase().includes(query) ||
+        job.customer_name?.toLowerCase().includes(query)
+      );
+    });
+  };
+
+  const fitMapToPins = useCallback(() => {
+    if (!mapRef.current) return;
+
+    const filtered = getFilteredRequests();
+    const coords = filtered
+      .filter(j => j.latitude && j.longitude)
+      .map(j => ({
+        latitude: parseFloat(String(j.latitude)),
+        longitude: parseFloat(String(j.longitude)),
+      }));
+
+    if (coords.length > 0) {
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+        animated: true,
+      });
+    }
+  }, [pendingJobs, searchQuery]);
+
+  useEffect(() => {
+    if (viewMode === 'map') {
+      const timer = setTimeout(fitMapToPins, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [viewMode, pendingJobs, searchQuery, fitMapToPins]);
 
   const handleViewJob = (job: Job) => {
     navigation.navigate('JobDetail', {
@@ -219,15 +265,83 @@ const SupplierRequestsScreen: React.FC = () => {
               end={{ x: 1, y: 1 }}
               style={styles.jobsListGradient}>
               <View style={styles.jobsListContainer}>
-                <Text style={styles.sectionTitle}>Pending Requests</Text>
+                <View style={styles.jobsListHeader}>
+                  <Text style={styles.sectionTitle}>Pending Requests</Text>
+                  <View style={styles.viewToggleContainer}>
+                    <TouchableOpacity
+                      style={[styles.toggleButton, viewMode === 'list' && styles.toggleButtonActive]}
+                      onPress={() => setViewMode('list')}
+                    >
+                      <Text style={[styles.toggleButtonText, viewMode === 'list' && styles.toggleButtonTextActive]}>List</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.toggleButton, viewMode === 'map' && styles.toggleButtonActive]}
+                      onPress={() => setViewMode('map')}
+                    >
+                      <Text style={[styles.toggleButtonText, viewMode === 'map' && styles.toggleButtonTextActive]}>Map</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.searchBarContainer}>
+                  <Ionicons name="search" size={20} color="#979897" style={styles.searchIcon} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search by ID, location or bin type..."
+                    placeholderTextColor="#979897"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                      <Ionicons name="close-circle" size={20} color="#979897" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
                 {loading && !refreshing ? (
                   <View style={styles.loadingContainer}>
                     <ActivityIndicator size="small" color="#37B112" />
                   </View>
-                ) : pendingJobs.length > 0 ? (
-                  pendingJobs.map((job, index) => renderJobItem(job, index))
+                ) : viewMode === 'list' ? (
+                  getFilteredRequests().length > 0 ? (
+                    getFilteredRequests().map((job, index) => renderJobItem(job, index))
+                  ) : (
+                    <Text style={styles.emptyText}>No pending requests available</Text>
+                  )
                 ) : (
-                  <Text style={styles.emptyText}>No pending requests available</Text>
+                  <View style={styles.mapWrapper}>
+                    <MapView
+                      ref={mapRef}
+                      provider={PROVIDER_GOOGLE}
+                      style={styles.map}
+                      initialRegion={{
+                        latitude: -37.8136,
+                        longitude: 144.9631,
+                        latitudeDelta: 0.1,
+                        longitudeDelta: 0.1,
+                      }}
+                    >
+                      {getFilteredRequests().filter(j => j.latitude && j.longitude).map(job => (
+                        <Marker
+                          key={job.id}
+                          coordinate={{
+                            latitude: parseFloat(String(job.latitude)),
+                            longitude: parseFloat(String(job.longitude)),
+                          }}
+                          onPress={() => handleViewJob(job)}
+                        >
+                          <Callout>
+                            <View style={styles.calloutContainer}>
+                              <Text style={styles.calloutTitle}>{job.request_id}</Text>
+                              <Text style={styles.calloutText}>{job.customer_name || 'New Customer'}</Text>
+                              <Text style={styles.calloutText}>{job.location}</Text>
+                            </View>
+                          </Callout>
+                        </Marker>
+                      ))}
+                    </MapView>
+                  </View>
                 )}
               </View>
             </LinearGradient>
@@ -414,6 +528,91 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 100,
+  },
+  // New styles for search and toggle
+  jobsListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  viewToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 8,
+    padding: 2,
+  },
+  toggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  toggleButtonActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  toggleButtonText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 12,
+    color: '#666',
+  },
+  toggleButtonTextActive: {
+    color: '#242424',
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginVertical: 12,
+    height: 44,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#373934',
+  },
+  mapWrapper: {
+    width: '100%',
+    height: 400,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  map: {
+    flex: 1,
+  },
+  calloutContainer: {
+    width: 200,
+    padding: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  calloutTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 14,
+    color: '#242424',
+    marginBottom: 2,
+  },
+  calloutText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
   },
 });
 

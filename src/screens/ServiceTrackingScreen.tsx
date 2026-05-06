@@ -10,10 +10,11 @@ import {
   RefreshControl,
   Image,
   Alert,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext'; // Ensure this exists and exports useSocket
 import { fonts } from '../theme/fonts';
@@ -32,6 +33,7 @@ import BinCollectIcon from '../assets/images/Bin.Collect (1) 1.svg';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const statusSteps = [
+  { key: 'created', label: 'Order Created', icon: 'playlist-add', iconType: 'material-icon', isStatic: true },
   { key: 'pending', label: 'Pending', icon: 'clock-outline', iconType: 'material' },
   { key: 'awaiting_payment', label: 'Awaiting Payment', icon: 'card-outline', iconType: 'ionicon' },
   { key: 'confirmed', label: 'Confirmed', icon: 'checkmark-circle-outline', iconType: 'ionicon' },
@@ -57,6 +59,19 @@ const ServiceTrackingScreen: React.FC = () => {
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const detailsRef = React.useRef<View>(null);
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
+  const filteredRequests = requests.filter(request => {
+    const query = searchQuery.toLowerCase();
+    const requestIdMatch = request.request_id.toLowerCase().includes(query);
+    const binTypeMatch = request.bin_type_name?.toLowerCase().includes(query);
+    const locationMatch = request.location?.toLowerCase().includes(query);
+    const serviceMatch = request.service_names?.toLowerCase().includes(query);
+
+    return requestIdMatch || binTypeMatch || locationMatch || serviceMatch;
+  });
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -237,7 +252,24 @@ const ServiceTrackingScreen: React.FC = () => {
     return statusSteps.findIndex(step => step.key === status);
   };
 
-  const renderTimeline = (currentStatus: string, paymentMethod: string, category: string) => {
+  const formatDateTime = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const datePart = `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+    const timePart = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return `${datePart} ${timePart}`;
+  };
+
+  const getStatusTime = (request: any, statusKey: string) => {
+    if (statusKey === 'created' || statusKey === 'pending') return formatDateTime(request.created_at);
+
+    const history = request.status_history || [];
+    const record = history.find((h: any) => h.status === statusKey);
+    return record ? formatDateTime(record.changed_at) : '';
+  };
+
+  const renderTimeline = (request: any) => {
+    const { status: currentStatus, payment_method: paymentMethod, service_category: category } = request;
     const isService = category === 'service';
     const filteredSteps = statusSteps.filter(step => {
       if (step.cashOnly && paymentMethod !== 'cash') return false;
@@ -251,8 +283,9 @@ const ServiceTrackingScreen: React.FC = () => {
         <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Status Timeline</Text>
         <View style={styles.timelineList}>
           {filteredSteps.map((step, index) => {
-            const isCompleted = index <= currentIndex;
-            const isCurrent = index === currentIndex;
+            const isCompleted = step.isStatic || index <= currentIndex;
+            const isCurrent = !step.isStatic && index === currentIndex;
+            const time = getStatusTime(request, step.key);
 
             return (
               <View key={step.key} style={styles.timelineItem}>
@@ -262,18 +295,25 @@ const ServiceTrackingScreen: React.FC = () => {
                 ]}>
                   {step.iconType === 'material' ? (
                     <MaterialCommunityIcons name={step.icon as any} size={22} color="#FFFFFF" />
-                  ) : (
+                  ) : step.iconType === 'ionicon' ? (
                     <Ionicons name={step.icon as any} size={22} color="#FFFFFF" />
+                  ) : step.iconType === 'material-icon' ? (
+                    <MaterialIcons name={step.icon as any} size={22} color="#FFFFFF" />
+                  ) : (
+                    <MaterialIcons name={step.icon as any} size={22} color="#FFFFFF" />
                   )}
                 </View>
                 <View style={styles.timelineContent}>
-                  <Text style={[
-                    styles.timelineLabel,
-                    isCurrent && styles.timelineLabelCurrent,
-                    isCompleted && styles.timelineLabelCompleted
-                  ]}>
-                    {step.label}
-                  </Text>
+                  <View style={styles.timelineHeaderRow}>
+                    <Text style={[
+                      styles.timelineLabel,
+                      isCurrent && styles.timelineLabelCurrent,
+                      isCompleted && styles.timelineLabelCompleted
+                    ]}>
+                      {step.label}
+                    </Text>
+                    {time ? <Text style={styles.statusTime}>{time}</Text> : null}
+                  </View>
                   {isCurrent && (
                     <Text style={styles.currentStatusBadge}>Current Status</Text>
                   )}
@@ -296,7 +336,7 @@ const ServiceTrackingScreen: React.FC = () => {
           <Text style={styles.detailValue}>{request.request_id}</Text>
         </View>
 
-        <View style={[styles.detailRow, { marginTop: 8, alignItems: 'flex-start' }]}>
+        <View style={[styles.detailRow, { alignItems: 'flex-start' }]}>
           <Text style={[styles.detailLabel, { fontFamily: fonts.family.medium }]}>
             {request.service_category === 'service' ? 'Service' : (orderItems.length > 1 ? 'Bins' : 'Bin')}
           </Text>
@@ -326,7 +366,7 @@ const ServiceTrackingScreen: React.FC = () => {
           </View>
         </View>
 
-        <View style={[styles.detailRow, { marginTop: 12 }]}>
+        <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Location</Text>
           <Text style={styles.detailValue}>{request.location}</Text>
         </View>
@@ -338,8 +378,14 @@ const ServiceTrackingScreen: React.FC = () => {
         )}
         {request.start_date && (
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Delivery Date</Text>
+            <Text style={styles.detailLabel}>Start Date</Text>
             <Text style={styles.detailValue}>{new Date(request.start_date).toLocaleDateString()}</Text>
+          </View>
+        )}
+        {request.end_date && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>End Date</Text>
+            <Text style={styles.detailValue}>{new Date(request.end_date).toLocaleDateString()}</Text>
           </View>
         )}
         {request.po_number && (
@@ -361,6 +407,7 @@ const ServiceTrackingScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <ScrollView
+        ref={scrollViewRef}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -424,31 +471,80 @@ const ServiceTrackingScreen: React.FC = () => {
               </View>
             ) : (
               <View style={styles.trackingContent}>
-                {/* Request Selector if multiple */}
-                {requests.length > 1 && (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsContainer}>
-                    {requests.map(req => (
-                      <TouchableOpacity
-                        key={req.id}
-                        style={[
-                          styles.chip,
-                          selectedRequest?.id === req.id && styles.chipActive
-                        ]}
-                        onPress={() => setSelectedRequest(req)}
-                      >
-                        <Text style={[
-                          styles.chipText,
-                          selectedRequest?.id === req.id && styles.chipTextActive
-                        ]}>
-                          #{req.request_id}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                )}
+                {/* Search Bar */}
+                <View style={styles.searchBarContainer}>
+                  <Ionicons name="search" size={20} color="#979897" style={styles.searchIcon} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search orders..."
+                    placeholderTextColor="#979897"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                      <Ionicons name="close-circle" size={20} color="#979897" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Request Cards List */}
+                <View style={[styles.requestCardsList, { maxHeight: 400 }]}>
+                  {filteredRequests.length === 0 ? (
+                    <Text style={styles.noResultsText}>No orders match your search</Text>
+                  ) : (
+                    <ScrollView nestedScrollEnabled={true} showsVerticalScrollIndicator={true}>
+                      {filteredRequests.map(req => (
+                        <TouchableOpacity
+                          key={req.id}
+                          style={[
+                            styles.simpleCard,
+                            selectedRequest?.id === req.id && styles.simpleCardActive,
+                            { marginBottom: 10 } // Add spacing between items in the scroll list
+                          ]}
+                          onPress={() => {
+                            setSelectedRequest(req);
+                            // Small delay to ensure state update doesn't conflict with measurement
+                            setTimeout(() => {
+                              detailsRef.current?.measureLayout(
+                                // @ts-ignore
+                                scrollViewRef.current?.getInnerViewNode(),
+                                (x, y) => {
+                                  scrollViewRef.current?.scrollTo({ y: y - 20, animated: true });
+                                },
+                                () => { }
+                              );
+                            }, 100);
+                          }}
+                        >
+                          <View style={styles.simpleCardHeader}>
+                            <View style={styles.simpleCardIdContainer}>
+                              <Text style={styles.simpleCardId}>#{req.request_id.slice(-7)}</Text>
+                              <Text style={styles.simpleCardCategory}>{req.service_category}</Text>
+                            </View>
+                            <View style={[
+                              styles.simpleCardStatusBadge,
+                              { backgroundColor: req.status === 'completed' ? '#DCFCE7' : '#FEF3C7' }
+                            ]}>
+                              <Text style={[
+                                styles.simpleCardStatusText,
+                                { color: req.status === 'completed' ? '#166534' : '#92400E' }
+                              ]}>
+                                {req.status.replace(/_/g, ' ')}
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={styles.simpleCardLocation} numberOfLines={1}>
+                            {req.location}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
 
                 {selectedRequest && (
-                  <>
+                  <View ref={detailsRef} onLayout={() => { }}>
                     {renderOrderDetails(selectedRequest)}
 
                     {/* Pay Now Button (online orders after supplier acceptance) */}
@@ -484,7 +580,7 @@ const ServiceTrackingScreen: React.FC = () => {
                       </TouchableOpacity>
                     )}
 
-                    {renderTimeline(selectedRequest.status, selectedRequest.payment_method, selectedRequest.service_category)}
+                    {renderTimeline(selectedRequest)}
 
                     {(selectedRequest.attachment_url || selectedRequest.additional_images || selectedRequest.delivery_photo_url) && (
                       <View style={styles.attachmentsSection}>
@@ -500,10 +596,10 @@ const ServiceTrackingScreen: React.FC = () => {
                           {selectedRequest.additional_images && (() => {
                             let parsed = [];
                             try {
-                              parsed = typeof selectedRequest.additional_images === 'string' 
-                                ? JSON.parse(selectedRequest.additional_images) 
+                              parsed = typeof selectedRequest.additional_images === 'string'
+                                ? JSON.parse(selectedRequest.additional_images)
                                 : selectedRequest.additional_images;
-                            } catch(e) {}
+                            } catch (e) { }
                             return Array.isArray(parsed) ? parsed.map((img, i) => (
                               <Image
                                 key={i}
@@ -523,7 +619,7 @@ const ServiceTrackingScreen: React.FC = () => {
                         </ScrollView>
                       </View>
                     )}
-                  </>
+                  </View>
                 )}
               </View>
             )}
@@ -733,7 +829,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#333',
     marginBottom: 12,
-    marginTop: 16,
+    marginTop: 4,
   },
   detailsCard: {
     backgroundColor: '#FFFFFF',
@@ -843,6 +939,104 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#FFFFFF',
+  },
+  // Search Bar
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    height: 48,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#333',
+  },
+  // Simple Cards
+  requestCardsList: {
+    marginBottom: 20,
+    backgroundColor: '#f3f4f6', // Light gray background for the scrollable container
+    borderRadius: 12,
+    padding: 10,
+  },
+  simpleCard: {
+    backgroundColor: '#ddddddff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  simpleCardActive: {
+    borderColor: '#29B554',
+    borderWidth: 2,
+  },
+  simpleCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  simpleCardIdContainer: {
+    flex: 1,
+  },
+  simpleCardId: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#333',
+  },
+  simpleCardCategory: {
+    fontFamily: fonts.family.regular,
+    fontSize: 12,
+    color: '#666',
+    textTransform: 'capitalize',
+  },
+  simpleCardStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  simpleCardStatusText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  simpleCardLocation: {
+    fontFamily: fonts.family.regular,
+    fontSize: 13,
+    color: '#666',
+  },
+  noResultsText: {
+    textAlign: 'center',
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#999',
+    marginTop: 20,
+    marginBottom: 40,
+  },
+  // Timeline
+  timelineHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  statusTime: {
+    fontFamily: fonts.family.regular,
+    fontSize: 10,
+    color: '#666',
   },
   // Attachments
   attachmentsSection: {

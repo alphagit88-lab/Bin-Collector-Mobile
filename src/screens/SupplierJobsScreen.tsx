@@ -33,6 +33,7 @@ type JobCategory =
   | 'pending'
   | 'confirmed'
   | 'inProgress'
+  | 'ready_to_pickup'
   | 'completed'
   | 'cancelled'
   | 'all';
@@ -74,6 +75,7 @@ const categoryLabels: Record<JobCategory, string> = {
   pending: 'Pending Requests',
   confirmed: 'Confirmed Bookings',
   inProgress: 'In-Progress Jobs',
+  ready_to_pickup: 'Ready To Pickup',
   completed: 'Completed Jobs',
   cancelled: 'Cancelled Jobs',
   all: 'All Jobs',
@@ -92,10 +94,23 @@ const SupplierJobsScreen: React.FC = () => {
 
   const fetchJobs = useCallback(async () => {
     try {
-      const response = await api.get<{ requests: Job[] }>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS);
-      if (response.success && response.data) {
-        setJobs(response.data.requests);
+      const [myJobsRes, pendingRes] = await Promise.all([
+        api.get<{ requests: Job[] }>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS),
+        api.get<{ requests: Job[] }>(ENDPOINTS.BOOKINGS.PENDING)
+      ]);
+
+      let allJobs: Job[] = [];
+      if (myJobsRes.success && myJobsRes.data) {
+        allJobs = [...myJobsRes.data.requests];
       }
+      if (pendingRes.success && pendingRes.data) {
+        // Mark pending requests to distinguish them if needed, 
+        // though status 'pending' should be enough
+        const pendingJobs = pendingRes.data.requests.map(j => ({ ...j, status: 'pending' }));
+        allJobs = [...allJobs, ...pendingJobs];
+      }
+      
+      setJobs(allJobs);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       toast.error('Error', 'Failed to fetch jobs');
@@ -173,7 +188,7 @@ const SupplierJobsScreen: React.FC = () => {
   const getFilteredJobs = () => {
     let filtered = jobs;
     if (selectedCategory === 'inProgress') {
-      filtered = jobs.filter(j => ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(j.status));
+      filtered = jobs.filter(j => ['on_delivery', 'delivered', 'pickup'].includes(j.status));
     } else if (selectedCategory === 'confirmed') {
       filtered = jobs.filter(j => ['confirmed', 'awaiting_payment'].includes(j.status));
     } else if (selectedCategory !== 'all') {
@@ -198,7 +213,7 @@ const SupplierJobsScreen: React.FC = () => {
   const getCategoryCount = (category: JobCategory) => {
     if (category === 'all') return jobs.length;
     if (category === 'inProgress') {
-      return jobs.filter(j => ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(j.status)).length;
+      return jobs.filter(j => ['on_delivery', 'delivered', 'pickup'].includes(j.status)).length;
     }
     if (category === 'confirmed') {
       return jobs.filter(j => ['confirmed', 'awaiting_payment'].includes(j.status)).length;
@@ -296,6 +311,8 @@ const SupplierJobsScreen: React.FC = () => {
         return '#408FC7';
       case 'inProgress':
         return '#66E91F';
+      case 'ready_to_pickup':
+        return '#FF9500';
       case 'completed':
         return '#2E8015';
       default:
@@ -392,14 +409,18 @@ const SupplierJobsScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Job Management</Text>
 
           <View style={styles.categoriesWrapperGrid}>
-            {/* Render a 2x3 grid to match the second image layout */}
+            {/* Render a 3x2 grid to match dashboard layout */}
             <View style={styles.gridRow}>
               {renderGridCard('pending')}
               {renderGridCard('confirmed')}
             </View>
             <View style={styles.gridRow}>
               {renderGridCard('inProgress')}
+              {renderGridCard('ready_to_pickup')}
+            </View>
+            <View style={styles.gridRow}>
               {renderGridCard('completed')}
+              {renderGridCard('all')}
             </View>
           </View>
         </View>

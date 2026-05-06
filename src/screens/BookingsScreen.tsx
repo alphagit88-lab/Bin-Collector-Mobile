@@ -92,7 +92,7 @@ const BookingsScreen: React.FC = () => {
     const binTypeMatch = booking.bin_type_name?.toLowerCase().includes(query);
     const locationMatch = booking.location?.toLowerCase().includes(query);
     const serviceMatch = booking.service_names?.toLowerCase().includes(query);
-    
+
     return requestIdMatch || binTypeMatch || locationMatch || serviceMatch;
   });
 
@@ -442,12 +442,7 @@ const BookingsScreen: React.FC = () => {
                   const colors = getCardColors(index);
                   return (
                     <View key={booking.id} style={styles.bookingCardItem}>
-                      <LinearGradient
-                        colors={colors}
-                        locations={[0.2377, 0.6629]}
-                        start={{ x: 0.85, y: 0 }}
-                        end={{ x: 0.15, y: 1 }}
-                        style={styles.bookingCardGradientItem}>
+                      <View style={styles.bookingCardSolidItem}>
                         <View style={styles.bookingCardContent}>
                           {/* First Row: Booking ID, Service, Dates */}
                           <View style={styles.bookingInfoRow}>
@@ -533,7 +528,7 @@ const BookingsScreen: React.FC = () => {
                             </TouchableOpacity>
                           </View>
                         </View>
-                      </LinearGradient>
+                      </View>
                     </View>
                   );
                 })
@@ -569,24 +564,24 @@ const BookingsScreen: React.FC = () => {
                       }}
                     >
                       <Callout>
-                          <View style={styles.calloutContainer}>
-                            <Text style={styles.calloutTitle}>{booking.request_id}</Text>
-                            <Text style={styles.calloutText}>
-                              {booking.service_category === 'service'
-                                ? (booking.service_names?.split(',')[0] || 'General Service')
-                                : booking.bin_type_name}
-                              {booking.bin_size ? ` (${booking.bin_size})` : ''}
-                            </Text>
-                            <Text style={[styles.calloutStatus, { color: getStatusColor(booking.status) }]}>
-                              {booking.status.replace(/_/g, ' ').toUpperCase()}
-                            </Text>
-                            <TouchableOpacity style={styles.calloutButton}>
-                              <Text style={styles.calloutButtonText}>View Details</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </Callout>
-                      </Marker>
-                    )
+                        <View style={styles.calloutContainer}>
+                          <Text style={styles.calloutTitle}>{booking.request_id}</Text>
+                          <Text style={styles.calloutText}>
+                            {booking.service_category === 'service'
+                              ? (booking.service_names?.split(',')[0] || 'General Service')
+                              : booking.bin_type_name}
+                            {booking.bin_size ? ` (${booking.bin_size})` : ''}
+                          </Text>
+                          <Text style={[styles.calloutStatus, { color: getStatusColor(booking.status) }]}>
+                            {booking.status.replace(/_/g, ' ').toUpperCase()}
+                          </Text>
+                          <TouchableOpacity style={styles.calloutButton}>
+                            <Text style={styles.calloutButtonText}>View Details</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </Callout>
+                    </Marker>
+                  )
                   )}
                 </MapView>
               </View>
@@ -659,7 +654,7 @@ const BookingsScreen: React.FC = () => {
                     <Text style={styles.modalValue}>{getStatusDisplay(selectedBooking.status)}</Text>
                   </View>
 
-                   <View style={styles.modalRow}>
+                  <View style={styles.modalRow}>
                     <Text style={styles.modalLabel}>Date Range</Text>
                     <Text style={styles.modalValue}>{formatDateRange(selectedBooking.start_date, selectedBooking.end_date)}</Text>
                   </View>
@@ -1213,7 +1208,7 @@ const styles = StyleSheet.create({
     minHeight: 161,
     alignSelf: 'stretch',
   },
-  bookingCardGradientItem: {
+  bookingCardSolidItem: {
     borderRadius: 9,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
@@ -1222,6 +1217,7 @@ const styles = StyleSheet.create({
     paddingRight: 14,
     paddingBottom: 15,
     width: '100%',
+    backgroundColor: '#ddddddff', // Solid gray color for the cards
   },
   bookingCardContent: {
     gap: 12,

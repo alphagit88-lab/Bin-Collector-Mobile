@@ -66,7 +66,7 @@ const SupplierDashboard: React.FC = () => {
         const pending = pendingResponse.data?.requests?.length || 0;
         const myJobs = myJobsResponse.data?.requests || [];
 
-        const confirmed = myJobs.filter((j: any) => j.status === 'confirmed').length;
+        const confirmed = myJobs.filter((j: any) => ['confirmed', 'awaiting_payment'].includes(j.status)).length;
         const inProgress = myJobs.filter((j: any) => ['on_delivery', 'delivered', 'pickup'].includes(j.status)).length;
         const readyToPickup = myJobs.filter((j: any) => j.status === 'ready_to_pickup').length;
         const completed = myJobs.filter((j: any) => j.status === 'completed').length;
@@ -228,6 +228,26 @@ const SupplierDashboard: React.FC = () => {
                 <EarningsImage width={219} height={175} />
               </View>
             </LinearGradient>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        {/* Quick Action: Create Order */}
+        <TouchableOpacity
+          style={styles.createOrderAction}
+          onPress={() => navigation.navigate('SupplierCreateOrder')}
+        >
+          <LinearGradient
+            colors={['rgba(41, 181, 84, 0.1)', 'rgba(110, 173, 22, 0.1)']}
+            style={styles.createOrderGradient}
+          >
+            <View style={styles.createOrderIcon}>
+              <Feather name="plus-circle" size={24} color="#29B554" />
+            </View>
+            <View style={styles.createOrderTextContainer}>
+              <Text style={styles.createOrderTitle}>Create New Order</Text>
+              <Text style={styles.createOrderSubtitle}>Assign booking to existing/new customer</Text>
+            </View>
+            <Feather name="chevron-right" size={20} color="#29B554" />
           </LinearGradient>
         </TouchableOpacity>
 
@@ -609,6 +629,42 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 100,
+  },
+  createOrderAction: {
+    marginTop: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: 'rgba(41, 181, 84, 0.2)',
+  },
+  createOrderGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  createOrderIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(41, 181, 84, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  createOrderTextContainer: {
+    flex: 1,
+  },
+  createOrderTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#333',
+  },
+  createOrderSubtitle: {
+    fontFamily: fonts.family.medium,
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
   },
 });
 

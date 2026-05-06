@@ -202,7 +202,7 @@ const AccountScreen: React.FC = () => {
     setMapSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapAddress)}&format=json&limit=1`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapAddress)}&format=json&limit=1&countrycodes=ca`,
         { headers: { 'User-Agent': 'BinDropApp/1.0' } }
       );
       const data = await response.json();

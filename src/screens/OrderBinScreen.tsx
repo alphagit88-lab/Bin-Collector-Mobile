@@ -196,7 +196,7 @@ const OrderBinScreen: React.FC = () => {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
           deliveryAddress
-        )}&format=json&limit=1`,
+        )}&format=json&limit=1&countrycodes=ca`,
         {
           headers: {
             'User-Agent': 'BinRentalApp/1.0',
@@ -724,7 +724,7 @@ const OrderBinScreen: React.FC = () => {
       if (!finalLat || !finalLon) {
         try {
           const geoResponse = await fetch(
-            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1`,
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1&countrycodes=ca`,
             { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
           );
           const geoData = await geoResponse.json();

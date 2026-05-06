@@ -23,6 +23,7 @@ import OrderBinScreen from '../screens/OrderBinScreen';
 import OrderConfirmationScreen from '../screens/OrderConfirmationScreen';
 import OrderSuccessScreen from '../screens/OrderSuccessScreen';
 import SupplierDriversScreen from '../screens/SupplierDriversScreen';
+import SupplierCreateOrderScreen from '../screens/SupplierCreateOrderScreen';
 import DriverDashboard from '../screens/DriverDashboard';
 import DriverJobsScreen from '../screens/DriverJobsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
@@ -99,6 +100,7 @@ const AppNavigator: React.FC = () => {
             />
             <Stack.Screen name="ServiceArea" component={ServiceAreaScreen} />
             <Stack.Screen name="SupplierBinPricing" component={SupplierBinPricingScreen} />
+            <Stack.Screen name="SupplierCreateOrder" component={SupplierCreateOrderScreen} />
             <Stack.Screen
               name="SupplierOrderAccepted"
               component={SupplierOrderAcceptedScreen}

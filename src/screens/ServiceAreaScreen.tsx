@@ -240,7 +240,7 @@ const ServiceAreaScreen: React.FC = () => {
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newCity)}&format=json&limit=1&addressdetails=1`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newCity)}&format=json&limit=1&addressdetails=1&countrycodes=ca`,
         { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
       );
       const data = await response.json();
