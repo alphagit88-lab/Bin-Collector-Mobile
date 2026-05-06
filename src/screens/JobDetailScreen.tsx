@@ -148,7 +148,11 @@ const JobDetailScreen: React.FC = () => {
       driver_name: data.driver_name,
       supplier_id: data.supplier_id || data.supplierId,
       po_number: data.po_number,
-      additional_images: data.additional_images
+      additional_images: Array.isArray(data.additional_images)
+        ? data.additional_images
+        : (typeof data.additional_images === 'string' && data.additional_images.startsWith('[')
+          ? JSON.parse(data.additional_images)
+          : [])
     };
   };
 
@@ -575,13 +579,13 @@ const JobDetailScreen: React.FC = () => {
                 jobDetail.orderItems.map((item, index) => (
                   <View key={item.id} style={[styles.orderItemRow, index > 0 && { marginTop: 8 }]}>
                     <Text style={styles.detailValue}>
-                      • {item.bin_type_name} {item.bin_size ? `( - ${item.bin_size})` : ''}
+                      • {item.bin_type_name} {item.bin_size ? `(${item.bin_size})` : ''}
                     </Text>
                   </View>
                 ))
               ) : (
                 <Text style={styles.detailValue}>
-                  {jobDetail.binType} {jobDetail.binSize ? `( - ${jobDetail.binSize})` : ''}
+                  {jobDetail.binType} {jobDetail.binSize ? `(${jobDetail.binSize})` : ''}
                 </Text>
               )}
             </LinearGradient>
@@ -1045,6 +1049,7 @@ const JobDetailScreen: React.FC = () => {
                 {statusSteps
                   .filter(step => {
                     if (step.cashOnly && jobDetail.payment_method !== 'cash') return false;
+                    if (step.key === 'awaiting_payment' && jobDetail.payment_method === 'cash') return false;
                     if (jobDetail.service_category === 'service' && (step as any).isPhysical) return false;
                     return true;
                   })

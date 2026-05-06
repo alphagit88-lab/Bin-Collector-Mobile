@@ -273,6 +273,7 @@ const ServiceTrackingScreen: React.FC = () => {
     const isService = category === 'service';
     const filteredSteps = statusSteps.filter(step => {
       if (step.cashOnly && paymentMethod !== 'cash') return false;
+      if (step.key === 'awaiting_payment' && paymentMethod === 'cash') return false;
       if (isService && ['on_delivery', 'delivered', 'ready_to_pickup', 'pickup'].includes(step.key)) return false;
       return true;
     });

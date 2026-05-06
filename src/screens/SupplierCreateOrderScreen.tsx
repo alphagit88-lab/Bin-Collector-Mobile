@@ -164,6 +164,8 @@ const SupplierCreateOrderScreen: React.FC = () => {
   });
   const [isSearching, setIsSearching] = useState(false);
   const [binPrices, setBinPrices] = useState<any[]>([]);
+  const [systemSettings, setSystemSettings] = useState<Record<string, string>>({});
+  const [fetchingSettings, setFetchingSettings] = useState(true);
 
   useEffect(() => {
     fetchInitialData();
@@ -171,10 +173,11 @@ const SupplierCreateOrderScreen: React.FC = () => {
 
   const fetchInitialData = async () => {
     try {
-      const [typesRes, sizesRes, categoriesRes] = await Promise.all([
-        api.get('/bins/types') as any,
-        api.get('/supplier/bin-sizes') as any,
+      const [typesRes, sizesRes, categoriesRes, settingsRes] = await Promise.all([
+        api.get('/bins/supplier/types') as any,
+        api.get('/bins/supplier/sizes') as any,
         api.get(ENDPOINTS.SERVICES.CATEGORIES) as any,
+        api.get('/settings') as any,
       ]);
 
       if (typesRes.success && typesRes.data) {
@@ -193,10 +196,35 @@ const SupplierCreateOrderScreen: React.FC = () => {
       if (categoriesRes.success && categoriesRes.data) {
         setServiceCategories(categoriesRes.data.categories);
       }
+      if (settingsRes.success && settingsRes.data) {
+        const settingsMap: Record<string, string> = {};
+        settingsRes.data.settings.forEach((s: any) => {
+          settingsMap[s.key] = s.value;
+        });
+        setSystemSettings(settingsMap);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
+    } finally {
+      setFetchingSettings(false);
     }
   };
+
+  useEffect(() => {
+    // Update individual bin prices when binPrices (from location) changes
+    if (binPrices.length > 0) {
+      const updatedBins = bins.map(bin => {
+        if (bin.bin_size_id) {
+          const priceObj = binPrices.find(p => p.bin_size_id === parseInt(bin.bin_size_id));
+          if (priceObj) {
+            return { ...bin, price: priceObj.admin_final_price.toString() };
+          }
+        }
+        return bin;
+      });
+      setBins(updatedBins);
+    }
+  }, [binPrices]);
 
   const handleSearchAddress = async () => {
     if (!deliveryAddress) return;
@@ -343,23 +371,37 @@ const SupplierCreateOrderScreen: React.FC = () => {
 
   const pickImage = async () => {
     setAttachmentModalVisible(false);
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       quality: 0.7,
     });
     if (!result.canceled) {
-      setAttachments([...attachments, ...result.assets]);
+      setAttachments(prev => [...prev, ...result.assets]);
     }
   };
 
   const takePhoto = async () => {
     setAttachmentModalVisible(false);
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error('Permission Denied', 'Sorry, we need camera permissions to make this work!');
+      return;
+    }
+
     const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
       quality: 0.7,
     });
     if (!result.canceled) {
-      setAttachments([...attachments, ...result.assets]);
+      setAttachments(prev => [...prev, ...result.assets]);
     }
   };
 
@@ -368,6 +410,43 @@ const SupplierCreateOrderScreen: React.FC = () => {
     newAttachments.splice(index, 1);
     setAttachments(newAttachments);
   };
+
+  const calculateBreakdown = () => {
+    if (!deliveryDate || !pickupDate) return null;
+
+    const start = deliveryDateObj;
+    const end = pickupDateObj;
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+    const commercialLimit = systemSettings['commercial_duration_limit'];
+    const residentialLimit = systemSettings['residential_duration_limit'];
+    const dailyRateStr = systemSettings['additional_day_charge'];
+
+    if (!commercialLimit || !residentialLimit || !dailyRateStr) return null;
+
+    const limitDays = serviceType === 'commercial' ? parseInt(commercialLimit) : parseInt(residentialLimit);
+    const dailyRate = parseFloat(dailyRateStr);
+
+    const exceededDays = durationDays > limitDays ? durationDays - limitDays : 0;
+    const additionalCharge = exceededDays * dailyRate;
+
+    const basePrice = bins.reduce((acc, b) => {
+      return acc + (parseFloat(b.price || '0') * (parseInt(b.quantity) || 1));
+    }, 0);
+
+    return {
+      durationDays,
+      limitDays,
+      exceededDays,
+      dailyRate,
+      additionalCharge,
+      basePrice,
+      total: basePrice + additionalCharge
+    };
+  };
+
+  const breakdown = calculateBreakdown();
 
   const handleSubmit = async () => {
     if (!customerName || !customerPhone || !deliveryAddress || !deliveryDate || !pickupDate) {
@@ -412,6 +491,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
       if (poNumber) formData.append('po_number', poNumber);
       if (latitude) formData.append('latitude', latitude.toString());
       if (longitude) formData.append('longitude', longitude.toString());
+      formData.append('payment_method', 'cash');
 
       if (attachments.length > 0) {
         attachments.forEach((att, index) => {
@@ -578,14 +658,16 @@ const SupplierCreateOrderScreen: React.FC = () => {
                         isDropdown
                         onPress={() => openTypeModal(index)}
                       />
-                      <FormField
-                        label="Bin Size*"
-                        placeholder={bin.bin_type_id ? "Select Size" : "Select Type First"}
-                        value={bin.bin_size_name}
-                        onChangeText={() => { }}
-                        isDropdown
-                        onPress={() => openSizeModal(index)}
-                      />
+                      {(!bin.bin_type_id || (binSizesMap[parseInt(bin.bin_type_id)] && binSizesMap[parseInt(bin.bin_type_id)].length > 0)) && (
+                        <FormField
+                          label="Bin Size*"
+                          placeholder={bin.bin_type_id ? "Select Size" : "Select Type First"}
+                          value={bin.bin_size_name}
+                          onChangeText={() => { }}
+                          isDropdown
+                          onPress={() => openSizeModal(index)}
+                        />
+                      )}
                       <View style={styles.row}>
                         <View style={{ flex: 1 }}>
                           <FormField
@@ -596,12 +678,6 @@ const SupplierCreateOrderScreen: React.FC = () => {
                             keyboardType="numeric"
                           />
                         </View>
-                        {bin.price ? (
-                          <View style={{ flex: 1, marginLeft: 10, justifyContent: 'center' }}>
-                            <Text style={styles.miniLabel}>Price</Text>
-                            <Text style={styles.priceText}>${bin.price}</Text>
-                          </View>
-                        ) : null}
                       </View>
                     </LinearGradient>
                   </View>
@@ -659,6 +735,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
               </LinearGradient>
             </View>
           )}
+
 
           {/* Section: Location & Schedule */}
           <View style={styles.formSection}>
@@ -745,7 +822,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                 </>
               )}
 
-              <Text style={[styles.instructionsLabel, { marginTop: 15 }]}>Attachments (Optional)</Text>
+              <Text style={styles.instructionsLabel}>Upload Attachments (Optional)</Text>
               <View style={styles.multiAttachmentContainer}>
                 {attachments.map((att, index) => (
                   <View key={index} style={styles.attachmentThumbnail}>
@@ -755,7 +832,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                     </TouchableOpacity>
                   </View>
                 ))}
-                {attachments.length < 5 && (
+                {attachments.length < 10 && (
                   <TouchableOpacity style={styles.addAttachmentSquare} onPress={() => setAttachmentModalVisible(true)}>
                     <Ionicons name="add" size={32} color="#979897" />
                     <Text style={styles.addAttachmentText}>Add</Text>
@@ -764,6 +841,46 @@ const SupplierCreateOrderScreen: React.FC = () => {
               </View>
             </LinearGradient>
           </View>
+
+          {/* Price Breakdown */}
+          {serviceType !== 'service' && breakdown && (
+            <View style={styles.formSection}>
+              <LinearGradient
+                colors={['#EFF2F0', '#F8FFEE']}
+                locations={[0.2377, 0.6629]}
+                start={{ x: 0.34, y: 0 }}
+                end={{ x: 0.66, y: 1 }}
+                style={styles.formSectionGradient}>
+                <Text style={[styles.formSectionTitleSmall, { marginBottom: 12, color: '#29B554' }]}>Price Breakdown Summary</Text>
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabelSmall}>Base Price ({breakdown.limitDays} Days):</Text>
+                  <Text style={styles.summaryValueSmall}>${breakdown.basePrice.toFixed(2)}</Text>
+                </View>
+
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabelSmall}>Duration:</Text>
+                  <Text style={styles.summaryValueSmall}>{breakdown.durationDays} Day(s)</Text>
+                </View>
+
+                {breakdown.exceededDays > 0 && (
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabelSmall, { color: '#EF4444' }]}>Extra Days ({breakdown.exceededDays} × ${breakdown.dailyRate}):</Text>
+                    <Text style={[styles.summaryValueSmall, { color: '#EF4444' }]}>+${breakdown.additionalCharge.toFixed(2)}</Text>
+                  </View>
+                )}
+
+                <View style={[styles.dividerLine, { marginVertical: 10 }]} />
+
+                <View style={styles.summaryRow}>
+                  <Text style={[styles.summaryLabelSmall, { fontFamily: fonts.family.bold, fontSize: 18 }]}>Estimated Total:</Text>
+                  <Text style={[styles.summaryValueSmall, { color: '#29B554', fontSize: 22 }]}>
+                    ${breakdown.total.toFixed(2)}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </View>
+          )}
 
           {/* Submit Button */}
           <TouchableOpacity style={[styles.placeOrderButton, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading}>
@@ -893,6 +1010,22 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row' },
   miniLabel: { fontFamily: fonts.family.medium, fontSize: 12, color: '#373934', marginBottom: 4 },
   priceText: { fontFamily: fonts.family.bold, fontSize: 16, color: '#29B554' },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  summaryLabelSmall: {
+    fontFamily: fonts.family.medium,
+    fontSize: 14,
+    color: '#4B5563',
+  },
+  summaryValueSmall: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 15,
+    color: '#1F2937',
+  },
   pendingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
