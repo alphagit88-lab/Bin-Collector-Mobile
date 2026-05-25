@@ -8,6 +8,7 @@ import {
   Dimensions,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -167,7 +168,18 @@ const CustomerDashboard: React.FC = () => {
               onPress={() => navigation.navigate('Account' as never)}
             >
               <View style={styles.iconCircle}>
-                <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
+                {user?.profilePhoto ? (
+                  <Image 
+                    source={{ 
+                      uri: user.profilePhoto.startsWith('http') 
+                        ? user.profilePhoto 
+                        : api.getBaseUrl() + user.profilePhoto 
+                    }} 
+                    style={styles.profilePhoto} 
+                  />
+                ) : (
+                  <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
+                )}
               </View>
             </TouchableOpacity>
           </View>
@@ -459,6 +471,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#29B554',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  profilePhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   orderButtonContainer: {
     marginHorizontal: 21,

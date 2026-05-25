@@ -60,8 +60,8 @@ const ServiceAreaScreen: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [mapRegion, setMapRegion] = useState({
-    latitude: -37.8136, // Default (e.g. Melbourne)
-    longitude: 144.9631,
+    latitude: 40.7128, // Default to New York City (USA general)
+    longitude: -74.0060,
     latitudeDelta: 0.1,
     longitudeDelta: 0.1,
   });
@@ -117,8 +117,8 @@ const ServiceAreaScreen: React.FC = () => {
     setNewLatitude(null);
     setNewLongitude(null);
     setMapRegion({
-      latitude: -37.8136,
-      longitude: 144.9631,
+      latitude: 40.7128,
+      longitude: -74.0060,
       latitudeDelta: 0.1,
       longitudeDelta: 0.1,
     });
@@ -175,7 +175,7 @@ const ServiceAreaScreen: React.FC = () => {
           try {
             const geoResp = await fetch(
               `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
-              { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
+              { headers: { 'User-Agent': 'BinDropApp/1.0' } }
             );
             const geoData = await geoResp.json();
             if (geoData && geoData.display_name) {
@@ -240,8 +240,8 @@ const ServiceAreaScreen: React.FC = () => {
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newCity)}&format=json&limit=1&addressdetails=1&countrycodes=ca`,
-        { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newCity)}&format=json&limit=1&addressdetails=1&countrycodes=us`,
+        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
       );
       const data = await response.json();
       if (data && data.length > 0) {
@@ -284,7 +284,7 @@ const ServiceAreaScreen: React.FC = () => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json&addressdetails=1`,
-        { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
+        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
       );
       const data = await response.json();
       if (data && data.display_name) {

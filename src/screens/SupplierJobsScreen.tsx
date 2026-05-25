@@ -488,8 +488,8 @@ const SupplierJobsScreen: React.FC = () => {
                       provider={PROVIDER_GOOGLE}
                       style={styles.map}
                       initialRegion={{
-                        latitude: 6.9271,
-                        longitude: 79.8612,
+                        latitude: 40.7128, // Default to New York City (USA general)
+                        longitude: -74.0060,
                         latitudeDelta: 0.1,
                         longitudeDelta: 0.1,
                       }}

@@ -13,10 +13,12 @@ import {
   ActivityIndicator,
   Keyboard,
   Dimensions,
+  Share,
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import AppModal from '../components/AppModal';
 import AppConfirmModal from '../components/AppConfirmModal';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -77,6 +79,9 @@ const AccountScreen: React.FC = () => {
   const [emailModalVisible, setEmailModalVisible] = React.useState(false);
   const [locationModalVisible, setLocationModalVisible] = React.useState(false);
   const [passwordModalVisible, setPasswordModalVisible] = React.useState(false);
+  const [aboutModalVisible, setAboutModalVisible] = React.useState(false);
+  const [termsModalVisible, setTermsModalVisible] = React.useState(false);
+  const [privacyModalVisible, setPrivacyModalVisible] = React.useState(false);
 
   // Input state
   const [newEmail, setNewEmail] = React.useState('');
@@ -103,8 +108,8 @@ const AccountScreen: React.FC = () => {
   const [mapLat, setMapLat] = React.useState<number | null>(null);
   const [mapLon, setMapLon] = React.useState<number | null>(null);
   const [mapRegion, setMapRegion] = React.useState({
-    latitude: -37.8136,
-    longitude: 144.9631,
+    latitude: 40.7128, // Default to New York City (USA general)
+    longitude: -74.0060,
     latitudeDelta: 0.005,
     longitudeDelta: 0.005,
   });
@@ -202,7 +207,7 @@ const AccountScreen: React.FC = () => {
     setMapSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapAddress)}&format=json&limit=1&countrycodes=ca`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapAddress)}&format=json&limit=1&countrycodes=us`,
         { headers: { 'User-Agent': 'BinDropApp/1.0' } }
       );
       const data = await response.json();
@@ -404,14 +409,38 @@ const AccountScreen: React.FC = () => {
     setConfirmModal({
       visible: true,
       title: 'Delete Profile',
-      message: 'Are you sure you want to delete your profile? This action cannot be undone.',
-      confirmText: 'Delete',
-      onConfirm: () => {
+      message: 'Are you sure you want to delete your profile? This will submit a delete request to our admin team.',
+      confirmText: 'Submit Request',
+      onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, visible: false }));
-        console.log('Delete profile');
+        try {
+          const response = await api.post('/auth/request-delete');
+          if (response.success) {
+            toast.success('Success', 'Delete request submitted successfully');
+            await logout();
+          } else {
+            toast.error('Error', response.message || 'Failed to submit delete request');
+          }
+        } catch (error) {
+          console.error('Error submitting delete request:', error);
+          toast.error('Error', 'Failed to submit delete request');
+        }
       },
       isDestructive: true,
     });
+  };
+
+  const handleShareApp = async () => {
+    try {
+      await Share.share({
+        message: 'Check out Bin Drop - the waste management platform! https://play.google.com/store/apps/details?id=com.binrental.mobile',
+        url: 'https://play.google.com/store/apps/details?id=com.binrental.mobile',
+        title: 'Share Bin Drop',
+      });
+    } catch (error) {
+      console.error('Error sharing app:', error);
+      toast.error('Error', 'Could not share the app');
+    }
   };
 
   return (
@@ -530,22 +559,22 @@ const AccountScreen: React.FC = () => {
               <SettingsItem
                 icon={<Icon11_4 width={35} height={35} />}
                 label="About App"
-                onPress={() => console.log('About App')}
+                onPress={() => setAboutModalVisible(true)}
               />
               <SettingsItem
                 icon={<Icon11_5 width={35} height={35} />}
                 label="Terms & Conditions"
-                onPress={() => console.log('Terms & Conditions')}
+                onPress={() => setTermsModalVisible(true)}
               />
               <SettingsItem
                 icon={<Icon11_6 width={35} height={35} />}
                 label="Privacy Policy"
-                onPress={() => console.log('Privacy Policy')}
+                onPress={() => setPrivacyModalVisible(true)}
               />
               <SettingsItem
                 icon={<Icon11_7 width={35} height={35} />}
                 label="Share This App"
-                onPress={() => console.log('Share This App')}
+                onPress={handleShareApp}
               />
             </View>
           </LinearGradient>
@@ -763,6 +792,168 @@ const AccountScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+      </AppModal>
+
+      {/* About App Modal */}
+      <AppModal
+        animationType="slide"
+        transparent={true}
+        visible={aboutModalVisible}
+        onRequestClose={() => setAboutModalVisible(false)}
+      >
+        <View style={styles.documentModalContainer}>
+          <View style={styles.documentModalHeader}>
+            <Text style={styles.documentModalTitle}>About Bin Drop</Text>
+            <TouchableOpacity onPress={() => setAboutModalVisible(false)} style={styles.closeIcon}>
+              <Ionicons name="close" size={24} color="#373934" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.documentModalContent} showsVerticalScrollIndicator={false}>
+            <Text style={styles.documentTitle}>Welcome to Bin Drop</Text>
+            <Text style={styles.documentText}>
+              Bin Drop is the leading waste management platform connecting customers with reliable bin rental and collection services across the USA.
+            </Text>
+            <Text style={styles.documentHeading}>Our Mission</Text>
+            <Text style={styles.documentText}>
+              To make waste management simple, accessible, and environmentally responsible for everyone. We strive to provide transparent pricing, reliable service, and exceptional customer support.
+            </Text>
+            <Text style={styles.documentHeading}>What We Offer</Text>
+            <Text style={styles.documentText}>
+              • Convenient bin rental for residential and commercial projects{"\n"}
+              • Reliable collection and disposal services{"\n"}
+              • Real-time booking and tracking{"\n"}
+              • Competitive and transparent pricing{"\n"}
+              • Dedicated customer support
+            </Text>
+            <Text style={styles.documentHeading}>Version</Text>
+            <Text style={[styles.documentText, { marginBottom: 20 }]}>{Constants.expoConfig?.version || '1.0.0'}</Text>
+          </ScrollView>
+        </View>
+      </AppModal>
+
+      {/* Terms & Conditions Modal */}
+      <AppModal
+        animationType="slide"
+        transparent={true}
+        visible={termsModalVisible}
+        onRequestClose={() => setTermsModalVisible(false)}
+      >
+        <View style={styles.documentModalContainer}>
+          <View style={styles.documentModalHeader}>
+            <Text style={styles.documentModalTitle}>Terms & Conditions</Text>
+            <TouchableOpacity onPress={() => setTermsModalVisible(false)} style={styles.closeIcon}>
+              <Ionicons name="close" size={24} color="#373934" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.documentModalContent} showsVerticalScrollIndicator={false}>
+            <Text style={styles.documentText}>
+              Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </Text>
+            <Text style={styles.documentHeading}>1. Acceptance of Terms</Text>
+            <Text style={styles.documentText}>
+              By accessing and using Bin Drop, you agree to be bound by these Terms and Conditions. If you do not agree, please do not use the platform.
+            </Text>
+            <Text style={styles.documentHeading}>2. Service Description</Text>
+            <Text style={styles.documentText}>
+              Bin Drop provides a platform for connecting customers with suppliers of bin rental and waste collection services. We are not directly responsible for the services provided by suppliers.
+            </Text>
+            <Text style={styles.documentHeading}>3. User Responsibilities</Text>
+            <Text style={styles.documentText}>
+              You agree to:{"\n"}
+              • Provide accurate and complete information{"\n"}
+              • Use the platform in accordance with all applicable laws{"\n"}
+              • Not use the platform for any illegal or unauthorized purpose{"\n"}
+              • Maintain the security of your account credentials
+            </Text>
+            <Text style={styles.documentHeading}>4. Booking & Payment</Text>
+            <Text style={styles.documentText}>
+              All bookings are subject to availability. Payment is required at the time of booking unless otherwise specified. Prices may vary based on location, bin type, and duration.
+            </Text>
+            <Text style={styles.documentHeading}>5. Cancellation & Refunds</Text>
+            <Text style={styles.documentText}>
+              Cancellation policies vary by supplier. Please review the specific cancellation terms at the time of booking. Refunds, if applicable, will be processed according to the supplier's policy.
+            </Text>
+            <Text style={styles.documentHeading}>6. Limitation of Liability</Text>
+            <Text style={styles.documentText}>
+              Bin Drop shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of the platform.
+            </Text>
+            <Text style={styles.documentHeading}>7. Changes to Terms</Text>
+            <Text style={[styles.documentText, { marginBottom: 20 }]}>
+              We reserve the right to modify these terms at any time. Continued use of the platform constitutes acceptance of modified terms.
+            </Text>
+          </ScrollView>
+        </View>
+      </AppModal>
+
+      {/* Privacy Policy Modal */}
+      <AppModal
+        animationType="slide"
+        transparent={true}
+        visible={privacyModalVisible}
+        onRequestClose={() => setPrivacyModalVisible(false)}
+      >
+        <View style={styles.documentModalContainer}>
+          <View style={styles.documentModalHeader}>
+            <Text style={styles.documentModalTitle}>Privacy Policy</Text>
+            <TouchableOpacity onPress={() => setPrivacyModalVisible(false)} style={styles.closeIcon}>
+              <Ionicons name="close" size={24} color="#373934" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={styles.documentModalContent} showsVerticalScrollIndicator={false}>
+            <Text style={styles.documentText}>
+              Last updated: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </Text>
+            <Text style={styles.documentHeading}>1. Information We Collect</Text>
+            <Text style={styles.documentText}>
+              We collect information you provide directly, including:{"\n"}
+              • Name, email address, and phone number{"\n"}
+              • Billing and payment information{"\n"}
+              • Location information for service delivery{"\n"}
+              • Photos and attachments you upload
+            </Text>
+            <Text style={styles.documentHeading}>2. How We Use Your Information</Text>
+            <Text style={styles.documentText}>
+              We use your information to:{"\n"}
+              • Provide and improve our services{"\n"}
+              • Process transactions and send confirmations{"\n"}
+              • Communicate with you about your bookings{"\n"}
+              • Send service updates and promotional offers (with your consent){"\n"}
+              • Comply with legal obligations
+            </Text>
+            <Text style={styles.documentHeading}>3. Information Sharing</Text>
+            <Text style={styles.documentText}>
+              We may share your information with:{"\n"}
+              • Service providers and suppliers to fulfill your bookings{"\n"}
+              • Payment processors for transaction processing{"\n"}
+              • Law enforcement when required by law{"\n"}
+              • We do not sell your personal information to third parties
+            </Text>
+            <Text style={styles.documentHeading}>4. Data Security</Text>
+            <Text style={styles.documentText}>
+              We implement appropriate technical and organizational measures to protect your personal information. However, no method of transmission over the Internet is 100% secure.
+            </Text>
+            <Text style={styles.documentHeading}>5. Your Rights</Text>
+            <Text style={styles.documentText}>
+              You have the right to:{"\n"}
+              • Access and update your personal information{"\n"}
+              • Request deletion of your data{"\n"}
+              • Opt out of marketing communications{"\n"}
+              • Export your data in a machine-readable format
+            </Text>
+            <Text style={styles.documentHeading}>6. Children's Privacy</Text>
+            <Text style={styles.documentText}>
+              Our services are not intended for individuals under the age of 13. We do not knowingly collect personal information from children under 13.
+            </Text>
+            <Text style={styles.documentHeading}>7. Changes to This Policy</Text>
+            <Text style={styles.documentText}>
+              We may update this privacy policy from time to time. We will notify you of material changes by posting the new policy on this page.
+            </Text>
+            <Text style={styles.documentHeading}>8. Contact Us</Text>
+            <Text style={[styles.documentText, { marginBottom: 40 }]}>
+              If you have any questions about this privacy policy, please contact our support team through the app.
+            </Text>
+          </ScrollView>
+        </View>
       </AppModal>
     </View>
   );
@@ -1154,6 +1345,50 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 14,
     color: '#555',
+  },
+  documentModalContainer: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  documentModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  documentModalTitle: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 18,
+    color: '#373934',
+  },
+  documentModalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  documentTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 22,
+    color: '#373934',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  documentHeading: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#373934',
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  documentText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#414141',
+    textAlign: 'justify',
   },
 });
 

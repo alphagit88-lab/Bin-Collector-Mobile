@@ -79,6 +79,7 @@ const BookingsScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
 
   const [paying, setPaying] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -126,6 +127,8 @@ const BookingsScreen: React.FC = () => {
     }
   }, [socket, fetchBookings]);
 
+
+
   useFocusEffect(
     useCallback(() => {
       fetchBookings();
@@ -136,6 +139,8 @@ const BookingsScreen: React.FC = () => {
     setRefreshing(true);
     fetchBookings();
   };
+
+
 
   const fitMapToPins = useCallback(() => {
     if (!mapRef.current) return;
@@ -544,8 +549,8 @@ const BookingsScreen: React.FC = () => {
                   provider={PROVIDER_GOOGLE}
                   style={styles.map}
                   initialRegion={{
-                    latitude: 6.9271,
-                    longitude: 79.8612,
+                    latitude: 40.7128, // Default to New York City (USA general)
+                    longitude: -74.0060,
                     latitudeDelta: 0.1,
                     longitudeDelta: 0.1,
                   }}
@@ -800,43 +805,66 @@ const BookingsScreen: React.FC = () => {
                     )}
                   </View>
 
-                  {selectedBooking.attachment_url || (selectedBooking as any).additional_images ? (
-                    <View style={styles.modalAttachmentSection}>
-                      <Text style={styles.modalSectionTitle}>Attachments</Text>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                        {selectedBooking.attachment_url && (
-                          <Image
-                            source={{ uri: `${BASE_URL}${selectedBooking.attachment_url}` }}
-                            style={styles.modalAttachmentPreview}
-                            resizeMode="cover"
-                          />
-                        )}
-                        {(selectedBooking as any).additional_images && (() => {
-                          const imgs = (selectedBooking as any).additional_images;
-                          let parsed: string[] = [];
-                          if (Array.isArray(imgs)) parsed = imgs;
-                          else if (typeof imgs === 'string') {
-                            try { parsed = JSON.parse(imgs); } catch (e) { }
-                          }
-                          return Array.isArray(parsed) ? parsed.map((img, i) => (
-                            <Image
-                              key={i}
-                              source={{ uri: `${BASE_URL}${img}` }}
-                              style={styles.modalAttachmentPreview}
-                              resizeMode="cover"
-                            />
-                          )) : null;
-                        })()}
-                        {selectedBooking.delivery_photo_url && (
-                          <Image
-                            source={{ uri: `${BASE_URL}${selectedBooking.delivery_photo_url}` }}
-                            style={styles.modalAttachmentPreview}
-                            resizeMode="cover"
-                          />
-                        )}
-                      </ScrollView>
-                    </View>
-                  ) : null}
+                  {(() => {
+                    let allImages: string[] = [];
+                    if (selectedBooking.attachment_url) {
+                      allImages.push(selectedBooking.attachment_url);
+                    }
+                    if ((selectedBooking as any).additional_images) {
+                      const imgs = (selectedBooking as any).additional_images;
+                      let parsed: string[] = [];
+                      if (Array.isArray(imgs)) parsed = imgs;
+                      else if (typeof imgs === 'string') {
+                        try { parsed = JSON.parse(imgs); } catch (e) { }
+                      }
+                      if (Array.isArray(parsed)) {
+                        allImages = [...allImages, ...parsed];
+                      }
+                    }
+                    
+                    if (allImages.length > 0 || selectedBooking.delivery_photo_url) {
+                      return (
+                        <View style={styles.modalAttachmentSection}>
+                          <Text style={styles.modalSectionTitle}>Attachments</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                            {allImages.map((img, idx) => (
+                              <Image
+                                key={`img_${idx}`}
+                                source={{ uri: `${BASE_URL}${img}` }}
+                                style={[styles.modalAttachmentPreview, { aspectRatio: imageAspectRatios[`all_${idx}`] || 1.5 }]}
+                                resizeMode="contain"
+                                onLoad={(event) => {
+                                  const { width, height } = event.nativeEvent.source;
+
+                                  setImageAspectRatios(prev => ({
+                                    ...prev,
+                                    [`all_${idx}`]: width / height
+                                  }));
+                                }}
+                              />
+                            ))}
+                            {selectedBooking.delivery_photo_url && (
+                              <Image
+                                key="delivery_photo"
+                                source={{ uri: `${BASE_URL}${selectedBooking.delivery_photo_url}` }}
+                                style={[styles.modalAttachmentPreview, { aspectRatio: imageAspectRatios['delivery_photo'] || 1.5 }]}
+                                resizeMode="contain"
+                                onLoad={(event) => {
+                                  const { width, height } = event.nativeEvent.source;
+
+                                  setImageAspectRatios(prev => ({
+                                    ...prev,
+                                    delivery_photo: width / height
+                                  }));
+                                }}
+                              />
+                            )}
+                          </ScrollView>
+                        </View>
+                      );
+                    }
+                    return null;
+                  })()}
 
                   <TouchableOpacity
                     style={[styles.closeButtonContainer, { marginTop: 20, marginBottom: 10 }]}
@@ -1390,9 +1418,10 @@ const styles = StyleSheet.create({
   },
   modalAttachmentPreview: {
     width: 250,
-    height: 180,
     borderRadius: 12,
     backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalSectionTitle: {
     fontFamily: fonts.family.bold,

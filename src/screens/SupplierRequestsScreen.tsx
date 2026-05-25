@@ -316,8 +316,8 @@ const SupplierRequestsScreen: React.FC = () => {
                       provider={PROVIDER_GOOGLE}
                       style={styles.map}
                       initialRegion={{
-                        latitude: -37.8136,
-                        longitude: 144.9631,
+                        latitude: 40.7128, // Default to New York City (USA general)
+                        longitude: -74.0060,
                         latitudeDelta: 0.1,
                         longitudeDelta: 0.1,
                       }}

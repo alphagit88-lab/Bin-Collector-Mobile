@@ -159,6 +159,7 @@ const JobDetailScreen: React.FC = () => {
   // Use route params if available, otherwise use mock data
   const [jobDetail, setJobDetail] = useState<JobDetail>(mapBackendToJobDetail(initialData));
   const [fetching, setFetching] = useState(false);
+  const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
 
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -179,6 +180,8 @@ const JobDetailScreen: React.FC = () => {
   const { user } = require('../contexts/AuthContext').useAuth();
 
   const isPending = jobDetail.status === 'pending';
+
+
 
   const fetchDrivers = React.useCallback(async () => {
     try {
@@ -212,6 +215,8 @@ const JobDetailScreen: React.FC = () => {
       fetchDrivers();
     }
   }, [user?.role, fetchDrivers, fetchJobData]);
+
+
 
   const handleAssignDriver = async (driverId: number) => {
     setAssigningDriver(true);
@@ -356,8 +361,7 @@ const JobDetailScreen: React.FC = () => {
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false,
       quality: 0.8,
     });
 
@@ -630,50 +634,49 @@ const JobDetailScreen: React.FC = () => {
               </LinearGradient>
             )}
 
-            {/* Attachment Section (Legacy Single Image) */}
-            {jobDetail.attachment_url && !jobDetail.additional_images?.length && (
-              <LinearGradient
-                colors={['#EFF2F0', '#EAFFCC']}
-                locations={[0.2377, 0.6629]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.detailCardFull}>
-                <Text style={styles.detailLabel}>Attachment</Text>
-                <TouchableOpacity
-                  onPress={() => {
-                    // Logic to view full image could go here
-                  }}>
-                  <Image
-                    source={{ uri: `${BASE_URL}${jobDetail.attachment_url}` }}
-                    style={styles.attachmentPreview}
-                    resizeMode="cover"
-                  />
-                </TouchableOpacity>
-              </LinearGradient>
-            )}
+            {/* Attachments Section (All Images) */}
+            {(() => {
+              let allImages: string[] = [];
+              if (jobDetail.attachment_url) {
+                allImages.push(jobDetail.attachment_url);
+              }
+              if (jobDetail.additional_images && jobDetail.additional_images.length > 0) {
+                allImages = [...allImages, ...jobDetail.additional_images];
+              }
+              
+              if (allImages.length > 0) {
+                return (
+                  <LinearGradient
+                    colors={['#EFF2F0', '#EAFFCC']}
+                    locations={[0.2377, 0.6629]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.detailCardFull}>
+                    <Text style={styles.detailLabel}>Attachments ({allImages.length})</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentsHorizontalScroll}>
+                      {allImages.map((img, idx) => (
+                        <TouchableOpacity key={idx} style={styles.attachmentThumbnailWrapper}>
+                          <Image
+                            source={{ uri: `${BASE_URL}${img}` }}
+                            style={[styles.attachmentThumbnail, { aspectRatio: imageAspectRatios[`all_${idx}`] || 1.5 }]}
+                            resizeMode="contain"
+                            onLoad={(event) => {
+                              const { width, height } = event.nativeEvent.source;
 
-            {/* Multiple Attachments Section */}
-            {jobDetail.additional_images && jobDetail.additional_images.length > 0 && (
-              <LinearGradient
-                colors={['#EFF2F0', '#EAFFCC']}
-                locations={[0.2377, 0.6629]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.detailCardFull}>
-                <Text style={styles.detailLabel}>Attachments ({jobDetail.additional_images.length})</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentsHorizontalScroll}>
-                  {jobDetail.additional_images.map((img, idx) => (
-                    <TouchableOpacity key={idx} style={styles.attachmentThumbnailWrapper}>
-                      <Image
-                        source={{ uri: `${BASE_URL}${img}` }}
-                        style={styles.attachmentThumbnail}
-                        resizeMode="cover"
-                      />
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </LinearGradient>
-            )}
+                              setImageAspectRatios(prev => ({
+                                ...prev,
+                                [`all_${idx}`]: width / height
+                              }));
+                            }}
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </LinearGradient>
+                );
+              }
+              return null;
+            })()}
 
             {/* Delivery Confirmation Photo Section */}
             {jobDetail.delivery_photo_url && (
@@ -690,8 +693,16 @@ const JobDetailScreen: React.FC = () => {
                   }}>
                   <Image
                     source={{ uri: `${BASE_URL}${jobDetail.delivery_photo_url}` }}
-                    style={styles.attachmentPreview}
-                    resizeMode="cover"
+                    style={[styles.attachmentPreview, { aspectRatio: imageAspectRatios['delivery_photo'] || 1.5 }]}
+                    resizeMode="contain"
+                    onLoad={(event) => {
+                      const { width, height } = event.nativeEvent.source;
+
+                      setImageAspectRatios(prev => ({
+                        ...prev,
+                        delivery_photo: width / height
+                      }));
+                    }}
                   />
                 </TouchableOpacity>
               </LinearGradient>
@@ -936,7 +947,14 @@ const JobDetailScreen: React.FC = () => {
 
                   {jobDetail.service_category !== 'service' && (jobDetail.status === 'cash_collected' || (jobDetail.status === 'on_delivery' && jobDetail.payment_method !== 'cash')) && deliveryPhoto && (
                     <View style={{ width: '100%', alignItems: 'center' }}>
-                      <Image source={{ uri: deliveryPhoto }} style={styles.deliveryPhotoPreview} />
+                      <Image source={{ uri: deliveryPhoto }} style={[styles.deliveryPhotoPreview, { aspectRatio: imageAspectRatios['preview_delivery_photo'] || 1.5 }]} resizeMode="contain" onLoad={(event) => {
+                        const { width, height } = event.nativeEvent.source;
+
+                        setImageAspectRatios(prev => ({
+                          ...prev,
+                          preview_delivery_photo: width / height
+                        }));
+                      }} />
                       <TouchableOpacity
                         onPress={handleCapturePhoto}
                         style={[styles.photoButton, { marginTop: 8 }]}>
@@ -1362,10 +1380,11 @@ const styles = StyleSheet.create({
   },
   attachmentPreview: {
     width: '100%',
-    height: 200,
     borderRadius: 8,
     marginTop: 8,
     backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   orderItemRow: {
     width: '100%',
@@ -1587,7 +1606,6 @@ const styles = StyleSheet.create({
   },
   deliveryPhotoPreview: {
     width: '100%',
-    height: 150,
     borderRadius: 10,
     marginTop: 10,
   },
@@ -1738,10 +1756,11 @@ const styles = StyleSheet.create({
     marginRight: 10,
     borderRadius: 8,
     overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   attachmentThumbnail: {
     width: 80,
-    height: 80,
   },
   repeatOrderButton: {
     flexDirection: 'row',

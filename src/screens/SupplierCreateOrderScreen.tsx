@@ -157,8 +157,8 @@ const SupplierCreateOrderScreen: React.FC = () => {
 
   // Map
   const [mapRegion, setMapRegion] = useState({
-    latitude: 45.4215, // Default Ottawa
-    longitude: -75.6972,
+    latitude: 40.7128, // Default to New York City (USA general)
+    longitude: -74.0060,
     latitudeDelta: 0.005,
     longitudeDelta: 0.005,
   });
@@ -232,8 +232,8 @@ const SupplierCreateOrderScreen: React.FC = () => {
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1&countrycodes=ca`,
-        { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1&countrycodes=us`,
+        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
       );
       const data = await response.json();
       if (data && data.length > 0) {
@@ -262,7 +262,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
-        { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
+        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
       );
       const data = await response.json();
       if (data && data.display_name) setDeliveryAddress(data.display_name);
@@ -396,8 +396,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false,
       quality: 0.7,
     });
     if (!result.canceled) {
@@ -996,8 +995,8 @@ const styles = StyleSheet.create({
   notesContainer: { backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', padding: 12, minHeight: 100 },
   notesInput: { fontFamily: fonts.family.regular, fontSize: 14, color: '#373934', textAlignVertical: 'top' },
   multiAttachmentContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
-  attachmentThumbnail: { width: 70, height: 70, borderRadius: 8, overflow: 'hidden' },
-  thumbnailImage: { width: '100%', height: '100%' },
+  attachmentThumbnail: { width: 70, height: 70, borderRadius: 8, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
+  thumbnailImage: { width: '100%', borderRadius: 8, resizeMode: 'contain' },
   removeThumbnailButton: { position: 'absolute', top: 2, right: 2 },
   addAttachmentSquare: { width: 70, height: 70, borderRadius: 8, borderStyle: 'dashed', borderWidth: 1, borderColor: '#979897', justifyContent: 'center', alignItems: 'center' },
   addAttachmentText: { fontSize: 10, color: '#979897', marginTop: 2 },

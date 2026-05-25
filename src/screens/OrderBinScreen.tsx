@@ -144,8 +144,8 @@ const OrderBinScreen: React.FC = () => {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [mapRegion, setMapRegion] = useState({
-    latitude: -37.8136, // Default to Melbourne (generic)
-    longitude: 144.9631,
+    latitude: 40.7128, // Default to New York City (USA general)
+    longitude: -74.0060,
     latitudeDelta: 0.005,
     longitudeDelta: 0.005,
   });
@@ -196,10 +196,10 @@ const OrderBinScreen: React.FC = () => {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
           deliveryAddress
-        )}&format=json&limit=1&countrycodes=ca`,
+        )}&format=json&limit=1&countrycodes=us`,
         {
           headers: {
-            'User-Agent': 'BinRentalApp/1.0',
+            'User-Agent': 'BinDropApp/1.0',
           },
         }
       );
@@ -245,7 +245,7 @@ const OrderBinScreen: React.FC = () => {
         `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
         {
           headers: {
-            'User-Agent': 'BinRentalApp/1.0',
+            'User-Agent': 'BinDropApp/1.0',
           },
         }
       );
@@ -633,8 +633,7 @@ const OrderBinScreen: React.FC = () => {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false,
       quality: 0.7,
     });
 
@@ -651,8 +650,7 @@ const OrderBinScreen: React.FC = () => {
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
+      allowsEditing: false,
       quality: 0.7,
     });
 
@@ -724,8 +722,8 @@ const OrderBinScreen: React.FC = () => {
       if (!finalLat || !finalLon) {
         try {
           const geoResponse = await fetch(
-            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1&countrycodes=ca`,
-            { headers: { 'User-Agent': 'BinRentalApp/1.0' } }
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1&countrycodes=us`,
+            { headers: { 'User-Agent': 'BinDropApp/1.0' } }
           );
           const geoData = await geoResponse.json();
           if (geoData && geoData.length > 0) {
@@ -1737,11 +1735,13 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 8,
     overflow: 'visible',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   thumbnailImage: {
     width: 70,
-    height: 70,
     borderRadius: 8,
+    resizeMode: 'contain',
   },
   removeThumbnailButton: {
     position: 'absolute',

@@ -62,6 +62,7 @@ const ServiceTrackingScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const detailsRef = React.useRef<View>(null);
   const scrollViewRef = React.useRef<ScrollView>(null);
+  const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
 
   const filteredRequests = requests.filter(request => {
     const query = searchQuery.toLowerCase();
@@ -160,6 +161,8 @@ const ServiceTrackingScreen: React.FC = () => {
     setRefreshing(true);
     fetchRequests();
   };
+
+
 
   const handleMarkReadyToPickup = async () => {
     if (!selectedRequest) return;
@@ -583,43 +586,66 @@ const ServiceTrackingScreen: React.FC = () => {
 
                     {renderTimeline(selectedRequest)}
 
-                    {(selectedRequest.attachment_url || selectedRequest.additional_images || selectedRequest.delivery_photo_url) && (
-                      <View style={styles.attachmentsSection}>
-                        <Text style={styles.sectionTitle}>Attachments</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                          {selectedRequest.attachment_url && (
-                            <Image
-                              source={{ uri: `${BASE_URL}${selectedRequest.attachment_url}` }}
-                              style={styles.attachmentPreview}
-                              resizeMode="cover"
-                            />
-                          )}
-                          {selectedRequest.additional_images && (() => {
-                            let parsed = [];
-                            try {
-                              parsed = typeof selectedRequest.additional_images === 'string'
-                                ? JSON.parse(selectedRequest.additional_images)
-                                : selectedRequest.additional_images;
-                            } catch (e) { }
-                            return Array.isArray(parsed) ? parsed.map((img, i) => (
-                              <Image
-                                key={i}
-                                source={{ uri: `${BASE_URL}${img}` }}
-                                style={styles.attachmentPreview}
-                                resizeMode="cover"
-                              />
-                            )) : null;
-                          })()}
-                          {selectedRequest.delivery_photo_url && (
-                            <Image
-                              source={{ uri: `${BASE_URL}${selectedRequest.delivery_photo_url}` }}
-                              style={styles.attachmentPreview}
-                              resizeMode="cover"
-                            />
-                          )}
-                        </ScrollView>
-                      </View>
-                    )}
+                    {(() => {
+                      let allImages: string[] = [];
+                      if (selectedRequest.attachment_url) {
+                        allImages.push(selectedRequest.attachment_url);
+                      }
+                      if (selectedRequest.additional_images) {
+                        let parsed = [];
+                        try {
+                          parsed = typeof selectedRequest.additional_images === 'string'
+                            ? JSON.parse(selectedRequest.additional_images)
+                            : selectedRequest.additional_images;
+                        } catch (e) { }
+                        if (Array.isArray(parsed)) {
+                          allImages = [...allImages, ...parsed];
+                        }
+                      }
+                      
+                      if (allImages.length > 0 || selectedRequest.delivery_photo_url) {
+                        return (
+                          <View style={styles.attachmentsSection}>
+                            <Text style={styles.sectionTitle}>Attachments</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                              {allImages.map((img, i) => (
+                                <Image
+                                  key={`img_${i}`}
+                                  source={{ uri: `${BASE_URL}${img}` }}
+                                  style={[styles.attachmentPreview, { aspectRatio: imageAspectRatios[`all_${i}`] || 1.5 }]}
+                                  resizeMode="contain"
+                                  onLoad={(event) => {
+                                    const { width, height } = event.nativeEvent.source;
+
+                                    setImageAspectRatios(prev => ({
+                                      ...prev,
+                                      [`all_${i}`]: width / height
+                                    }));
+                                  }}
+                                />
+                              ))}
+                              {selectedRequest.delivery_photo_url && (
+                                <Image
+                                  key="delivery_photo"
+                                  source={{ uri: `${BASE_URL}${selectedRequest.delivery_photo_url}` }}
+                                  style={[styles.attachmentPreview, { aspectRatio: imageAspectRatios['delivery_photo'] || 1.5 }]}
+                                  resizeMode="contain"
+                                  onLoad={(event) => {
+                                    const { width, height } = event.nativeEvent.source;
+                                    console.log('ServiceTracking: Image onLoad for delivery_photo:', width, height, 'ratio:', width / height);
+                                    setImageAspectRatios(prev => ({
+                                      ...prev,
+                                      delivery_photo: width / height
+                                    }));
+                                  }}
+                                />
+                              )}
+                            </ScrollView>
+                          </View>
+                        );
+                      }
+                      return null;
+                    })()}
                   </View>
                 )}
               </View>
@@ -1053,9 +1079,10 @@ const styles = StyleSheet.create({
   },
   attachmentPreview: {
     width: 250,
-    height: 180,
     borderRadius: 12,
     backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
   }
 });
 

@@ -1,10 +1,11 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { fonts } from '../theme/fonts';
+import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderActionIconsProps {
   useWhiteWrapper?: boolean;
@@ -12,6 +13,7 @@ interface HeaderActionIconsProps {
 
 const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper = false }) => {
   const navigation = useNavigation<any>();
+  const { user, refreshUser } = useAuth();
   const [notificationCount, setNotificationCount] = React.useState(0);
   const [messageCount, setMessageCount] = React.useState(0);
 
@@ -65,7 +67,18 @@ const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper =
 
       <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Account')}>
         <View style={styles.iconCircle}>
-          <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
+          {user?.profilePhoto ? (
+            <Image 
+              source={{ 
+                uri: user.profilePhoto.startsWith('http') 
+                  ? user.profilePhoto 
+                  : api.getBaseUrl() + user.profilePhoto 
+              }} 
+              style={styles.profilePhoto} 
+            />
+          ) : (
+            <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
+          )}
         </View>
       </TouchableOpacity>
     </View>
@@ -105,6 +118,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#29B554',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
+  },
+  profilePhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   badge: {
     position: 'absolute',

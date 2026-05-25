@@ -123,6 +123,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setToken(token);
         setUser(user);
 
+        // Refresh user to get latest profile photo
+        try {
+          const refreshResponse = await api.get<{ user: User }>(ENDPOINTS.AUTH.ME);
+          if (refreshResponse.success && refreshResponse.data) {
+            const updatedUser = refreshResponse.data.user;
+            await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+            setUser(updatedUser);
+          }
+        } catch {}
+
         return { success: true };
       } else {
         return { success: false, message: response.message || 'Login failed' };
@@ -145,6 +155,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await AsyncStorage.setItem('user', JSON.stringify(user));
         setToken(token);
         setUser(user);
+
+        // Refresh user to get latest profile photo
+        try {
+          const refreshResponse = await api.get<{ user: User }>(ENDPOINTS.AUTH.ME);
+          if (refreshResponse.success && refreshResponse.data) {
+            const updatedUser = refreshResponse.data.user;
+            await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+            setUser(updatedUser);
+          }
+        } catch {}
 
         return { success: true };
       } else {

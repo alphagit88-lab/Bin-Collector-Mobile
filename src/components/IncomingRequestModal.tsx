@@ -36,12 +36,15 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
     onAccept,
     onDecline,
 }) => {
+    const [imageAspectRatios, setImageAspectRatios] = React.useState<Record<string, number>>({});
+    
     if (!requestData) return null;
 
     const request = requestData.request || {};
-    console.log('Request data:', request);
-    console.log('Request items:', request.items);
-    console.log('Items length:', request.items?.length);
+    
+
+
+
 
     const formatDate = (dateStr: string) => {
         if (!dateStr || dateStr === 'N/A') return 'N/A';
@@ -232,8 +235,16 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                                         <Text style={styles.infoLabel}>Attachment:</Text>
                                         <Image
                                             source={{ uri: `${BASE_URL}${request.attachment_url}` }}
-                                            style={styles.attachmentPreview}
-                                            resizeMode="cover"
+                                            style={[styles.attachmentPreview, { aspectRatio: imageAspectRatios['attachment'] || 1.5 }]}
+                                            resizeMode="contain"
+                                            onLoad={(event) => {
+                                                const { width, height } = event.nativeEvent.source;
+
+                                                setImageAspectRatios(prev => ({
+                                                    ...prev,
+                                                    attachment: width / height
+                                                }));
+                                            }}
                                         />
                                     </View>
                                 ) : null}
@@ -410,10 +421,11 @@ const styles = StyleSheet.create({
     },
     attachmentPreview: {
         width: '100%',
-        height: 150,
         borderRadius: 12,
         marginTop: 8,
         backgroundColor: '#F0F0F0',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     actionsContainer: {
         flexDirection: 'row',
