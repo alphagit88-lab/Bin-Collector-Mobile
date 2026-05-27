@@ -253,13 +253,17 @@ const SupplierJobsScreen: React.FC = () => {
   const renderJobItem = (job: Job, index: number) => (
     <View key={job.id} style={styles.jobRow}>
       <View style={styles.jobColumn}>
-        {index === 0 && <Text style={styles.columnHeader}>Bin Type / Service</Text>}
+        {index === 0 && <Text style={styles.columnHeader}>Customer</Text>}
         <View style={styles.binTypeCell}>
           <Text style={styles.jobText} numberOfLines={1}>
-            {job.service_category === 'service'
-              ? (job.service_names?.split(',')[0] || 'General Service')
-              : job.bin_type_name}
+            {job.customer_name}
           </Text>
+        </View>
+      </View>
+      <View style={styles.jobColumn}>
+        {index === 0 && <Text style={styles.columnHeader}>Size/Capacity</Text>}
+        <View style={styles.binTypeCell}>
+          <Text style={styles.jobText}>{job.bin_size}</Text>
           {job.service_category === 'service' ? (
             (job.selected_services_count || 0) > 1 && (
               <View style={styles.moreBadge}>
@@ -274,12 +278,6 @@ const SupplierJobsScreen: React.FC = () => {
             )
           )}
         </View>
-      </View>
-      <View style={styles.jobColumn}>
-        {index === 0 && (
-          <Text style={styles.columnHeader}>Size/Capacity</Text>
-        )}
-        <Text style={styles.jobText}>{job.bin_size}</Text>
       </View>
       <View style={styles.actionColumn}>
         {index === 0 && <Text style={styles.columnHeaderAction}>Action</Text>}

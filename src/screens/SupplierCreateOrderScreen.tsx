@@ -157,10 +157,10 @@ const SupplierCreateOrderScreen: React.FC = () => {
 
   // Map
   const [mapRegion, setMapRegion] = useState({
-    latitude: 40.7128, // Default to New York City (USA general)
-    longitude: -74.0060,
-    latitudeDelta: 0.005,
-    longitudeDelta: 0.005,
+    latitude: 43.6532, // Default to Toronto, Canada
+    longitude: -79.3832,
+    latitudeDelta: 0.1,
+    longitudeDelta: 0.1,
   });
   const [isSearching, setIsSearching] = useState(false);
   const [binPrices, setBinPrices] = useState<any[]>([]);
@@ -232,7 +232,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1&countrycodes=us`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1&countrycodes=ca`,
         { headers: { 'User-Agent': 'BinDropApp/1.0' } }
       );
       const data = await response.json();

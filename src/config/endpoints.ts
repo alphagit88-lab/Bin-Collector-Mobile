@@ -11,6 +11,8 @@ export const ENDPOINTS = {
         TYPES: '/bins/types',
         SIZES: (typeId: number) => `/bins/sizes?binTypeId=${typeId}`,
         PRICES: '/bins/prices',
+        AVAILABLE_TYPES: '/bins/available-types',
+        AVAILABLE_SIZES: '/bins/available-sizes',
         PHYSICAL: '/bins/physical',
         UPDATE_PHYSICAL: (id: number) => `/bins/physical/${id}`,
         SUPPLIER_PRICES: (typeId: number, sizeId?: number) => `/bins/supplier-prices?binTypeId=${typeId}${sizeId ? `&binSizeId=${sizeId}` : ''}`,

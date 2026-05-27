@@ -60,8 +60,8 @@ const ServiceAreaScreen: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [mapRegion, setMapRegion] = useState({
-    latitude: 40.7128, // Default to New York City (USA general)
-    longitude: -74.0060,
+    latitude: 43.6532, // Default to Toronto, Canada
+    longitude: -79.3832,
     latitudeDelta: 0.1,
     longitudeDelta: 0.1,
   });
@@ -117,8 +117,8 @@ const ServiceAreaScreen: React.FC = () => {
     setNewLatitude(null);
     setNewLongitude(null);
     setMapRegion({
-      latitude: 40.7128,
-      longitude: -74.0060,
+      latitude: 43.6532,
+      longitude: -79.3832,
       latitudeDelta: 0.1,
       longitudeDelta: 0.1,
     });
@@ -240,7 +240,7 @@ const ServiceAreaScreen: React.FC = () => {
     setIsSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newCity)}&format=json&limit=1&addressdetails=1&countrycodes=us`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newCity)}&format=json&limit=1&addressdetails=1&countrycodes=ca`,
         { headers: { 'User-Agent': 'BinDropApp/1.0' } }
       );
       const data = await response.json();

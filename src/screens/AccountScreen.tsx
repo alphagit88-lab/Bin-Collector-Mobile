@@ -108,10 +108,10 @@ const AccountScreen: React.FC = () => {
   const [mapLat, setMapLat] = React.useState<number | null>(null);
   const [mapLon, setMapLon] = React.useState<number | null>(null);
   const [mapRegion, setMapRegion] = React.useState({
-    latitude: 40.7128, // Default to New York City (USA general)
-    longitude: -74.0060,
-    latitudeDelta: 0.005,
-    longitudeDelta: 0.005,
+    latitude: 43.6532, // Default to Toronto, Canada
+    longitude: -79.3832,
+    latitudeDelta: 0.1,
+    longitudeDelta: 0.1,
   });
 
   // Load default location + profile photo on mount
@@ -207,7 +207,7 @@ const AccountScreen: React.FC = () => {
     setMapSearching(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapAddress)}&format=json&limit=1&countrycodes=us`,
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapAddress)}&format=json&limit=1&countrycodes=ca`,
         { headers: { 'User-Agent': 'BinDropApp/1.0' } }
       );
       const data = await response.json();

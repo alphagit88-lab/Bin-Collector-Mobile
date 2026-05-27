@@ -144,10 +144,10 @@ const OrderBinScreen: React.FC = () => {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
   const [mapRegion, setMapRegion] = useState({
-    latitude: 40.7128, // Default to New York City (USA general)
-    longitude: -74.0060,
-    latitudeDelta: 0.005,
-    longitudeDelta: 0.005,
+    latitude: 43.6532, // Default to Toronto, Canada
+    longitude: -79.3832,
+    latitudeDelta: 0.1,
+    longitudeDelta: 0.1,
   });
   const [isSearching, setIsSearching] = useState(false);
   const [attachments, setAttachments] = useState<ImagePicker.ImagePickerAsset[]>([]);
@@ -155,6 +155,7 @@ const OrderBinScreen: React.FC = () => {
   const [poNumber, setPoNumber] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetchingSizes, setFetchingSizes] = useState(false);
+  const [fetchingBinTypes, setFetchingBinTypes] = useState(false);
   const [binPrices, setBinPrices] = useState<PriceConfig[]>([]);
   const [fetchingPrices, setFetchingPrices] = useState(false);
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([]);
@@ -167,6 +168,7 @@ const OrderBinScreen: React.FC = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [selectedProjectName, setSelectedProjectName] = useState('');
   const [projectModalVisible, setProjectModalVisible] = useState(false);
+  const [loadingDefaultLocation, setLoadingDefaultLocation] = useState(false);
 
   // Date Picker State
   const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
@@ -196,7 +198,7 @@ const OrderBinScreen: React.FC = () => {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
           deliveryAddress
-        )}&format=json&limit=1&countrycodes=us`,
+        )}&format=json&limit=1&countrycodes=ca`,
         {
           headers: {
             'User-Agent': 'BinDropApp/1.0',
@@ -218,6 +220,17 @@ const OrderBinScreen: React.FC = () => {
           latitude: newLat,
           longitude: newLon,
         }));
+        // Reset bin selections when location changes
+        setBins([
+          {
+            bin_type_id: '',
+            bin_type_name: '',
+            bin_size_id: '',
+            bin_size_name: '',
+            quantity: '1',
+          },
+        ]);
+        setBinSizesMap({});
       } else {
         toast.error('Address not found. Please try a more specific address.');
       }
@@ -239,6 +252,18 @@ const OrderBinScreen: React.FC = () => {
       latitude: newLat,
       longitude: newLon,
     }));
+
+    // Reset bin selections when location changes
+    setBins([
+      {
+        bin_type_id: '',
+        bin_type_name: '',
+        bin_size_id: '',
+        bin_size_name: '',
+        quantity: '1',
+      },
+    ]);
+    setBinSizesMap({});
 
     try {
       const response = await fetch(
@@ -264,9 +289,6 @@ const OrderBinScreen: React.FC = () => {
       const response = await api.get<{ prices: PriceConfig[] }>(`${ENDPOINTS.BINS.PRICES}?lat=${lat}&lon=${lon}`);
       if (response.success && response.data) {
         setBinPrices(response.data.prices);
-        if (response.data.prices.length === 0 && response.message) {
-          toast.info('Availability', response.message);
-        }
       }
     } catch (error) {
       console.error('Error fetching prices:', error);
@@ -275,11 +297,54 @@ const OrderBinScreen: React.FC = () => {
     }
   };
 
+  const fetchAvailableBinTypes = async (lat: number, lon: number) => {
+    setFetchingBinTypes(true);
+    try {
+      const response = await api.get<{ binTypes: BinType[] }>(`${ENDPOINTS.BINS.AVAILABLE_TYPES}?lat=${lat}&lon=${lon}`);
+      
+      if (response.success && response.data) {
+        const binTypes = response.data.binTypes;
+        setBinTypes(binTypes);
+        
+        if (
+          binTypes !== null &&
+          binTypes !== undefined &&
+          Array.isArray(binTypes) &&
+          binTypes.length === 0
+        ) {
+          toast.info('Availability', response.message || 'No bins available in this area');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching available bin types:', error);
+    } finally {
+      setFetchingBinTypes(false);
+    }
+  };
+
+  const fetchAvailableBinSizes = async (lat: number, lon: number, binTypeId: number) => {
+    setFetchingSizes(true);
+    try {
+      const response = await api.get<{ binSizes: BinSize[] }>(`${ENDPOINTS.BINS.AVAILABLE_SIZES}?lat=${lat}&lon=${lon}&binTypeId=${binTypeId}`);
+      if (response.success && response.data) {
+        setBinSizesMap((prev) => ({ ...prev, [binTypeId]: response?.data?.binSizes ?? [] }));
+      }
+    } catch (error) {
+      console.error('Error fetching available bin sizes:', error);
+    } finally {
+      setFetchingSizes(false);
+    }
+  };
+
   useEffect(() => {
     if (latitude && longitude) {
       fetchBinPrices(latitude, longitude);
+      fetchAvailableBinTypes(latitude, longitude);
+    } else {
+      setBinTypes([]);
+      setBinSizesMap({});
     }
-  }, [latitude, longitude]);
+  }, [longitude]);
 
   // Dropdown data
   const [binTypes, setBinTypes] = useState<BinType[]>([]);
@@ -342,6 +407,7 @@ const OrderBinScreen: React.FC = () => {
 
 
   const loadDefaultLocation = React.useCallback(async () => {
+    setLoadingDefaultLocation(true);
     try {
       const raw = await AsyncStorage.getItem('defaultLocation');
       if (raw) {
@@ -400,19 +466,12 @@ const OrderBinScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading default location:', error);
+    } finally {
+      setLoadingDefaultLocation(false);
     }
   }, []);
 
-  const fetchBinTypes = React.useCallback(async () => {
-    try {
-      const response = await api.get<{ binTypes: BinType[] }>(`${ENDPOINTS.BINS.TYPES}?t=${Date.now()}`);
-      if (response.success && response.data) {
-        setBinTypes(response.data.binTypes);
-      }
-    } catch (error) {
-      console.error('Error fetching bin types:', error);
-    }
-  }, []);
+
 
   const fetchServiceCategories = React.useCallback(async () => {
     setFetchingCategories(true);
@@ -476,11 +535,10 @@ const OrderBinScreen: React.FC = () => {
       setSelectedServices([]);
       setCustomerBudget('');
 
-      // Keep repeat-order location intact; default location should only apply on fresh orders.
-      if (!hasRepeatData) {
+      // Keep repeat-order location intact; default location should only apply on fresh orders without existing address.
+      if (!hasRepeatData && !deliveryAddress.trim()) {
         loadDefaultLocation();
       }
-      fetchBinTypes();
       fetchServiceCategories();
       fetchSystemSettings();
       fetchProjects();
@@ -528,7 +586,7 @@ const OrderBinScreen: React.FC = () => {
           }]);
         }
       }
-    }, [user, loadDefaultLocation, fetchBinTypes, fetchServiceCategories, route.params])
+    }, [user, fetchServiceCategories, route.params])
   );
 
 
@@ -539,20 +597,7 @@ const OrderBinScreen: React.FC = () => {
   };
 
 
-  const fetchBinSizes = async (typeId: number) => {
-    if (binSizesMap[typeId]) return;
-    setFetchingSizes(true);
-    try {
-      const response = await api.get<{ binSizes: BinSize[] }>(`${ENDPOINTS.BINS.SIZES(typeId)}&t=${Date.now()}`);
-      if (response.success && response.data) {
-        setBinSizesMap((prev) => ({ ...prev, [typeId]: response?.data?.binSizes ?? [] }));
-      }
-    } catch (error) {
-      console.error('Error fetching bin sizes:', error);
-    } finally {
-      setFetchingSizes(false);
-    }
-  };
+
 
   const openTypeModal = (index: number) => {
     setActiveBinIndex(index);
@@ -572,9 +617,9 @@ const OrderBinScreen: React.FC = () => {
 
   const openSizeModal = (index: number) => {
     const bin = bins[index];
-    if (bin.bin_type_id) {
+    if (bin.bin_type_id && latitude && longitude) {
       setActiveBinIndex(index);
-      fetchBinSizes(parseInt(bin.bin_type_id));
+      fetchAvailableBinSizes(latitude, longitude, parseInt(bin.bin_type_id));
       setSizeModalVisible(true);
     }
   };
@@ -585,7 +630,9 @@ const OrderBinScreen: React.FC = () => {
       bin_type_name: type.name,
     });
     setTypeModalVisible(false);
-    fetchBinSizes(type.id);
+    if (latitude && longitude) {
+      fetchAvailableBinSizes(latitude, longitude, type.id);
+    }
   };
 
   const selectProject = (project: any) => {
@@ -708,7 +755,7 @@ const OrderBinScreen: React.FC = () => {
       }
     }
 
-    if (!deliveryDate || !pickupDate) {
+    if (serviceType !== 'commercial' && (!deliveryDate || !pickupDate)) {
       toast.error('Error', 'Please select both start and end dates');
       return;
     }
@@ -748,8 +795,12 @@ const OrderBinScreen: React.FC = () => {
         }))));
       }
       formData.append('location', deliveryAddress);
-      formData.append('start_date', deliveryDate);
-      formData.append('end_date', pickupDate);
+      if (deliveryDate) {
+        formData.append('start_date', deliveryDate);
+      }
+      if (pickupDate) {
+        formData.append('end_date', pickupDate);
+      }
       formData.append('payment_method', paymentMethod);
       formData.append('contact_number', contactNumber);
       formData.append('contact_email', additionalContact);
@@ -984,7 +1035,65 @@ const OrderBinScreen: React.FC = () => {
             </LinearGradient>
           </View>
 
-          {/* Section 2: Bin Selection */}
+          {/* Section 2: Location */}
+          <View style={styles.formSection}>
+            <LinearGradient
+              colors={['#EFF2F0', '#F8FFEE']}
+              locations={[0.2377, 0.6629]}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
+              style={styles.formSectionGradient}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <FormField
+                    label="Location*"
+                    placeholder="Enter Delivery Address"
+                    value={deliveryAddress}
+                    onChangeText={setDeliveryAddress}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.searchButton}
+                  onPress={handleSearchAddress}
+                  disabled={isSearching || loadingDefaultLocation}
+                >
+                  <LinearGradient
+                    colors={['#29B554', '#6EAD16']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.searchButtonGradient}
+                  >
+                    {isSearching || loadingDefaultLocation ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <Ionicons name="search" size={20} color="#FFF" />
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.mapContainer}>
+                <MapView
+                  style={styles.map}
+                  provider={PROVIDER_GOOGLE}
+                  region={mapRegion}
+                >
+                  {hasValidCoordinates && (
+                    <Marker
+                      coordinate={{ latitude, longitude }}
+                      draggable
+                      onDragEnd={onMarkerDragEnd}
+                      title="Delivery Location"
+                      description="Drag to refine"
+                    />
+                  )}
+                </MapView>
+                <Text style={styles.mapHint}>Drag the pin to refine your exact location</Text>
+              </View>
+            </LinearGradient>
+          </View>
+
+          {/* Section 3: Bin Selection */}
           {serviceType !== 'service' && (
             <View style={styles.formSection}>
               <LinearGradient
@@ -997,68 +1106,92 @@ const OrderBinScreen: React.FC = () => {
                   <Text style={styles.formSectionTitleSmall}>Bins *</Text>
                 </View>
 
-                {bins.map((bin, index) => (
-                  <View key={index} style={[styles.binFormContainer, index > 0 && { marginTop: 12 }]}>
-                    <LinearGradient
-                      colors={['#EFF2F0', '#F8FFEE']}
-                      locations={[0.2377, 0.6629]}
-                      start={{ x: 0.34, y: 0 }}
-                      end={{ x: 0.66, y: 1 }}
-                      style={styles.binFormGradient}>
-                      {bins.length > 1 && (
-                        <TouchableOpacity
-                          style={styles.removeBinButton}
-                          onPress={() => removeBin(index)}
-                        >
-                          <Ionicons name="close-circle" size={24} color="#EF4444" />
-                        </TouchableOpacity>
-                      )}
-                      <FormField
-                        label="Bin Type*"
-                        placeholder="Select Bin Type"
-                        value={bin.bin_type_name}
-                        onChangeText={() => { }}
-                        isDropdown
-                        onPress={() => openTypeModal(index)}
-                      />
-                      {(!bin.bin_type_id || (bin.bin_type_id && (binSizesMap[parseInt(bin.bin_type_id as string)] === undefined || binSizesMap[parseInt(bin.bin_type_id as string)].length > 0))) && (
-                        <FormField
-                          label="Bin Size*"
-                          placeholder={bin.bin_type_id ? "Select Bin Size" : "Select Type First"}
-                          value={bin.bin_size_name}
-                          onChangeText={() => { }}
-                          isDropdown
-                          onPress={() => openSizeModal(index)}
-                        />
-                      )}
-                      <FormField
-                        label="Quantity*"
-                        placeholder="Enter Quantity"
-                        value={bin.quantity}
-                        onChangeText={(val) => updateBin(index, { quantity: val })}
-                      />
-                    </LinearGradient>
+                {!hasValidCoordinates ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Ionicons name="location-outline" size={40} color="#90B93E" style={{ marginBottom: 10 }} />
+                    <Text style={{ color: '#64748B', textAlign: 'center' }}>
+                      Please select a location first before choosing bins
+                    </Text>
                   </View>
-                ))}
+                ) : fetchingBinTypes ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="#29B554" style={{ marginBottom: 10 }} />
+                    <Text style={{ color: '#64748B' }}>Getting available bin types...</Text>
+                  </View>
+                ) : (
+                  <>
+                    {bins.map((bin, index) => (
+                      <View key={index} style={[styles.binFormContainer, index > 0 && { marginTop: 12 }]}>
+                        <LinearGradient
+                          colors={['#EFF2F0', '#F8FFEE']}
+                          locations={[0.2377, 0.6629]}
+                          start={{ x: 0.34, y: 0 }}
+                          end={{ x: 0.66, y: 1 }}
+                          style={styles.binFormGradient}>
+                          {bins.length > 1 && (
+                            <TouchableOpacity
+                              style={styles.removeBinButton}
+                              onPress={() => removeBin(index)}
+                            >
+                              <Ionicons name="close-circle" size={24} color="#EF4444" />
+                            </TouchableOpacity>
+                          )}
+                          <FormField
+                            label="Bin Type*"
+                            placeholder={binTypes.length === 0 ? "No bin types available" : "Select Bin Type"}
+                            value={bin.bin_type_name}
+                            onChangeText={() => { }}
+                            isDropdown
+                            onPress={() => binTypes.length > 0 && openTypeModal(index)}
+                          />
+                          {(!bin.bin_type_id || (bin.bin_type_id && (binSizesMap[parseInt(bin.bin_type_id as string)] === undefined || binSizesMap[parseInt(bin.bin_type_id as string)].length > 0))) && (
+                            <FormField
+                              label="Bin Size*"
+                              placeholder={
+                                !bin.bin_type_id 
+                                  ? "Select Type First" 
+                                  : fetchingSizes 
+                                    ? "Getting bin sizes..." 
+                                    : binSizesMap[parseInt(bin.bin_type_id as string)]?.length === 0 
+                                      ? "No sizes available" 
+                                      : "Select Bin Size"
+                              }
+                              value={bin.bin_size_name}
+                              onChangeText={() => { }}
+                              isDropdown
+                              onPress={() => bin.bin_type_id && openSizeModal(index)}
+                            />
+                          )}
+                          <FormField
+                            label="Quantity*"
+                            placeholder="Enter Quantity"
+                            value={bin.quantity}
+                            onChangeText={(val) => updateBin(index, { quantity: val })}
+                          />
+                        </LinearGradient>
+                      </View>
+                    ))}
 
-                <TouchableOpacity
-                  style={[styles.addBinButton, { marginTop: 10, width: 140, height: 35, alignSelf: 'flex-end' }]}
-                  activeOpacity={0.7}
-                  onPress={addBin}>
-                  <LinearGradient
-                    colors={['#29B554', '#6EAD16']}
-                    locations={[0.2227, 0.7018]}
-                    start={{ x: 0.7, y: 0 }}
-                    end={{ x: 0, y: 0.8 }}
-                    style={styles.addBinButtonGradient}>
-                    <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.addBinButton, { marginTop: 10, width: 140, height: 35, alignSelf: 'flex-end' }]}
+                      activeOpacity={0.7}
+                      onPress={addBin}>
+                      <LinearGradient
+                        colors={['#29B554', '#6EAD16']}
+                        locations={[0.2227, 0.7018]}
+                        start={{ x: 0.7, y: 0 }}
+                        end={{ x: 0, y: 0.8 }}
+                        style={styles.addBinButtonGradient}>
+                        <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </>
+                )}
               </LinearGradient>
             </View>
           )}
 
-          {/* Section 2: Service Selection (Conditional) */}
+          {/* Section 4: Service Selection (Conditional) */}
           {serviceType === 'service' && (
             <View style={styles.formSection}>
               <LinearGradient
@@ -1118,7 +1251,7 @@ const OrderBinScreen: React.FC = () => {
             </View>
           )}
 
-          {/* Section 3: Delivery Details */}
+          {/* Section 5: Dates */}
           <View style={styles.formSection}>
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
@@ -1126,55 +1259,11 @@ const OrderBinScreen: React.FC = () => {
               start={{ x: 0.34, y: 0 }}
               end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <FormField
-                    label="Location*"
-                    placeholder="Enter Delivery Address"
-                    value={deliveryAddress}
-                    onChangeText={setDeliveryAddress}
-                  />
-                </View>
-                <TouchableOpacity
-                  style={styles.searchButton}
-                  onPress={handleSearchAddress}
-                  disabled={isSearching}
-                >
-                  <LinearGradient
-                    colors={['#29B554', '#6EAD16']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.searchButtonGradient}
-                  >
-                    {isSearching ? (
-                      <ActivityIndicator size="small" color="#FFF" />
-                    ) : (
-                      <Ionicons name="search" size={20} color="#FFF" />
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.mapContainer}>
-                <MapView
-                  style={styles.map}
-                  provider={PROVIDER_GOOGLE}
-                  region={mapRegion}
-                >
-                  {hasValidCoordinates && (
-                    <Marker
-                      coordinate={{ latitude, longitude }}
-                      draggable
-                      onDragEnd={onMarkerDragEnd}
-                      title="Delivery Location"
-                      description="Drag to refine"
-                    />
-                  )}
-                </MapView>
-                <Text style={styles.mapHint}>Drag the pin to refine your exact location</Text>
+              <View style={styles.binSectionHeader}>
+                <Text style={styles.formSectionTitleSmall}>{serviceType === 'commercial' ? 'Dates' : 'Dates *'}</Text>
               </View>
               <FormField
-                label="Start Date*"
+                label={serviceType === 'commercial' ? 'Start Date' : 'Start Date*'}
                 placeholder="Select Start Date"
                 value={deliveryDate ? formatDateForDisplay(deliveryDateObj) : ""}
                 onChangeText={() => { }}
@@ -1192,7 +1281,7 @@ const OrderBinScreen: React.FC = () => {
                 />
               )}
               <FormField
-                label="End date*"
+                label={serviceType === 'commercial' ? 'End date' : 'End date*'}
                 placeholder="Select End Date"
                 value={pickupDate ? formatDateForDisplay(pickupDateObj) : ""}
                 onChangeText={() => { }}
@@ -1396,9 +1485,6 @@ const OrderBinScreen: React.FC = () => {
                 style={styles.formSectionGradient}>
 
                 {(() => {
-                  const diffTime = Math.abs(pickupDateObj.getTime() - deliveryDateObj.getTime());
-                  const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-
                   if (fetchingSettings) {
                     return <ActivityIndicator size="small" color={themeColors.primary} />;
                   }
@@ -1408,24 +1494,33 @@ const OrderBinScreen: React.FC = () => {
                   const dailyRateStr = systemSettings['additional_day_charge'];
 
                   if (!commercialLimit || !residentialLimit || !dailyRateStr) {
-                    return (
-                      <View style={styles.errorContainer}>
-                        <Ionicons name="alert-circle" size={20} color="#E53E3E" />
-                        <Text style={styles.errorText}>Pricing configuration missing. Please contact support.</Text>
-                      </View>
-                    );
+                    // If commercial, we don't need all settings - just base price
                   }
-
-                  const limitDays = serviceType === 'commercial' ? parseInt(commercialLimit!) : parseInt(residentialLimit!);
-                  const dailyRate = parseFloat(dailyRateStr!);
-
-                  const exceededDays = durationDays > limitDays ? durationDays - limitDays : 0;
-                  const additionalCharge = exceededDays * dailyRate;
 
                   const basePrice = bins.reduce((acc, b) => {
                     const price = binPrices.find(p => p.bin_size_id.toString() === b.bin_size_id)?.admin_final_price;
                     return acc + (parseFloat(price || '0') * (parseInt(b.quantity) || 1));
                   }, 0);
+
+                  if (serviceType === 'commercial') {
+                    // For commercial: just show estimated total
+                    return (
+                      <View style={styles.summaryRow}>
+                        <Text style={styles.summaryLabel}>Estimated Total:</Text>
+                        <Text style={[styles.summaryValue, { color: '#29B554' }]}>
+                          ${basePrice.toFixed(2)}
+                        </Text>
+                      </View>
+                    );
+                  }
+
+                  // For residential: show full breakdown
+                  const diffTime = Math.abs(pickupDateObj.getTime() - deliveryDateObj.getTime());
+                  const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+                  const limitDays = parseInt(residentialLimit!);
+                  const dailyRate = parseFloat(dailyRateStr!);
+                  const exceededDays = durationDays > limitDays ? durationDays - limitDays : 0;
+                  const additionalCharge = exceededDays * dailyRate;
 
                   return (
                     <>
