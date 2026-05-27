@@ -46,8 +46,8 @@ interface JobDetail {
   binType: string;
   binSize: string;
   total: string;
-  deliveryDate: string;
-  pickupDate: string;
+  deliveryDate: string | null;
+  pickupDate: string | null;
   location: string;
   customerName: string;
   customerId: string;
@@ -105,17 +105,17 @@ const JobDetailScreen: React.FC = () => {
   const initialData = (route.params as any)?.booking || (route.params as any)?.job || mockJobDetail;
 
   const formatDisplayDate = (dateStr: any) => {
-    if (!dateStr || dateStr === 'N/A') return 'N/A';
+    if (!dateStr || dateStr === 'N/A') return null;
     try {
       const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
+      if (isNaN(date.getTime())) return null;
       return date.toLocaleDateString('en-US', {
         month: 'long',
         day: 'numeric',
         year: 'numeric',
       });
     } catch (e) {
-      return dateStr;
+      return null;
     }
   };
 
@@ -514,26 +514,32 @@ const JobDetailScreen: React.FC = () => {
             )}
 
             {/* Second Row - Delivery Date and Pickup Date */}
-            <View style={styles.detailsRow}>
-              <LinearGradient
-                colors={['#EFF2F0', '#EAFFCC']}
-                locations={[0.2377, 0.6629]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.detailCardSmall}>
-                <Text style={styles.detailLabel}>Delivery Date</Text>
-                <Text style={styles.detailValue}>{jobDetail.deliveryDate}</Text>
-              </LinearGradient>
-              <LinearGradient
-                colors={['#EFF2F0', '#EAFFCC']}
-                locations={[0.2377, 0.6629]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.detailCardSmall}>
-                <Text style={styles.detailLabel}>Pickup Date</Text>
-                <Text style={styles.detailValue}>{jobDetail.pickupDate}</Text>
-              </LinearGradient>
-            </View>
+            {(jobDetail.deliveryDate || jobDetail.pickupDate) && (
+              <View style={styles.detailsRow}>
+                {jobDetail.deliveryDate && (
+                  <LinearGradient
+                    colors={['#EFF2F0', '#EAFFCC']}
+                    locations={[0.2377, 0.6629]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.detailCardSmall}>
+                    <Text style={styles.detailLabel}>Delivery Date</Text>
+                    <Text style={styles.detailValue}>{jobDetail.deliveryDate}</Text>
+                  </LinearGradient>
+                )}
+                {jobDetail.pickupDate && (
+                  <LinearGradient
+                    colors={['#EFF2F0', '#EAFFCC']}
+                    locations={[0.2377, 0.6629]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.detailCardSmall, !jobDetail.deliveryDate && { flex: 1 }]}>
+                    <Text style={styles.detailLabel}>Pickup Date</Text>
+                    <Text style={styles.detailValue}>{jobDetail.pickupDate}</Text>
+                  </LinearGradient>
+                )}
+              </View>
+            )}
 
             {/* Location Card */}
             <LinearGradient

@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Dimensions,
   TextInput,
+  Modal,
 } from 'react-native';
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
@@ -91,6 +92,10 @@ const SupplierJobsScreen: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [searchQuery, setSearchQuery] = useState('');
   const mapRef = useRef<MapView>(null);
+  
+  // Full text modal state
+  const [fullTextModalVisible, setFullTextModalVisible] = useState(false);
+  const [fullTextContent, setFullTextContent] = useState('');
 
   const fetchJobs = useCallback(async () => {
     try {
@@ -222,6 +227,20 @@ const SupplierJobsScreen: React.FC = () => {
   };
 
   const handleViewJob = (job: Job) => {
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return null;
+      try {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return null;
+        return date.toLocaleDateString('en-US', {
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        });
+      } catch (e) {
+        return null;
+      }
+    };
     navigation.navigate('JobDetail', {
       job: {
         id: job.id,
@@ -233,8 +252,8 @@ const SupplierJobsScreen: React.FC = () => {
         location: job.location,
         status: job.status,
         orderItems: job.items || job.orderItems || [],
-        deliveryDate: new Date(job.start_date).toLocaleDateString(),
-        pickupDate: new Date(job.end_date).toLocaleDateString(),
+        deliveryDate: formatDate(job.start_date),
+        pickupDate: formatDate(job.end_date),
         customerName: job.customer_name,
         customerId: job.id.toString(), // or job.customer_id if you want the user id
         customerPhone: job.customer_phone,
@@ -250,14 +269,32 @@ const SupplierJobsScreen: React.FC = () => {
     });
   };
 
+  // Helper to truncate text to max 10 chars
+  const truncateText = (text: string | undefined | null) => {
+    if (!text) return 'N/A';
+    return text.length > 10 ? text.substring(0, 10) + '...' : text;
+  };
+
   const renderJobItem = (job: Job, index: number) => (
     <View key={job.id} style={styles.jobRow}>
       <View style={styles.jobColumn}>
-        {index === 0 && <Text style={styles.columnHeader}>Customer</Text>}
+        {index === 0 && <Text style={styles.columnHeader}>Customer & Address</Text>}
         <View style={styles.binTypeCell}>
-          <Text style={styles.jobText} numberOfLines={1}>
-            {job.customer_name}
-          </Text>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => {
+              const fullText = `Customer: ${job.customer_name || 'N/A'}\nAddress: ${job.location || 'N/A'}`;
+              setFullTextContent(fullText);
+              setFullTextModalVisible(true);
+            }}
+          >
+            <Text style={styles.jobText} numberOfLines={1}>
+              {truncateText(job.customer_name)}
+            </Text>
+            <Text style={[styles.jobText, { fontSize: 12, color: '#666' }]} numberOfLines={1}>
+              {truncateText(job.location)}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
       <View style={styles.jobColumn}>
@@ -520,6 +557,24 @@ const SupplierJobsScreen: React.FC = () => {
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Full Text Modal */}
+      <Modal
+        visible={fullTextModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFullTextModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setFullTextModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <Text style={styles.modalText}>{fullTextContent}</Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <SupplierBottomNavBar activeTab="jobs" />
     </View>
@@ -901,6 +956,25 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 10,
     fontFamily: fonts.family.bold,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    margin: 20,
+    maxWidth: '90%',
+  },
+  modalText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#242424',
   },
 });
 

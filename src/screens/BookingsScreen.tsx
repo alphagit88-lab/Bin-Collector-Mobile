@@ -65,6 +65,8 @@ interface Booking {
   duration_days?: number;
   exceeded_days?: number;
   project_name?: string;
+  gst_rate?: number;
+  gst_amount?: number;
 }
 
 const BookingsScreen: React.FC = () => {
@@ -267,12 +269,22 @@ const BookingsScreen: React.FC = () => {
   };
 
   const formatDateRange = (start: string, end: string) => {
+    if (!start && !end) return null;
+    if (!start) {
+      const endDate = new Date(end);
+      if (isNaN(endDate.getTime())) return null;
+      return endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    if (!end) {
+      const startDate = new Date(start);
+      if (isNaN(startDate.getTime())) return null;
+      return startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
     const startDate = new Date(start);
     const endDate = new Date(end);
-
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
     const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
     return `${startStr} - ${endStr}`;
   };
 
@@ -471,12 +483,18 @@ const BookingsScreen: React.FC = () => {
                                 <Text numberOfLines={1} style={styles.bookingValue}>{booking.bin_type_name}</Text>
                               )}
                             </View>
-                            <View style={styles.bookingInfoItem}>
-                              <Text style={styles.bookingLabel}>Dates</Text>
-                              <Text style={styles.bookingValue}>
-                                {formatDateRange(booking.start_date, booking.end_date)}
-                              </Text>
-                            </View>
+                            {(() => {
+                              const dateRange = formatDateRange(booking.start_date, booking.end_date);
+                              if (dateRange) {
+                                return (
+                                  <View style={styles.bookingInfoItem}>
+                                    <Text style={styles.bookingLabel}>Dates</Text>
+                                    <Text style={styles.bookingValue}>{dateRange}</Text>
+                                  </View>
+                                );
+                              }
+                              return null;
+                            })()}
                           </View>
                           {/* Second Row: Amount, Status */}
                           <View style={styles.amountStatusRow}>
@@ -659,19 +677,27 @@ const BookingsScreen: React.FC = () => {
                     <Text style={styles.modalValue}>{getStatusDisplay(selectedBooking.status)}</Text>
                   </View>
 
-                  <View style={styles.modalRow}>
-                    <Text style={styles.modalLabel}>Date Range</Text>
-                    <Text style={styles.modalValue}>{formatDateRange(selectedBooking.start_date, selectedBooking.end_date)}</Text>
-                  </View>
+                  {(() => {
+                    const dateRange = formatDateRange(selectedBooking.start_date, selectedBooking.end_date);
+                    if (dateRange) {
+                      return (
+                        <View style={styles.modalRow}>
+                          <Text style={styles.modalLabel}>Date Range</Text>
+                          <Text style={styles.modalValue}>{dateRange}</Text>
+                        </View>
+                      );
+                    }
+                    return null;
+                  })()}
 
-                  {selectedBooking.duration_days && (
+                  {selectedBooking.duration_days && (selectedBooking.start_date || selectedBooking.end_date) && (
                     <View style={styles.modalRow}>
                       <Text style={styles.modalLabel}>Duration</Text>
                       <Text style={styles.modalValue}>{selectedBooking.duration_days} Day(s)</Text>
                     </View>
                   )}
 
-                  {parseFloat(selectedBooking.additional_duration_charge as string) > 0 && (
+                  {selectedBooking.duration_days && (selectedBooking.start_date || selectedBooking.end_date) && selectedBooking.base_price && parseFloat(selectedBooking.additional_duration_charge as string) > 0 && (
                     <>
                       <View style={styles.modalRow}>
                         <Text style={styles.modalLabel}>
@@ -686,6 +712,14 @@ const BookingsScreen: React.FC = () => {
                     </>
                   )}
 
+                  {(selectedBooking.gst_rate && selectedBooking.gst_rate > 0) && (
+                    <View style={styles.modalRow}>
+                      <Text style={styles.modalLabel}>GST ({selectedBooking.gst_rate}%)</Text>
+                      <Text style={styles.modalValue}>
+                        {formatPrice(selectedBooking.gst_amount || 0)}
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.modalRow}>
                     <Text style={styles.modalLabel}>Total Amount</Text>
                     <Text style={[styles.modalValue, { fontSize: 18, color: '#29B554' }]}>

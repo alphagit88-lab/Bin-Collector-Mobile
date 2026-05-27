@@ -43,6 +43,7 @@ const LoginScreen: React.FC = () => {
     setLoading(false);
 
     if (!result.success) {
+      console.error('Login Failed: ', result);
       toast.error('Login Failed', result.message || 'Invalid credentials');
     }
   };

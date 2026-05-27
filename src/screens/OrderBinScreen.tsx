@@ -22,7 +22,7 @@ import { useStripe } from '@stripe/stripe-react-native';
 import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../config/api';
+import { api, API_URL } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -164,6 +164,8 @@ const OrderBinScreen: React.FC = () => {
   const [fetchingCategories, setFetchingCategories] = useState(false);
   const [systemSettings, setSystemSettings] = useState<Record<string, string>>({});
   const [fetchingSettings, setFetchingSettings] = useState(true);
+  const [calculatedPrice, setCalculatedPrice] = useState<any>(null);
+  const [fetchingCalculatedPrice, setFetchingCalculatedPrice] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [selectedProjectName, setSelectedProjectName] = useState('');
@@ -336,15 +338,57 @@ const OrderBinScreen: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    if (latitude && longitude) {
-      fetchBinPrices(latitude, longitude);
-      fetchAvailableBinTypes(latitude, longitude);
-    } else {
-      setBinTypes([]);
-      setBinSizesMap({});
+  const fetchCalculatedPrice = async () => {
+    try {
+      if (
+        serviceType === 'service' ||
+        !bins.some(b => b.bin_size_id) ||
+        !deliveryAddress ||
+        (serviceType === 'residential' && (!deliveryDate || !pickupDate))
+      ) {
+        setCalculatedPrice(null);
+        return;
+      }
+
+      setFetchingCalculatedPrice(true);
+
+      const requestBody = {
+        service_category: serviceType,
+        bins: bins.filter(b => b.bin_size_id).map(b => ({
+          bin_type_id: b.bin_type_id,
+          bin_size_id: b.bin_size_id,
+          quantity: b.quantity
+        })),
+        location: deliveryAddress,
+        start_date: deliveryDate,
+        end_date: pickupDate,
+        latitude: latitude,
+        longitude: longitude
+      };
+
+      const response = await fetch(`${API_URL}/bookings/calculate-price`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });console.log('Calculated price:', JSON.stringify(requestBody));
+
+      const result = await response.json();
+
+      if (result.success) {
+        setCalculatedPrice(result.data);
+      } else {
+        console.error('Calculate price failed:', result.message);
+        setCalculatedPrice(null);
+      }
+    } catch (error) {
+      console.error('Error calculating price:', error);
+      setCalculatedPrice(null);
+    } finally {
+      setFetchingCalculatedPrice(false);
     }
-  }, [longitude]);
+  };
 
   // Dropdown data
   const [binTypes, setBinTypes] = useState<BinType[]>([]);
@@ -363,6 +407,20 @@ const OrderBinScreen: React.FC = () => {
   // Modals
   const [typeModalVisible, setTypeModalVisible] = useState(false);
   const [sizeModalVisible, setSizeModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (latitude && longitude) {
+      fetchBinPrices(latitude, longitude);
+      fetchAvailableBinTypes(latitude, longitude);
+    } else {
+      setBinTypes([]);
+      setBinSizesMap({});
+    }
+  }, [longitude]);
+
+  useEffect(() => {
+    fetchCalculatedPrice();
+  }, [bins, deliveryAddress, deliveryDate, pickupDate, longitude, serviceType]);
 
 
   const addBin = () => {
@@ -801,7 +859,9 @@ const OrderBinScreen: React.FC = () => {
       if (pickupDate) {
         formData.append('end_date', pickupDate);
       }
-      formData.append('payment_method', paymentMethod);
+      if (serviceType !== 'commercial') {
+        formData.append('payment_method', paymentMethod);
+      }
       formData.append('contact_number', contactNumber);
       formData.append('contact_email', additionalContact);
       formData.append('instructions', notes);
@@ -836,7 +896,9 @@ const OrderBinScreen: React.FC = () => {
           return;
         }
 
-        if (paymentMethod === 'online') {
+        if (serviceType === 'commercial') {
+          toast.success('Success', 'Your order has been placed successfully!');
+        } else if (paymentMethod === 'online') {
           toast.success('Success', 'Order placed. Payment will be requested after a supplier accepts.');
         } else {
           toast.success('Success', 'Your order has been placed successfully!');
@@ -934,7 +996,7 @@ const OrderBinScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[styles.paymentOption, { width: (width - 70) / 3 }]}
                   activeOpacity={0.8}
-                  onPress={() => setServiceType('residential')}>
+                  onPress={() => { setServiceType('residential'); setCalculatedPrice(null); }}>
                   <LinearGradient
                     colors={
                       serviceType === 'residential'
@@ -968,7 +1030,7 @@ const OrderBinScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[styles.paymentOption, { width: (width - 70) / 3 }]}
                   activeOpacity={0.8}
-                  onPress={() => setServiceType('commercial')}>
+                  onPress={() => { setServiceType('commercial'); setCalculatedPrice(null); }}>
                   <LinearGradient
                     colors={
                       serviceType === 'commercial'
@@ -1002,7 +1064,7 @@ const OrderBinScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[styles.paymentOption, { width: (width - 70) / 3 }]}
                   activeOpacity={0.8}
-                  onPress={() => setServiceType('service')}>
+                  onPress={() => { setServiceType('service'); setCalculatedPrice(null); }}>
                   <LinearGradient
                     colors={
                       serviceType === 'service'
@@ -1389,93 +1451,95 @@ const OrderBinScreen: React.FC = () => {
           </View>
 
           {/* Section 6: Payment Method */}
-          <View style={styles.formSection}>
-            <LinearGradient
-              colors={['#EFF2F0', '#F8FFEE']}
-              locations={[0.2377, 0.6629]}
-              start={{ x: 0.34, y: 0 }}
-              end={{ x: 0.66, y: 1 }}
-              style={styles.formSectionGradient}>
-              <Text style={styles.paymentMethodTitle}>Payment Method*</Text>
+          {serviceType !== 'commercial' && (
+            <View style={styles.formSection}>
+              <LinearGradient
+                colors={['#EFF2F0', '#F8FFEE']}
+                locations={[0.2377, 0.6629]}
+                start={{ x: 0.34, y: 0 }}
+                end={{ x: 0.66, y: 1 }}
+                style={styles.formSectionGradient}>
+                <Text style={styles.paymentMethodTitle}>Payment Method*</Text>
 
-              <View style={styles.paymentOptionsContainer}>
-                {/* Online Payment Option */}
-                <TouchableOpacity
-                  style={styles.paymentOption}
-                  activeOpacity={0.8}
-                  onPress={() => setPaymentMethod('online')}>
-                  <LinearGradient
-                    colors={
-                      paymentMethod === 'online'
-                        ? ['#C0F96F', '#90B93E']
-                        : ['#F3FFE2', '#E5EFD1']
-                    }
-                    locations={[0.2009, 0.7847]}
-                    start={{ x: 0.27, y: 0 }}
-                    end={{ x: 0.73, y: 1 }}
-                    style={styles.paymentOptionGradient}>
-                    <View style={styles.paymentOptionContent}>
-                      <View style={styles.paymentIconContainer}>
-                        <Icon28_1 width={50} height={40} />
+                <View style={styles.paymentOptionsContainer}>
+                  {/* Online Payment Option */}
+                  <TouchableOpacity
+                    style={styles.paymentOption}
+                    activeOpacity={0.8}
+                    onPress={() => setPaymentMethod('online')}>
+                    <LinearGradient
+                      colors={
+                        paymentMethod === 'online'
+                          ? ['#C0F96F', '#90B93E']
+                          : ['#F3FFE2', '#E5EFD1']
+                      }
+                      locations={[0.2009, 0.7847]}
+                      start={{ x: 0.27, y: 0 }}
+                      end={{ x: 0.73, y: 1 }}
+                      style={styles.paymentOptionGradient}>
+                      <View style={styles.paymentOptionContent}>
+                        <View style={styles.paymentIconContainer}>
+                          <Icon28_1 width={50} height={40} />
+                        </View>
+                        <Text
+                          style={[
+                            styles.paymentOptionText,
+                            paymentMethod === 'online' &&
+                            styles.paymentOptionTextActive,
+                          ]}>
+                          Online Payment
+                        </Text>
                       </View>
-                      <Text
-                        style={[
-                          styles.paymentOptionText,
-                          paymentMethod === 'online' &&
-                          styles.paymentOptionTextActive,
-                        ]}>
-                        Online Payment
-                      </Text>
-                    </View>
-                    <View style={styles.binCollectPaymentOverlay}>
-                      <BinCollect2 width={181} height={70} />
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-
-                {/* Cash on Delivery Option */}
-                <TouchableOpacity
-                  style={styles.paymentOption}
-                  activeOpacity={0.8}
-                  onPress={() => setPaymentMethod('cash')}>
-                  <LinearGradient
-                    colors={
-                      paymentMethod === 'cash'
-                        ? ['#C0F96F', '#90B93E']
-                        : ['#F3FFE2', '#E5EFD1']
-                    }
-                    locations={[0.2009, 0.7847]}
-                    start={{ x: 0.27, y: 0 }}
-                    end={{ x: 0.73, y: 1 }}
-                    style={styles.paymentOptionGradient}>
-                    <View style={styles.paymentOptionContent}>
-                      <View style={styles.paymentIconContainer}>
-                        <Icon28_2 width={57} height={45} />
+                      <View style={styles.binCollectPaymentOverlay}>
+                        <BinCollect2 width={181} height={70} />
                       </View>
-                      <Text
-                        style={[
-                          styles.paymentOptionText,
-                          paymentMethod === 'cash' &&
-                          styles.paymentOptionTextActive,
-                        ]}>
-                        Cash on Delivery
-                      </Text>
-                    </View>
-                    <View style={styles.binCollectPaymentOverlay}>
-                      <BinCollect2 width={176} height={68} />
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
+                    </LinearGradient>
+                  </TouchableOpacity>
 
-              <Text style={styles.paymentNote}>
-                Payment will be processed when order is confirmed
-              </Text>
-            </LinearGradient>
-          </View>
+                  {/* Cash on Delivery Option */}
+                  <TouchableOpacity
+                    style={styles.paymentOption}
+                    activeOpacity={0.8}
+                    onPress={() => setPaymentMethod('cash')}>
+                    <LinearGradient
+                      colors={
+                        paymentMethod === 'cash'
+                          ? ['#C0F96F', '#90B93E']
+                          : ['#F3FFE2', '#E5EFD1']
+                      }
+                      locations={[0.2009, 0.7847]}
+                      start={{ x: 0.27, y: 0 }}
+                      end={{ x: 0.73, y: 1 }}
+                      style={styles.paymentOptionGradient}>
+                      <View style={styles.paymentOptionContent}>
+                        <View style={styles.paymentIconContainer}>
+                          <Icon28_2 width={57} height={45} />
+                        </View>
+                        <Text
+                          style={[
+                            styles.paymentOptionText,
+                            paymentMethod === 'cash' &&
+                            styles.paymentOptionTextActive,
+                          ]}>
+                          Cash on Delivery
+                        </Text>
+                      </View>
+                      <View style={styles.binCollectPaymentOverlay}>
+                        <BinCollect2 width={176} height={68} />
+                      </View>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.paymentNote}>
+                  Payment will be processed when order is confirmed
+                </Text>
+              </LinearGradient>
+            </View>
+          )}
 
           {/* Order Summary / Estimated Total */}
-          {serviceType !== 'service' && bins.some(b => b.bin_size_id) && (
+          {serviceType !== 'service' && bins.some(b => b.bin_size_id) && deliveryAddress && (serviceType === 'commercial' || (deliveryDate && pickupDate)) && (
             <View style={styles.formSection}>
               <LinearGradient
                 colors={['#EFF2F0', '#F8FFEE']}
@@ -1484,74 +1548,50 @@ const OrderBinScreen: React.FC = () => {
                 end={{ x: 0.66, y: 1 }}
                 style={styles.formSectionGradient}>
 
-                {(() => {
-                  if (fetchingSettings) {
-                    return <ActivityIndicator size="small" color={themeColors.primary} />;
-                  }
+                {fetchingCalculatedPrice ? (
+                  <ActivityIndicator size="small" color={themeColors.primary} />
+                ) : calculatedPrice ? (
+                  <>
+                    <View style={styles.summaryRow}>
+                      <Text style={[styles.summaryLabel, { fontSize: 16 }]}>Subtotal:</Text>
+                      <Text style={[styles.summaryValue, { fontSize: 18 }]}>${calculatedPrice.subtotal.toFixed(2)}</Text>
+                    </View>
 
-                  const commercialLimit = systemSettings['commercial_duration_limit'];
-                  const residentialLimit = systemSettings['residential_duration_limit'];
-                  const dailyRateStr = systemSettings['additional_day_charge'];
-
-                  if (!commercialLimit || !residentialLimit || !dailyRateStr) {
-                    // If commercial, we don't need all settings - just base price
-                  }
-
-                  const basePrice = bins.reduce((acc, b) => {
-                    const price = binPrices.find(p => p.bin_size_id.toString() === b.bin_size_id)?.admin_final_price;
-                    return acc + (parseFloat(price || '0') * (parseInt(b.quantity) || 1));
-                  }, 0);
-
-                  if (serviceType === 'commercial') {
-                    // For commercial: just show estimated total
-                    return (
-                      <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Estimated Total:</Text>
-                        <Text style={[styles.summaryValue, { color: '#29B554' }]}>
-                          ${basePrice.toFixed(2)}
-                        </Text>
-                      </View>
-                    );
-                  }
-
-                  // For residential: show full breakdown
-                  const diffTime = Math.abs(pickupDateObj.getTime() - deliveryDateObj.getTime());
-                  const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-                  const limitDays = parseInt(residentialLimit!);
-                  const dailyRate = parseFloat(dailyRateStr!);
-                  const exceededDays = durationDays > limitDays ? durationDays - limitDays : 0;
-                  const additionalCharge = exceededDays * dailyRate;
-
-                  return (
-                    <>
-                      <View style={styles.summaryRow}>
-                        <Text style={[styles.summaryLabel, { fontSize: 16 }]}>Base Price ({limitDays} Days):</Text>
-                        <Text style={[styles.summaryValue, { fontSize: 18 }]}>${basePrice.toFixed(2)}</Text>
-                      </View>
-
-                      <View style={styles.summaryRow}>
-                        <Text style={[styles.summaryLabel, { fontSize: 16 }]}>Duration:</Text>
-                        <Text style={[styles.summaryValue, { fontSize: 18 }]}>{durationDays} Day(s)</Text>
-                      </View>
-
-                      {exceededDays > 0 && (
+                    {serviceType !== 'commercial' && calculatedPrice.duration_days && (
+                      <>
                         <View style={styles.summaryRow}>
-                          <Text style={[styles.summaryLabel, { fontSize: 16, color: '#E53E3E' }]}>Extra Days ({exceededDays} × ${dailyRate}):</Text>
-                          <Text style={[styles.summaryValue, { fontSize: 18, color: '#E53E3E' }]}>+${additionalCharge.toFixed(2)}</Text>
+                          <Text style={[styles.summaryLabel, { fontSize: 16 }]}>Duration:</Text>
+                          <Text style={[styles.summaryValue, { fontSize: 18 }]}>{calculatedPrice.duration_days} Day(s)</Text>
                         </View>
-                      )}
 
-                      <View style={[styles.dividerLine, { marginVertical: 8 }]} />
+                        {calculatedPrice.additional_duration_charge > 0 && (
+                          <View style={styles.summaryRow}>
+                            <Text style={[styles.summaryLabel, { fontSize: 16, color: '#E53E3E' }]}>Extra Days ({calculatedPrice.exceeded_days} day(s)):</Text>
+                            <Text style={[styles.summaryValue, { fontSize: 18, color: '#E53E3E' }]}>+${calculatedPrice.additional_duration_charge.toFixed(2)}</Text>
+                          </View>
+                        )}
+                      </>
+                    )}
 
-                      <View style={styles.summaryRow}>
-                        <Text style={styles.summaryLabel}>Estimated Total:</Text>
-                        <Text style={[styles.summaryValue, { color: '#29B554' }]}>
-                          ${(basePrice + additionalCharge).toFixed(2)}
-                        </Text>
-                      </View>
-                    </>
-                  );
-                })()}
+                    <View style={styles.summaryRow}>
+                      <Text style={[styles.summaryLabel, { fontSize: 16 }]}>GST ({calculatedPrice.gst_rate}%):</Text>
+                      <Text style={[styles.summaryValue, { fontSize: 18 }]}>${calculatedPrice.gst_amount.toFixed(2)}</Text>
+                    </View>
+
+                    <View style={[styles.dividerLine, { marginVertical: 8 }]} />
+
+                    <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>Estimated Total:</Text>
+                      <Text style={[styles.summaryValue, { color: '#29B554' }]}>
+                        ${calculatedPrice.total.toFixed(2)}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <Text style={{ fontSize: 14, color: themeColors.textPrimary, textAlign: 'center' }}>
+                    Calculating price...
+                  </Text>
+                )}
 
                 {fetchingPrices && <ActivityIndicator size="small" color={themeColors.primary} style={{ marginTop: 5 }} />}
               </LinearGradient>
@@ -1563,13 +1603,13 @@ const OrderBinScreen: React.FC = () => {
             style={styles.placeOrderButton}
             activeOpacity={0.8}
             onPress={handlePlaceOrder}
-            disabled={loading || fetchingSizes}>
+            disabled={loading || fetchingSizes || fetchingCalculatedPrice}>
             <LinearGradient
               colors={['#29B554', '#6EAD16']}
               start={{ x: 0.22, y: 0 }}
               end={{ x: 0.7, y: 1 }}
-              style={[styles.placeOrderButtonGradient, (loading || fetchingSizes) && { opacity: 0.7 }]}>
-              {loading || fetchingSizes ? (
+              style={[styles.placeOrderButtonGradient, (loading || fetchingSizes || fetchingCalculatedPrice) && { opacity: 0.7 }]}>
+              {loading || fetchingSizes || fetchingCalculatedPrice ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.placeOrderButtonText}>Next</Text>
