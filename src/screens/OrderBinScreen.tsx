@@ -171,6 +171,9 @@ const OrderBinScreen: React.FC = () => {
   const [selectedProjectName, setSelectedProjectName] = useState('');
   const [projectModalVisible, setProjectModalVisible] = useState(false);
   const [loadingDefaultLocation, setLoadingDefaultLocation] = useState(false);
+  const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Date Picker State
   const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
@@ -242,6 +245,77 @@ const OrderBinScreen: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const fetchLocationSuggestions = async (query: string) => {
+    if (!query || query.length < 3) {
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+          query
+        )}&format=json&limit=5&countrycodes=ca`,
+        {
+          headers: {
+            'User-Agent': 'BinDropApp/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+      setLocationSuggestions(data);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error('Suggestions error:', error);
+      setLocationSuggestions([]);
+    }
+  };
+
+  const handleAddressChange = (text: string) => {
+    setDeliveryAddress(text);
+    
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    
+    const timer = setTimeout(() => {
+      fetchLocationSuggestions(text);
+    }, 500);
+    
+    setDebounceTimer(timer);
+  };
+
+  const selectSuggestion = (suggestion: any) => {
+    const { lat, lon, display_name } = suggestion;
+    const newLat = parseFloat(lat);
+    const newLon = parseFloat(lon);
+
+    setDeliveryAddress(display_name);
+    setLatitude(newLat);
+    setLongitude(newLon);
+    setMapRegion(prev => ({
+      ...prev,
+      latitude: newLat,
+      longitude: newLon,
+    }));
+    setShowSuggestions(false);
+    setLocationSuggestions([]);
+    Keyboard.dismiss();
+    
+    // Reset bin selections when location changes
+    setBins([
+      {
+        bin_type_id: '',
+        bin_type_name: '',
+        bin_size_id: '',
+        bin_size_name: '',
+        quantity: '1',
+      },
+    ]);
+    setBinSizesMap({});
   };
 
   const onMarkerDragEnd = async (e: any) => {
@@ -1111,8 +1185,30 @@ const OrderBinScreen: React.FC = () => {
                     label="Location*"
                     placeholder="Enter Delivery Address"
                     value={deliveryAddress}
-                    onChangeText={setDeliveryAddress}
+                    onChangeText={handleAddressChange}
                   />
+                  {showSuggestions && locationSuggestions.length > 0 && (
+                    <View style={styles.suggestionsDropdown}>
+                      <ScrollView 
+                        style={{ maxHeight: 170 }} 
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {locationSuggestions.map((suggestion, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.suggestionItem}
+                            onPress={() => selectSuggestion(suggestion)}
+                          >
+                            <Ionicons name="location-outline" size={18} color="#90B93E" style={{ marginRight: 8 }} />
+                            <Text style={styles.suggestionText} numberOfLines={2}>
+                              {suggestion.display_name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
                 </View>
                 <TouchableOpacity
                   style={styles.searchButton}
@@ -1997,6 +2093,38 @@ const styles = StyleSheet.create({
   dropdownIconText: {
     fontSize: 12,
     color: '#979897',
+  },
+  suggestionsDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    marginTop: -10,
+    zIndex: 1000,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  suggestionText: {
+    flex: 1,
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#373934',
   },
   instructionsLabel: {
     fontFamily: fonts.family.medium,

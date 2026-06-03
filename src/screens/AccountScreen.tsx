@@ -113,6 +113,9 @@ const AccountScreen: React.FC = () => {
     latitudeDelta: 0.1,
     longitudeDelta: 0.1,
   });
+  const [locationSuggestions, setLocationSuggestions] = React.useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const [debounceTimer, setDebounceTimer] = React.useState<NodeJS.Timeout | null>(null);
 
   // Load default location + profile photo on mount
   React.useEffect(() => {
@@ -227,6 +230,61 @@ const AccountScreen: React.FC = () => {
     } finally {
       setMapSearching(false);
     }
+  };
+
+  const fetchLocationSuggestions = async (query: string) => {
+    if (!query || query.length < 3) {
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+          query
+        )}&format=json&limit=5&countrycodes=ca`,
+        {
+          headers: {
+            'User-Agent': 'BinDropApp/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+      setLocationSuggestions(data);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error('Suggestions error:', error);
+      setLocationSuggestions([]);
+    }
+  };
+
+  const handleAddressChange = (text: string) => {
+    setMapAddress(text);
+
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    const timer = setTimeout(() => {
+      fetchLocationSuggestions(text);
+    }, 500);
+
+    setDebounceTimer(timer);
+  };
+
+  const selectSuggestion = (suggestion: any) => {
+    const { lat, lon, display_name } = suggestion;
+    const newLat = parseFloat(lat);
+    const newLon = parseFloat(lon);
+
+    setMapAddress(display_name);
+    setMapLat(newLat);
+    setMapLon(newLon);
+    setMapRegion(prev => ({ ...prev, latitude: newLat, longitude: newLon }));
+    setShowSuggestions(false);
+    setLocationSuggestions([]);
+    Keyboard.dismiss();
   };
 
   const handleMapPress = async (e: any) => {
@@ -691,15 +749,39 @@ const AccountScreen: React.FC = () => {
 
           {/* Search bar */}
           <View style={styles.mapSearchRow}>
-            <TextInput
-              style={styles.mapSearchInput}
-              placeholder="Search address..."
-              placeholderTextColor="#979897"
-              value={mapAddress}
-              onChangeText={setMapAddress}
-              onSubmitEditing={handleSearchMapAddress}
-              returnKeyType="search"
-            />
+            <View style={{ flex: 1 }}>
+              <TextInput
+                style={styles.mapSearchInput}
+                placeholder="Search address..."
+                placeholderTextColor="#979897"
+                value={mapAddress}
+                onChangeText={handleAddressChange}
+                onSubmitEditing={handleSearchMapAddress}
+                returnKeyType="search"
+              />
+              {showSuggestions && locationSuggestions.length > 0 && (
+                <View style={styles.suggestionsDropdown}>
+                  <ScrollView 
+                    style={{ maxHeight: 170 }} 
+                    nestedScrollEnabled={true}
+                    showsVerticalScrollIndicator={true}
+                  >
+                    {locationSuggestions.map((suggestion, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.suggestionItem}
+                        onPress={() => selectSuggestion(suggestion)}
+                      >
+                        <Ionicons name="location-outline" size={16} color="#9AD346" style={{ marginRight: 8 }} />
+                        <Text style={styles.suggestionText} numberOfLines={2}>
+                          {suggestion.display_name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
             <TouchableOpacity style={styles.mapSearchBtn} onPress={handleSearchMapAddress} disabled={mapSearching}>
               {mapSearching
                 ? <ActivityIndicator size="small" color="#FFFFFF" />
@@ -1300,6 +1382,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#9AD346',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  suggestionsDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    marginTop: -10,
+    zIndex: 1000,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  suggestionText: {
+    flex: 1,
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#373934',
   },
   mapView: {
     flex: 1,

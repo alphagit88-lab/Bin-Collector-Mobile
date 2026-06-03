@@ -14,6 +14,7 @@ interface AppConfirmModalProps {
     onConfirm: () => void;
     onCancel: () => void;
     isDestructive?: boolean;
+    singleButton?: boolean;
 }
 
 const AppConfirmModal: React.FC<AppConfirmModalProps> = ({
@@ -25,6 +26,7 @@ const AppConfirmModal: React.FC<AppConfirmModalProps> = ({
     onConfirm,
     onCancel,
     isDestructive = false,
+    singleButton = false,
 }) => {
     return (
         <AppModal
@@ -39,16 +41,18 @@ const AppConfirmModal: React.FC<AppConfirmModalProps> = ({
                     <Text style={styles.message}>{message}</Text>
 
                     <View style={styles.buttonContainer}>
-                        <TouchableOpacity
-                            style={styles.cancelButton}
-                            onPress={onCancel}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.cancelButtonText}>{cancelText}</Text>
-                        </TouchableOpacity>
+                        {!singleButton && (
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={onCancel}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.cancelButtonText}>{cancelText}</Text>
+                            </TouchableOpacity>
+                        )}
 
                         <TouchableOpacity
-                            style={styles.confirmButton}
+                            style={[styles.confirmButton, singleButton && { width: '100%' }]}
                             onPress={onConfirm}
                             activeOpacity={0.8}
                         >

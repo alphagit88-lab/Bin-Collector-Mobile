@@ -181,6 +181,10 @@ const JobDetailScreen: React.FC = () => {
 
   const isPending = jobDetail.status === 'pending';
 
+  // Debug logs
+  console.log('User role:', user?.role);
+  console.log('Job status:', jobDetail.status);
+
 
 
   const fetchDrivers = React.useCallback(async () => {

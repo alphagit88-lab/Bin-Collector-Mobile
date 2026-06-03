@@ -65,6 +65,9 @@ const ServiceAreaScreen: React.FC = () => {
     latitudeDelta: 0.1,
     longitudeDelta: 0.1,
   });
+  const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   const mapRef = useRef<MapView>(null);
 
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -275,6 +278,72 @@ const ServiceAreaScreen: React.FC = () => {
     } finally {
       setIsSearching(false);
     }
+  };
+
+  const fetchLocationSuggestions = async (query: string) => {
+    if (!query || query.length < 3) {
+      setLocationSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
+          query
+        )}&format=json&limit=5&countrycodes=ca`,
+        {
+          headers: {
+            'User-Agent': 'BinDropApp/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+      setLocationSuggestions(data);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error('Suggestions error:', error);
+      setLocationSuggestions([]);
+    }
+  };
+
+  const handleAddressChange = (text: string) => {
+    setNewCity(text);
+
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+
+    const timer = setTimeout(() => {
+      fetchLocationSuggestions(text);
+    }, 500);
+
+    setDebounceTimer(timer);
+  };
+
+  const selectSuggestion = (suggestion: any) => {
+    const { lat, lon, display_name, address = {} } = suggestion;
+    const newLat = parseFloat(lat);
+    const newLon = parseFloat(lon);
+
+    const detectedCountry = address.country || '';
+    const detectedCity = address.city || address.town || address.village || address.suburb || address.state || display_name;
+
+    if (detectedCountry) setNewCountry(detectedCountry);
+    setNewCity(detectedCity);
+    setNewLatitude(newLat);
+    setNewLongitude(newLon);
+    const newRegion = {
+      latitude: newLat,
+      longitude: newLon,
+      latitudeDelta: 0.005,
+      longitudeDelta: 0.005,
+    };
+    setMapRegion(newRegion);
+    mapRef.current?.animateToRegion(newRegion, 1000);
+    setShowSuggestions(false);
+    setLocationSuggestions([]);
+    Keyboard.dismiss();
   };
 
   const onMarkerDragEnd = async (e: any) => {
@@ -537,12 +606,36 @@ const ServiceAreaScreen: React.FC = () => {
               <Text style={styles.modalTitle}>Add New Service Area</Text>
 
               <View style={styles.searchContainer}>
-                <TextInput
-                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
-                  placeholder="Enter City or Address"
-                  value={newCity}
-                  onChangeText={setNewCity}
-                />
+                <View style={{ flex: 1 }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                    placeholder="Enter City or Address"
+                    value={newCity}
+                    onChangeText={handleAddressChange}
+                  />
+                  {showSuggestions && locationSuggestions.length > 0 && (
+                    <View style={styles.suggestionsDropdown}>
+                      <ScrollView
+                        style={{ maxHeight: 170 }}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {locationSuggestions.map((suggestion, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.suggestionItem}
+                            onPress={() => selectSuggestion(suggestion)}
+                          >
+                            <Ionicons name="location-outline" size={16} color="#9AD346" style={{ marginRight: 8 }} />
+                            <Text style={styles.suggestionText} numberOfLines={2}>
+                              {suggestion.display_name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
                 <TouchableOpacity
                   style={styles.searchIconButton}
                   onPress={handleSearchAddress}
@@ -980,6 +1073,38 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 14,
     color: '#555',
+  },
+  suggestionsDropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    marginTop: -10,
+    zIndex: 1000,
+    overflow: 'hidden',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  suggestionText: {
+    flex: 1,
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#373934',
   },
 });
 

@@ -22,6 +22,7 @@ import HeaderActionIcons from '../components/HeaderActionIcons';
 import { api, BASE_URL } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import AppModal from '../components/AppModal';
+import AppConfirmModal from '../components/AppConfirmModal';
 import { Image } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 import toast from '../utils/toast';
@@ -88,6 +89,15 @@ const BookingsScreen: React.FC = () => {
   const [showAll, setShowAll] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const mapRef = React.useRef<MapView>(null);
+  const [confirmModal, setConfirmModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    onConfirm: () => {},
+    isDestructive: false,
+    singleButton: false,
+  });
 
   const filteredBookings = bookings.filter(booking => {
     const query = searchQuery.toLowerCase();
@@ -299,6 +309,34 @@ const BookingsScreen: React.FC = () => {
       ['#F6FFB4', '#E8EFD9'],
     ];
     return colorPairs[index % colorPairs.length];
+  };
+
+  const handleCancelOrder = async () => {
+    if (!selectedBooking) return;
+    try {
+      const response = await api.delete(ENDPOINTS.BOOKINGS.CANCEL(selectedBooking.id.toString()));
+      if (response.success) {
+        toast.success('Success', 'Order cancelled successfully');
+        setConfirmModal(prev => ({ ...prev, visible: false }));
+        setDetailsModalVisible(false);
+        fetchBookings();
+      }
+    } catch (error: any) {
+      console.error('Cancel error:', error);
+      if (error?.response?.data?.requireContact) {
+        setConfirmModal({
+          visible: true,
+          title: 'Cancel Order',
+          message: 'Please contact customer service to cancel this order.',
+          confirmText: 'Close',
+          isDestructive: false,
+          singleButton: true,
+          onConfirm: () => setConfirmModal(prev => ({ ...prev, visible: false })),
+        });
+      } else {
+        toast.error('Error', error?.response?.data?.message || 'Failed to cancel order');
+      }
+    }
   };
 
   return (
@@ -916,6 +954,44 @@ const BookingsScreen: React.FC = () => {
                       <Text style={styles.closeButtonText}>Repeat Order</Text>
                     </LinearGradient>
                   </TouchableOpacity>
+
+                  {selectedBooking.status !== 'completed' && selectedBooking.status !== 'cancelled' && (
+                  <TouchableOpacity
+                    style={[styles.cancelButtonContainer, { marginTop: 0, marginBottom: 10 }]}
+                    onPress={() => {
+                      if (selectedBooking.status === 'pending') {
+                        setConfirmModal({
+                          visible: true,
+                          title: 'Cancel Order',
+                          message: 'Are you sure you want to cancel this order?',
+                          confirmText: 'Cancel Order',
+                          isDestructive: true,
+                          singleButton: false,
+                          onConfirm: handleCancelOrder,
+                        });
+                      } else {
+                        setConfirmModal({
+                          visible: true,
+                          title: 'Cancel Order',
+                          message: 'Please contact customer service to cancel this order.',
+                          confirmText: 'Close',
+                          isDestructive: false,
+                          singleButton: true,
+                          onConfirm: () => setConfirmModal(prev => ({ ...prev, visible: false })),
+                        });
+                      }
+                    }}
+                  >
+                    <LinearGradient
+                      colors={['#EF4444', '#DC2626']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.cancelButtonGradient}
+                    >
+                      <Text style={styles.cancelButtonText}>Cancel Order</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
                 </>
               )}
             </ScrollView>
@@ -936,6 +1012,17 @@ const BookingsScreen: React.FC = () => {
           </View>
         </View>
       </AppModal>
+
+      <AppConfirmModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        isDestructive={confirmModal.isDestructive}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+        singleButton={confirmModal.singleButton}
+      />
     </View>
   );
 };
@@ -1481,6 +1568,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   closeButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+  },
+  cancelButtonContainer: {
+    margin: 20,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  cancelButtonGradient: {
+    padding: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
     color: '#FFFFFF',
     fontFamily: fonts.family.bold,
     fontSize: 16,
