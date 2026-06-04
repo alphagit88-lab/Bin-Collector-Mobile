@@ -14,6 +14,7 @@ import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
+import { useAuth } from '../contexts/AuthContext';
 
 interface NotificationItem {
   id: number;
@@ -27,6 +28,7 @@ interface NotificationItem {
 
 const NotificationsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -72,10 +74,12 @@ const NotificationsScreen: React.FC = () => {
 
     // Navigate based on type
     const nav = navigation as any;
-    if (notification.type === 'order' || notification.type === 'status_update') {
-      nav.navigate('ServiceTracking', { requestId: notification.related_id });
-    } else if (notification.type === 'message') {
+    if (notification.type === 'message') {
       nav.navigate('ChatDetail', { conversationId: notification.related_id });
+    } else if (notification.type === 'order' || notification.type === 'status_update') {
+      if (!(user?.role === 'supplier' || user?.role === 'driver')) {
+        nav.navigate('ServiceTracking', { requestId: notification.related_id });
+      }
     }
   };
 

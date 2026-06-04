@@ -172,6 +172,7 @@ const JobDetailScreen: React.FC = () => {
     confirmText: 'Confirm',
     onConfirm: () => { },
     isDestructive: false,
+    singleButton: false,
   });
   const [showBinModal, setShowBinModal] = useState(false);
   const [showDriverModal, setShowDriverModal] = useState(false);
@@ -180,10 +181,6 @@ const JobDetailScreen: React.FC = () => {
   const { user } = require('../contexts/AuthContext').useAuth();
 
   const isPending = jobDetail.status === 'pending';
-
-  // Debug logs
-  console.log('User role:', user?.role);
-  console.log('Job status:', jobDetail.status);
 
 
 
@@ -286,11 +283,29 @@ const JobDetailScreen: React.FC = () => {
       message: `Are you sure you want to decline order ${jobDetail.orderId}?`,
       confirmText: 'Decline',
       isDestructive: true,
+      singleButton: false,
       onConfirm: () => {
         setConfirmModal(prev => ({ ...prev, visible: false }));
         navigation.goBack();
       },
     });
+  };
+
+  const handleCancelOrder = async () => {
+    try {
+      const response = await api.delete(ENDPOINTS.BOOKINGS.CANCEL(jobDetail.id.toString()));
+      console.log('asd', response)
+      if (response.success) {
+        toast.success('Success', 'Order cancelled successfully');
+        setConfirmModal(prev => ({ ...prev, visible: false }));
+        navigation.goBack();
+      } else {
+        toast.error('Error', response.message || 'Failed to cancel order');
+      }
+    } catch (error: any) {
+      console.error('Cancel error:', error);
+      toast.error('Error', error?.response?.data?.message || 'Failed to cancel order');
+    }
   };
 
   const handleStatusUpdate = async (newStatus: string, binCodes?: string[]) => {
@@ -775,6 +790,8 @@ const JobDetailScreen: React.FC = () => {
               </View>
             )}
 
+
+
             {/* Repeat Order Button (Customer only) */}
             {user?.role === 'customer' && (
               <TouchableOpacity
@@ -806,6 +823,7 @@ const JobDetailScreen: React.FC = () => {
                     message: `Are you sure you want to accept order ${jobDetail.orderId}?`,
                     confirmText: 'Accept',
                     isDestructive: false,
+                    singleButton: false,
                     onConfirm: handleAcceptOrder,
                   })}
                   disabled={submitting}
@@ -847,6 +865,33 @@ const JobDetailScreen: React.FC = () => {
                   </TouchableOpacity>
                 )}
 
+                {/* Cancel Order Button for Suppliers */}
+                {user?.role === 'supplier' && jobDetail.status !== 'completed' && jobDetail.status !== 'cancelled' && (
+                  <TouchableOpacity
+                    style={[styles.assignDriverButton, { backgroundColor: 'transparent', paddingVertical: 0, overflow: 'hidden' }]}
+                    onPress={() => {
+                      setConfirmModal({
+                        visible: true,
+                        title: 'Cancel Order',
+                        message: 'Are you sure you want to cancel this order?',
+                        confirmText: 'Cancel Order',
+                        isDestructive: true,
+                        singleButton: false,
+                        onConfirm: handleCancelOrder,
+                      });
+                    }}
+                  >
+                    <LinearGradient
+                      colors={['#EF4444', '#DC2626']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={{ flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', width: '100%' }}
+                    >
+                      <Text style={{ fontFamily: fonts.family.bold, fontSize: 16, color: '#FFFFFF' }}>Cancel Order</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                )}
+
                 <View style={styles.actionButtonsContainer}>
                   {jobDetail.status === 'confirmed' && (
                     <TouchableOpacity
@@ -873,6 +918,7 @@ const JobDetailScreen: React.FC = () => {
                               }
                             },
                             isDestructive: false,
+                            singleButton: false,
                           });
                         } else {
                           setShowBinModal(true);
@@ -906,6 +952,7 @@ const JobDetailScreen: React.FC = () => {
                           handleStatusUpdate('completed');
                         },
                         isDestructive: false,
+                        singleButton: false,
                       })}
                       activeOpacity={0.8}>
                       <LinearGradient
@@ -931,6 +978,7 @@ const JobDetailScreen: React.FC = () => {
                           handleStatusUpdate(jobDetail.payment_method === 'cash' ? 'cash_collected' : 'delivered');
                         },
                         isDestructive: false,
+                        singleButton: false,
                       })}
                       activeOpacity={0.8}>
                       <LinearGradient
@@ -995,6 +1043,7 @@ const JobDetailScreen: React.FC = () => {
                               handleStatusUpdate('delivered');
                             },
                             isDestructive: false,
+                            singleButton: false,
                           });
                         }}
                         activeOpacity={0.8}>
@@ -1020,6 +1069,7 @@ const JobDetailScreen: React.FC = () => {
                           handleStatusUpdate('pickup');
                         },
                         isDestructive: false,
+                        singleButton: false,
                       })}
                       activeOpacity={0.8}>
                       <LinearGradient
@@ -1043,6 +1093,7 @@ const JobDetailScreen: React.FC = () => {
                           handleStatusUpdate('completed');
                         },
                         isDestructive: false,
+                        singleButton: false,
                       })}
                       activeOpacity={0.8}>
                       <LinearGradient
@@ -1191,6 +1242,7 @@ const JobDetailScreen: React.FC = () => {
         isDestructive={confirmModal.isDestructive}
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
+        singleButton={confirmModal.singleButton}
       />
 
       {user?.role === 'customer' ? (
@@ -1807,6 +1859,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   callButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+  },
+  cancelButtonContainer: {
+    marginHorizontal: 19,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  cancelButtonGradient: {
+    padding: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButtonText: {
     color: '#FFFFFF',
     fontFamily: fonts.family.bold,
     fontSize: 16,
