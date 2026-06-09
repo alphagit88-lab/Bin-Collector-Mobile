@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 
 // Import SVG images
 import Icon1 from '../assets/images/1 235.svg';
@@ -23,12 +24,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
   return (
     <View style={styles.bottomNav}>
       <View style={styles.bottomNavGradient}>
-        <LinearGradient
-          colors={['rgba(137, 217, 87, 0.2)', 'rgba(137, 217, 87, 0.2)']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
         <View style={styles.bottomNavContent}>
           {/* Dashboard */}
           <TouchableOpacity
@@ -41,22 +36,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
             onPress={() => navigation.navigate('CustomerDashboard' as never)}>
             {activeTab === 'dashboard' ? (
               <View style={styles.navItemActiveBackground}>
-                <LinearGradient
-                  colors={[
-                    'rgba(137, 217, 87, 0.2)',
-                    'rgba(137, 217, 87, 0.2)',
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <LinearGradient
-                  colors={['#78FF30', '#6DBC00']}
-                  locations={[0.2487, 0.7225]}
-                  start={{ x: 0.8, y: 0 }}
-                  end={{ x: 0.2, y: 1 }}
-                  style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
-                />
                 <View style={styles.navItemActiveContent}>
                   <View style={styles.navIconContainerActive}>
                     <Icon1 width={28} height={28} />
@@ -83,22 +62,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
             onPress={() => navigation.navigate('OrderBin' as never)}>
             {activeTab === 'orderBin' ? (
               <View style={styles.navItemActiveBackground}>
-                <LinearGradient
-                  colors={[
-                    'rgba(137, 217, 87, 0.2)',
-                    'rgba(137, 217, 87, 0.2)',
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <LinearGradient
-                  colors={['#78FF30', '#6DBC00']}
-                  locations={[0.2487, 0.7225]}
-                  start={{ x: 0.8, y: 0 }}
-                  end={{ x: 0.2, y: 1 }}
-                  style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
-                />
                 <View style={styles.navItemActiveContent}>
                   <View style={styles.navIconContainerActive}>
                     <Icon2 width={28} height={28} />
@@ -125,22 +88,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
             onPress={() => navigation.navigate('Bookings' as never)}>
             {activeTab === 'bookings' ? (
               <View style={styles.navItemActiveBackground}>
-                <LinearGradient
-                  colors={[
-                    'rgba(137, 217, 87, 0.2)',
-                    'rgba(137, 217, 87, 0.2)',
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <LinearGradient
-                  colors={['#78FF30', '#6DBC00']}
-                  locations={[0.2487, 0.7225]}
-                  start={{ x: 0.8, y: 0 }}
-                  end={{ x: 0.2, y: 1 }}
-                  style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
-                />
                 <View style={styles.navItemActiveContent}>
                   <View style={styles.navIconContainerActive}>
                     <Icon3 width={28} height={28} />
@@ -167,22 +114,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
             onPress={() => navigation.navigate('ServiceTracking' as never)}>
             {activeTab === 'tracking' ? (
               <View style={styles.navItemActiveBackground}>
-                <LinearGradient
-                  colors={[
-                    'rgba(137, 217, 87, 0.2)',
-                    'rgba(137, 217, 87, 0.2)',
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <LinearGradient
-                  colors={['#78FF30', '#6DBC00']}
-                  locations={[0.2487, 0.7225]}
-                  start={{ x: 0.8, y: 0 }}
-                  end={{ x: 0.2, y: 1 }}
-                  style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
-                />
                 <View style={styles.navItemActiveContent}>
                   <View style={styles.navIconContainerActive}>
                     <Icon4 width={28} height={28} />
@@ -209,22 +140,6 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
             onPress={() => navigation.navigate('Account' as never)}>
             {activeTab === 'account' ? (
               <View style={styles.navItemActiveBackground}>
-                <LinearGradient
-                  colors={[
-                    'rgba(137, 217, 87, 0.2)',
-                    'rgba(137, 217, 87, 0.2)',
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 0, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <LinearGradient
-                  colors={['#78FF30', '#6DBC00']}
-                  locations={[0.2487, 0.7225]}
-                  start={{ x: 0.8, y: 0 }}
-                  end={{ x: 0.2, y: 1 }}
-                  style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
-                />
                 <View style={styles.navItemActiveContent}>
                   <View style={styles.navIconContainerActive}>
                     <Icon5 width={28} height={28} />
@@ -259,7 +174,7 @@ const styles = StyleSheet.create({
   },
   bottomNavGradient: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: themeColors.primaryLight,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     borderRadius: 26,
@@ -293,6 +208,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 5,
     marginTop: -2,
+    backgroundColor: themeColors.primary,
   },
   navItemActiveContent: {
     flex: 1,

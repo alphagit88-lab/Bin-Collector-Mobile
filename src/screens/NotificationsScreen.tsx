@@ -92,7 +92,7 @@ const NotificationsScreen: React.FC = () => {
         <Feather
           name={item.type === 'message' ? 'mail' : (item.type === 'order' ? 'package' : 'bell')}
           size={24}
-          color={item.read_at ? '#999' : '#9CCD17'}
+          color={item.read_at ? '#999' : themeColors.primaryLight}
         />
       </View>
       <View style={styles.contentContainer}>
@@ -116,7 +116,7 @@ const NotificationsScreen: React.FC = () => {
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#9CCD17" />
+          <ActivityIndicator size="large" color="themeColors.primaryLight" />
         </View>
       ) : notifications.length > 0 ? (
         <FlatList
@@ -125,7 +125,7 @@ const NotificationsScreen: React.FC = () => {
           keyExtractor={item => item.id.toString()}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#9CCD17']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primaryLight]} />
           }
         />
       ) : (
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   unreadItem: {
     backgroundColor: '#F0F9FF',
-    borderColor: '#9CCD17',
+    borderColor: themeColors.primaryLight,
     borderLeftWidth: 4,
   },
   iconContainer: {
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#9CCD17',
+    backgroundColor: themeColors.primaryLight,
     marginLeft: 10,
   },
   emptyText: {

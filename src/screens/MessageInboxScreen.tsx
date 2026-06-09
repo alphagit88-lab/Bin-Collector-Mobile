@@ -13,6 +13,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { api } from '../config/api';
 import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Conversation {
@@ -133,13 +134,13 @@ const MessageInboxScreen: React.FC = () => {
           }}
           style={styles.headerIcon}
         >
-          <Feather name="edit" size={20} color="#9CCD17" />
+          <Feather name="edit" size={20} color="themeColors.primaryLight" />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#9CCD17" />
+          <ActivityIndicator size="large" color="themeColors.primaryLight" />
         </View>
       ) : conversations.length > 0 ? (
         <FlatList
@@ -147,7 +148,7 @@ const MessageInboxScreen: React.FC = () => {
           renderItem={renderItem}
           keyExtractor={item => item.id.toString()}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#9CCD17']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primaryLight]} />
           }
         />
       ) : (
@@ -213,7 +214,7 @@ const styles = StyleSheet.create({
   unreadChatItem: {
     backgroundColor: '#F3FFF2',
     borderLeftWidth: 3,
-    borderLeftColor: '#29B554',
+    borderLeftColor: themeColors.primaryLight2,
   },
   avatarContainer: {
     marginRight: 15,
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
     width: 55,
     height: 55,
     borderRadius: 27.5,
-    backgroundColor: '#9CCD17',
+    backgroundColor: themeColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -294,7 +295,7 @@ const styles = StyleSheet.create({
   },
   supportButton: {
     marginTop: 30,
-    backgroundColor: '#9CCD17',
+    backgroundColor: themeColors.primaryLight,
     paddingHorizontal: 25,
     paddingVertical: 12,
     borderRadius: 25,

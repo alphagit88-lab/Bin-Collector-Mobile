@@ -216,7 +216,7 @@ const BinAssignmentModal: React.FC<BinAssignmentModalProps> = ({
                             disabled={isLoading || loadingBins}
                         >
                             <LinearGradient
-                                colors={['#29B554', '#6EAD16']}
+                                colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                                 style={styles.submitGradient}
                             >
                                 {isLoading ? (
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     },
     selectButtonActive: {
         borderColor: themeColors.primarySemiDark,
-        backgroundColor: 'rgba(41, 181, 84, 0.1)',
+        backgroundColor: `${themeColors.primaryLight2}1A`,
     },
     selectButtonText: {
         fontFamily: fonts.family.medium,

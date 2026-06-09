@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 import BottomNavBar from '../components/BottomNavBar';
 import HeaderActionIcons from '../components/HeaderActionIcons';
 
@@ -84,7 +85,7 @@ const OrderConfirmationScreen: React.FC = () => {
         {/* Header Banner */}
         <View style={styles.headerBanner}>
           <LinearGradient
-            colors={['#29B554', '#6EAD16']}
+            colors={[themeColors.primaryLight2, themeColors.primaryLight]}
             start={{ x: 0.22, y: 0 }}
             end={{ x: 0.7, y: 1 }}
             style={styles.headerBannerGradient}>
@@ -258,7 +259,7 @@ const OrderConfirmationScreen: React.FC = () => {
               activeOpacity={0.8}
               onPress={handleConfirmOrder}>
               <LinearGradient
-                colors={['#29B554', '#6EAD16']}
+                colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                 start={{ x: 0.22, y: 0 }}
                 end={{ x: 0.7, y: 1 }}
                 style={styles.confirmButtonGradient}>
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#29B554',
+    backgroundColor: themeColors.primaryLight2,
     justifyContent: 'center',
     alignItems: 'center',
   },

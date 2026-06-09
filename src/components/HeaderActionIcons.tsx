@@ -5,6 +5,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderActionIconsProps {
@@ -115,7 +116,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#29B554',
+    backgroundColor: themeColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',

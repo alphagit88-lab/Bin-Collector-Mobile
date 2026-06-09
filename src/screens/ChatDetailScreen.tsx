@@ -15,6 +15,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { api } from '../config/api';
 import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 
@@ -140,13 +141,13 @@ const ChatDetailScreen: React.FC = () => {
           <Text style={styles.headerSubtitle}>Active now</Text>
         </View>
         <TouchableOpacity onPress={handleCall} style={styles.callButton}>
-          <Feather name="phone" size={20} color="#9CCD17" />
+          <Feather name="phone" size={20} color="themeColors.primaryLight" />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#9CCD17" />
+          <ActivityIndicator size="large" color="themeColors.primaryLight" />
         </View>
       ) : (
         <FlatList
@@ -217,7 +218,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: 12,
-    color: '#29B554',
+    color: themeColors.primaryLight2,
     fontFamily: fonts.family.medium,
   },
   callButton: {
@@ -260,7 +261,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   myBubble: {
-    backgroundColor: '#9CCD17',
+    backgroundColor: themeColors.primaryLight,
     borderBottomRightRadius: 4,
   },
   otherBubble: {
@@ -314,7 +315,7 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 22.5,
-    backgroundColor: '#9CCD17',
+    backgroundColor: themeColors.primaryLight,
     justifyContent: 'center',
     alignItems: 'center',
   },

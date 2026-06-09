@@ -18,6 +18,7 @@ import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-ic
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext'; // Ensure this exists and exports useSocket
 import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 import BottomNavBar from '../components/BottomNavBar';
 import HeaderActionIcons from '../components/HeaderActionIcons';
 import { api, BASE_URL } from '../config/api';
@@ -435,7 +436,7 @@ const ServiceTrackingScreen: React.FC = () => {
           onPress={() => navigation.navigate('OrderBin' as never)}
         >
           <LinearGradient
-            colors={['#9CCD17', '#009B5F']}
+            colors={[themeColors.primaryLight2, themeColors.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.orderButtonGradient}
@@ -464,7 +465,7 @@ const ServiceTrackingScreen: React.FC = () => {
 
             {/* Content Area */}
             {loading ? (
-              <ActivityIndicator size="large" color="#009B5F" style={{ marginTop: 100 }} />
+              <ActivityIndicator size="large" color="themeColors.primaryLight2" style={{ marginTop: 100 }} />
             ) : requests.length === 0 ? (
               /* No Active Services Content */
               <View style={styles.emptyStateContainer}>
@@ -560,7 +561,7 @@ const ServiceTrackingScreen: React.FC = () => {
                         disabled={paying}
                       >
                         <LinearGradient
-                          colors={['#29B554', '#6EAD16']}
+                          colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                           style={[styles.actionButton, paying && { opacity: 0.7 }]}
                         >
                           <Text style={styles.actionButtonText}>{paying ? 'Opening Payment...' : 'Pay Now'}</Text>
@@ -576,7 +577,7 @@ const ServiceTrackingScreen: React.FC = () => {
                         activeOpacity={0.8}
                       >
                         <LinearGradient
-                          colors={['#29B554', '#6EAD16']}
+                          colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                           style={styles.actionButton}
                         >
                           <Text style={styles.actionButtonText}>Mark Ready for Pickup</Text>
@@ -701,7 +702,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 20,
     lineHeight: 21,
-    color: '#A7DB3D',
+    color: themeColors.primaryLight2,
   },
   headerRight: {
     flexDirection: 'row',
@@ -724,7 +725,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#29B554',
+    backgroundColor: themeColors.primaryLight2,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -957,8 +958,8 @@ const styles = StyleSheet.create({
     height: 40,
   },
   chipActive: {
-    backgroundColor: '#29B554',
-    borderColor: '#29B554',
+    backgroundColor: themeColors.primaryLight2,
+    borderColor: themeColors.primaryLight2,
   },
   chipText: {
     fontFamily: fonts.family.medium,
@@ -1008,7 +1009,7 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   simpleCardActive: {
-    borderColor: '#29B554',
+    borderColor: themeColors.primaryLight2,
     borderWidth: 2,
   },
   simpleCardHeader: {

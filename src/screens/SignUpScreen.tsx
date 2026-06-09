@@ -347,8 +347,8 @@ const styles = StyleSheet.create({
   },
   taglineContainer: {
     width: '100%',
-    height: 74,
-    backgroundColor: '#C9E265',
+    height: 80,
+    backgroundColor: themeColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 10,
@@ -359,9 +359,9 @@ const styles = StyleSheet.create({
     fontStyle: 'normal',
     fontWeight: '700',
     fontSize: 28,
-    lineHeight: 28,
+    lineHeight: 34,
     textAlign: 'center',
-    color: '#373934',
+    color: '#FFFFFF',
   },
   taglineTextWhite: {
     color: '#FFFFFF',
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(230, 251, 191, 0.33)',
+    backgroundColor: themeColors.backgroundLight,
   },
   svgImage: {
     width: 430,
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   },
   formSection: {
     width: '100%',
-    backgroundColor: 'rgba(230, 251, 191, 0.33)',
+    backgroundColor: themeColors.backgroundLight,
     paddingTop: 20,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -430,8 +430,8 @@ const styles = StyleSheet.create({
     borderLeftWidth: 1,
   },
   roleOptionSelected: {
-    backgroundColor: '#9AD346',
-    borderColor: '#9AD346',
+    backgroundColor: themeColors.primary,
+    borderColor: themeColors.primary,
     zIndex: 1,
   },
   roleOptionSelectedRight: {
@@ -508,13 +508,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#9AD346',
+    borderColor: themeColors.primary,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   supplierTypeOptionSelected: {
-    backgroundColor: '#9AD346',
+    backgroundColor: themeColors.primary,
   },
   supplierTypeOptionText: {
     fontFamily: fonts.family.regular,
@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#9AD346',
+    backgroundColor: themeColors.primary,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     marginBottom: 14,

@@ -836,7 +836,7 @@ const JobDetailScreen: React.FC = () => {
                     locations={[0, 1]}
                     style={styles.acceptButtonOverlay}>
                     <LinearGradient
-                      colors={['#29B554', '#6EAD16']}
+                      colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                       locations={[0.2227, 0.7018]}
                       start={{ x: 0.1, y: 0 }}
                       end={{ x: 1, y: 1 }}
@@ -928,7 +928,7 @@ const JobDetailScreen: React.FC = () => {
                       disabled={user?.role === 'driver' && jobDetail.service_category !== 'service'}
                     >
                       <LinearGradient
-                        colors={['#29B554', '#6EAD16']}
+                        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                         style={styles.acceptButton}>
                         <Text style={styles.acceptButtonText}>
                           {jobDetail.service_category === 'service'
@@ -956,7 +956,7 @@ const JobDetailScreen: React.FC = () => {
                       })}
                       activeOpacity={0.8}>
                       <LinearGradient
-                        colors={['#29B554', '#6EAD16']}
+                        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                         style={styles.acceptButton}>
                         <Text style={styles.acceptButtonText}>Complete Job</Text>
                       </LinearGradient>
@@ -982,7 +982,7 @@ const JobDetailScreen: React.FC = () => {
                       })}
                       activeOpacity={0.8}>
                       <LinearGradient
-                        colors={['#29B554', '#6EAD16']}
+                        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                         style={styles.acceptButton}>
                         <Text style={styles.acceptButtonText}>
                           {jobDetail.payment_method === 'cash' ? 'Mark as Cash Collected' : 'Mark as Delivered'}
@@ -1048,7 +1048,7 @@ const JobDetailScreen: React.FC = () => {
                         }}
                         activeOpacity={0.8}>
                         <LinearGradient
-                          colors={['#29B554', '#6EAD16']}
+                          colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                           style={styles.acceptButton}>
                           <Text style={styles.acceptButtonText}>Mark as Delivered</Text>
                         </LinearGradient>
@@ -1073,7 +1073,7 @@ const JobDetailScreen: React.FC = () => {
                       })}
                       activeOpacity={0.8}>
                       <LinearGradient
-                        colors={['#29B554', '#6EAD16']}
+                        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                         style={styles.acceptButton}>
                         <Text style={styles.acceptButtonText}>Start Pickup</Text>
                       </LinearGradient>
@@ -1097,7 +1097,7 @@ const JobDetailScreen: React.FC = () => {
                       })}
                       activeOpacity={0.8}>
                       <LinearGradient
-                        colors={['#29B554', '#6EAD16']}
+                        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                         style={styles.acceptButton}>
                         <Text style={styles.acceptButtonText}>Complete Job</Text>
                       </LinearGradient>
@@ -1853,7 +1853,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#29B554',
+    backgroundColor: themeColors.primaryLight2,
     paddingVertical: 12,
     borderRadius: 8,
     gap: 8,

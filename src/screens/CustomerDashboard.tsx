@@ -126,7 +126,7 @@ const CustomerDashboard: React.FC = () => {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#9CCD17']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primary]} />}
       >
         {/* Header Section */}
         <View style={styles.header}>
@@ -190,16 +190,12 @@ const CustomerDashboard: React.FC = () => {
           style={styles.orderButtonContainer}
           activeOpacity={0.8}
           onPress={() => navigation.navigate('OrderBin' as never)}>
-          <LinearGradient
-            colors={['#9CCD17', '#009B5F']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.orderButtonGradient}>
+          <View style={styles.orderButtonGradient}>
             <View style={styles.orderButtonIconContainer}>
               <BinCollectIcon width={39} height={32} />
             </View>
             <Text style={styles.orderButtonText}>Order New Bin</Text>
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
 
         {/* Tracking and History Cards Row */}
@@ -209,11 +205,7 @@ const CustomerDashboard: React.FC = () => {
             style={styles.trackingCard}
             activeOpacity={0.9}
             onPress={() => navigation.navigate('ServiceTracking' as never)}>
-            <LinearGradient
-              colors={['#C0F96F', '#90B93E']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0.7, y: 1 }}
-              style={styles.trackingCardGradient}>
+            <View style={styles.trackingCardGradient}>
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>Tracking</Text>
@@ -229,7 +221,7 @@ const CustomerDashboard: React.FC = () => {
                   <BinCollect2 width={192} height={128} />
                 </View>
               </View>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
 
           {/* History Card */}
@@ -237,12 +229,7 @@ const CustomerDashboard: React.FC = () => {
             style={styles.bookingCard}
             activeOpacity={0.9}
             onPress={() => navigation.navigate('Bookings' as never)}>
-            <LinearGradient
-              colors={['#A7DB3D', '#D6EF72', '#D8FF3A']}
-              locations={[0.1651, 0.6554, 0.8017]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0.7, y: 1 }}
-              style={styles.bookingCardGradient}>
+            <View style={styles.bookingCardGradient}>
               <View style={styles.cardContent}>
                 <View style={styles.cardHeader}>
                   <Text style={styles.cardTitle}>History</Text>
@@ -266,7 +253,7 @@ const CustomerDashboard: React.FC = () => {
                   </View>
                 </View>
               </View>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -274,16 +261,12 @@ const CustomerDashboard: React.FC = () => {
           style={[styles.paymentsCard, { height: 'auto', minHeight: 80, marginBottom: 10 }]}
           activeOpacity={0.9}
           onPress={() => navigation.navigate('Projects' as never)}>
-          <LinearGradient
-            colors={['#9CCD17', '#29B554']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.paymentsCardGradient}>
+          <View style={styles.paymentsCardGradient}>
             <View style={styles.cardContent}>
               <View style={styles.cardHeader}>
                 <View>
-                  <Text style={[styles.cardTitle, { color: '#FFFFFF' }]}>Projects</Text>
-                  <Text style={[styles.cardStatLabel, { color: '#FFFFFF', marginTop: 0, fontSize: 14 }]}>Group your orders into projects</Text>
+                  <Text style={styles.cardTitle}>Projects</Text>
+                  <Text style={[styles.cardStatLabel, { marginTop: 0, fontSize: 14 }]}>Group your orders into projects</Text>
                 </View>
                 <View style={styles.playButtonContainer}>
                   <PlayIcon width={45} height={45} />
@@ -293,7 +276,7 @@ const CustomerDashboard: React.FC = () => {
                 <BinCollect2 width={150} height={100} />
               </View>
             </View>
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
 
         {/* Payments Card */}
@@ -301,11 +284,7 @@ const CustomerDashboard: React.FC = () => {
           style={styles.paymentsCard}
           activeOpacity={0.9}
           onPress={() => navigation.navigate(user?.canViewBilling ? 'Billing' : 'Bookings')}>
-          <LinearGradient
-            colors={['#29B554', '#6EAD16']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.7, y: 1 }}
-            style={styles.paymentsCardGradient}>
+          <View style={styles.paymentsCardGradient}>
             <View style={styles.paymentsContent}>
               <View style={styles.paymentsHeader}>
                 <Text style={styles.paymentsTitle}>Payments</Text>
@@ -324,18 +303,13 @@ const CustomerDashboard: React.FC = () => {
                 <Text style={styles.paymentsLabel}>Total Spent</Text>
               </View>
             </View>
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
 
         {/* Recent Bookings Section */}
         <View style={styles.recentBookingsSection}>
           <View style={styles.recentBookingsCard}>
-            <LinearGradient
-              colors={['#EFF2F0', '#EAFFCC']}
-              locations={[0.2377, 0.6629]}
-              start={{ x: 0.342, y: 0 }}
-              end={{ x: 0.658, y: 1 }}
-              style={styles.recentBookingsCardGradient}>
+            <View style={styles.recentBookingsCardGradient}>
               <View style={styles.recentBookingsHeader}>
                 <Text style={styles.recentBookingsTitle}>Recent Bookings</Text>
                 <TouchableOpacity
@@ -350,7 +324,7 @@ const CustomerDashboard: React.FC = () => {
               </View>
 
               {loading ? (
-                <ActivityIndicator size="small" color="#9CCD17" style={{ marginVertical: 20 }} />
+                <ActivityIndicator size="small" color={themeColors.primary} style={{ marginVertical: 20 }} />
               ) : bookings.length > 0 ? (
                 bookings.slice(0, 3).map((booking) => (
                   <View key={booking.id} style={styles.bookingItem}>
@@ -382,7 +356,7 @@ const CustomerDashboard: React.FC = () => {
               ) : (
                 <Text style={{ textAlign: 'center', marginVertical: 10, color: '#666' }}>No recent bookings</Text>
               )}
-            </LinearGradient>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -425,7 +399,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 20,
     lineHeight: 21,
-    color: '#A7DB3D',
+    color: themeColors.primary,
   },
   headerRight: {
     flexDirection: 'row',
@@ -468,7 +442,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#29B554',
+    backgroundColor: themeColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -494,6 +468,7 @@ const styles = StyleSheet.create({
     borderRadius: 38,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: themeColors.primary,
   },
   orderButtonIconContainer: {
     width: 35,
@@ -529,6 +504,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     padding: 14,
+    backgroundColor: '#f3f3f3',
   },
   bookingCard: {
     flex: 1,
@@ -542,6 +518,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     padding: 14,
+    backgroundColor: '#f3f3f3',
   },
   cardContent: {
     flex: 1,
@@ -643,6 +620,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     padding: 14,
+    backgroundColor: '#f3f3f3',
   },
   paymentsContent: {
     flex: 1,
@@ -657,7 +635,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 20,
     lineHeight: 24,
-    color: '#FFFFFF',
+    color: '#373934',
   },
   paymentsIconContainer: {
     width: 45,
@@ -676,13 +654,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.bold,
     fontSize: 36,
     lineHeight: 43,
-    color: '#FFFFFF',
+    color: '#161616',
   },
   paymentsLabel: {
     fontFamily: fonts.family.medium,
     fontSize: 17,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: '#373934',
     marginTop: 4,
   },
   paymentsImageContainer: {
@@ -734,7 +712,7 @@ const styles = StyleSheet.create({
   viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#252525',
+    backgroundColor: themeColors.primary,
     paddingHorizontal: 13,
     paddingVertical: 8.5,
     borderRadius: 24,
@@ -766,9 +744,9 @@ const styles = StyleSheet.create({
     marginTop: 5,
     height: 59,
     borderRadius: 9,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#0000001A',
+    backgroundColor: themeColors.primaryLight,
+    borderWidth: 0.2,
+    borderColor: themeColors.primary,
     paddingHorizontal: 8,
     paddingVertical: 9,
   },

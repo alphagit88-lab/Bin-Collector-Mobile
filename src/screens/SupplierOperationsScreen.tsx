@@ -139,7 +139,7 @@ const SupplierOperationsScreen: React.FC = () => {
               activeOpacity={0.85}
               onPress={handleServiceAreaPress}>
               <LinearGradient
-                colors={['#29B554', '#6EAD16']}
+                colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                 locations={[0.2227, 0.7018]}
                 start={{ x: 0.88, y: 0 }}
                 end={{ x: 0.12, y: 1 }}
@@ -171,7 +171,7 @@ const SupplierOperationsScreen: React.FC = () => {
               activeOpacity={0.85}
               onPress={handleAvailabilityPress}>
               <LinearGradient
-                colors={['#C0F96F', '#6EAD16']}
+                colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                 locations={[0.2227, 0.7018]}
                 start={{ x: 0.88, y: 0 }}
                 end={{ x: 0.12, y: 1 }}

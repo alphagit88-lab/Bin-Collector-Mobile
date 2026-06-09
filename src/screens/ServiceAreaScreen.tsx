@@ -442,7 +442,7 @@ const ServiceAreaScreen: React.FC = () => {
         <View style={styles.sectionContainer}>
           {/* Add New Service Area Card - Outer Container */}
           <LinearGradient
-            colors={['#C0F96F', '#90B93E']}
+            colors={[themeColors.primaryLight2, themeColors.primary]}
             locations={[0.2009, 0.7847]}
             start={{ x: 0.15, y: 0.15 }}
             end={{ x: 0.85, y: 0.85 }}
@@ -467,7 +467,7 @@ const ServiceAreaScreen: React.FC = () => {
 
             {/* Inner Gradient Pill Button */}
             <LinearGradient
-              colors={['#9ED654', '#6EAD16']}
+              colors={['#9ED654', themeColors.primaryLight]}
               locations={[0.2, 0.8]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -532,7 +532,7 @@ const ServiceAreaScreen: React.FC = () => {
                       activeOpacity={0.8}
                       onPress={() => handleSetupPricing(zone)}>
                       <LinearGradient
-                        colors={['#29B554', '#6EAD16']}
+                        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                         style={styles.removeButtonInner}>
                         <Ionicons name="pricetag-outline" size={16} color="#FFFFFF" />
                         <Text style={styles.removeText}>Setup Bin Pricing</Text>
@@ -642,7 +642,7 @@ const ServiceAreaScreen: React.FC = () => {
                   disabled={isSearching}
                 >
                   <LinearGradient
-                    colors={['#29B554', '#6EAD16']}
+                    colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                     style={styles.searchIconGradient}
                   >
                     {isSearching ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="search" size={20} color="#FFF" />}
@@ -706,7 +706,7 @@ const ServiceAreaScreen: React.FC = () => {
                   disabled={addingZone}
                 >
                   <LinearGradient
-                    colors={['#29B554', '#6EAD16']}
+                    colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                     style={StyleSheet.absoluteFillObject}
                   />
                   {addingZone ? (

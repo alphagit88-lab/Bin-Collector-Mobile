@@ -32,6 +32,7 @@ import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
 import Icon20_3 from '../assets/images/20_3.svg';
 import PlayIcon from '../assets/images/play.svg';
 import BinCollectIcon from '../assets/images/Bin.Collect (1) 1.svg';
+import themeColors from '../theme/colors';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -346,7 +347,7 @@ const BookingsScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#9CCD17']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primaryLight]} />
         }>
         {/* Header Section */}
         <View style={styles.header}>
@@ -365,7 +366,7 @@ const BookingsScreen: React.FC = () => {
           activeOpacity={0.8}
           onPress={() => navigation.navigate('OrderBin' as never)}>
           <LinearGradient
-            colors={['#9CCD17', '#009B5F']}
+            colors={[themeColors.primaryLight2, themeColors.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.orderButtonGradient}>
@@ -383,7 +384,7 @@ const BookingsScreen: React.FC = () => {
             activeOpacity={0.9}
             onPress={() => navigation.navigate('ServiceTracking' as never)}>
             <LinearGradient
-              colors={['#C0F96F', '#90B93E']}
+              colors={[themeColors.primaryLight, themeColors.primaryLight2]}
               start={{ x: 0, y: 0 }}
               end={{ x: 0.7, y: 1 }}
               style={styles.trackingCardGradient}>
@@ -410,7 +411,7 @@ const BookingsScreen: React.FC = () => {
             activeOpacity={0.9}
             onPress={() => setViewMode('list')}>
             <LinearGradient
-              colors={['#A7DB3D', '#D6EF72', '#D8FF3A']}
+              colors={[themeColors.primaryLight, themeColors.primaryLight2]}
               locations={[0.1651, 0.6554, 0.8017]}
               start={{ x: 0, y: 0 }}
               end={{ x: 0.7, y: 1 }}
@@ -489,7 +490,7 @@ const BookingsScreen: React.FC = () => {
 
             {loading && !refreshing ? (
               <View style={{ paddingVertical: 40 }}>
-                <ActivityIndicator size="large" color="#9CCD17" />
+                <ActivityIndicator size="large" color="themeColors.primaryLight" />
               </View>
             ) : viewMode === 'list' ? (
               filteredBookings.length > 0 ? (
@@ -760,7 +761,7 @@ const BookingsScreen: React.FC = () => {
                   )}
                   <View style={styles.modalRow}>
                     <Text style={styles.modalLabel}>Total Amount</Text>
-                    <Text style={[styles.modalValue, { fontSize: 18, color: '#29B554' }]}>
+                    <Text style={[styles.modalValue, { fontSize: 18, color: themeColors.primaryLight2 }]}>
                       {formatPrice(selectedBooking.total_price || selectedBooking.estimated_price || 0)}
                     </Text>
                   </View>
@@ -772,7 +773,7 @@ const BookingsScreen: React.FC = () => {
                       disabled={paying}
                     >
                       <LinearGradient
-                        colors={['#29B554', '#6EAD16']}
+                        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.closeButtonGradient}
@@ -1001,7 +1002,7 @@ const BookingsScreen: React.FC = () => {
               onPress={() => setDetailsModalVisible(false)}
             >
               <LinearGradient
-                colors={['#9CCD17', '#009B5F']}
+                colors={[themeColors.primaryLight2, themeColors.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.closeButtonGradient}
@@ -1059,7 +1060,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 20,
     lineHeight: 21,
-    color: '#A7DB3D',
+    color: themeColors.primaryLight2,
   },
   headerRight: {
     flexDirection: 'row',
@@ -1082,7 +1083,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#29B554',
+    backgroundColor: themeColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1437,7 +1438,7 @@ const styles = StyleSheet.create({
     flex: 1,
     maxWidth: 167,
     height: 31,
-    backgroundColor: '#89D957',
+    backgroundColor: themeColors.primary,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',

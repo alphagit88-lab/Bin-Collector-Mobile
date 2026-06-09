@@ -206,7 +206,7 @@ const SupplierAvailabilityScreen: React.FC = () => {
         {/* Availability Management Card */}
         <View style={styles.availabilityCardContainer}>
           <LinearGradient
-            colors={['#C0F96F', '#90B93E']}
+            colors={[themeColors.primaryLight2, themeColors.primary]}
             locations={[0.2009, 0.7847]}
             start={{ x: 0.15, y: 0.1 }}
             end={{ x: 0.85, y: 0.9 }}
@@ -313,7 +313,7 @@ const SupplierAvailabilityScreen: React.FC = () => {
               disabled={saving}
             >
               <LinearGradient
-                colors={['#29B554', '#6EAD16']}
+                colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.saveButtonGradient}

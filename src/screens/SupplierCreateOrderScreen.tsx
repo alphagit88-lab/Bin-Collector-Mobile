@@ -588,7 +588,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
         {/* Header Banner */}
         <View style={styles.headerBanner}>
           <LinearGradient
-            colors={['#29B554', '#6EAD16']}
+            colors={[themeColors.primaryLight2, themeColors.primaryLight]}
             start={{ x: 0.22, y: 0 }}
             end={{ x: 0.7, y: 1 }}
             style={styles.headerBannerGradient}>
@@ -671,13 +671,13 @@ const SupplierCreateOrderScreen: React.FC = () => {
                     activeOpacity={0.8}
                     onPress={() => setServiceType(type)}>
                     <LinearGradient
-                      colors={serviceType === type ? ['#C0F96F', '#90B93E'] : ['#F3FFE2', '#E5EFD1']}
+                      colors={serviceType === type ? [themeColors.primaryLight2, themeColors.primary] : ['#F3FFE2', '#E5EFD1']}
                       style={styles.paymentOptionGradient}>
                       <View style={styles.paymentOptionContent}>
                         <View style={styles.paymentIconContainer}>
                           {type === 'residential' && <Icon28_1_Residential width={50} height={40} />}
                           {type === 'commercial' && <Icon28_2_Commercial width={57} height={45} />}
-                          {type === 'service' && <Ionicons name="construct" size={40} color={serviceType === 'service' ? '#373934' : '#90B93E'} />}
+                          {type === 'service' && <Ionicons name="construct" size={40} color={serviceType === 'service' ? '#373934' : themeColors.primary} />}
                         </View>
                         <Text style={[styles.paymentOptionText, serviceType === type && styles.paymentOptionTextActive]}>
                           {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -741,7 +741,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                   </View>
                 ))}
                 <TouchableOpacity style={styles.addBinButton} onPress={addBin}>
-                  <LinearGradient colors={['#29B554', '#6EAD16']} style={styles.addBinButtonGradient}>
+                  <LinearGradient colors={[themeColors.primaryLight2, themeColors.primaryLight]} style={styles.addBinButtonGradient}>
                     <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -768,7 +768,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                       <Ionicons
                         name={selectedServices.includes(category.id) ? "checkbox" : "square-outline"}
                         size={24}
-                        color={selectedServices.includes(category.id) ? "#29B554" : "#90B93E"}
+                        color={selectedServices.includes(category.id) ? themeColors.primaryLight2 : "themeColors.primary"}
                       />
                       <Text style={[styles.serviceCheckboxLabel, selectedServices.includes(category.id) && styles.serviceCheckboxLabelActive]}>
                         {category.name}
@@ -824,7 +824,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                             style={styles.suggestionItem}
                             onPress={() => selectSuggestion(suggestion)}
                           >
-                            <Ionicons name="location-outline" size={18} color="#90B93E" style={{ marginRight: 8 }} />
+                            <Ionicons name="location-outline" size={18} color="themeColors.primary" style={{ marginRight: 8 }} />
                             <Text style={styles.suggestionText} numberOfLines={2}>
                               {suggestion.display_name}
                             </Text>
@@ -835,7 +835,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                   )}
                 </View>
                 <TouchableOpacity style={styles.searchButton} onPress={handleSearchAddress} disabled={isSearching}>
-                  <LinearGradient colors={['#29B554', '#6EAD16']} style={styles.searchButtonGradient}>
+                  <LinearGradient colors={[themeColors.primaryLight2, themeColors.primaryLight]} style={styles.searchButtonGradient}>
                     {isSearching ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="search" size={20} color="#FFF" />}
                   </LinearGradient>
                 </TouchableOpacity>
@@ -931,7 +931,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                 start={{ x: 0.34, y: 0 }}
                 end={{ x: 0.66, y: 1 }}
                 style={styles.formSectionGradient}>
-                <Text style={[styles.formSectionTitleSmall, { marginBottom: 12, color: '#29B554' }]}>Price Breakdown Summary</Text>
+                <Text style={[styles.formSectionTitleSmall, { marginBottom: 12, color: themeColors.primaryLight2 }]}>Price Breakdown Summary</Text>
 
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabelSmall}>Base Price ({breakdown.limitDays} Days):</Text>
@@ -954,7 +954,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
 
                 <View style={styles.summaryRow}>
                   <Text style={[styles.summaryLabelSmall, { fontFamily: fonts.family.bold, fontSize: 18 }]}>Estimated Total:</Text>
-                  <Text style={[styles.summaryValueSmall, { color: '#29B554', fontSize: 22 }]}>
+                  <Text style={[styles.summaryValueSmall, { color: themeColors.primaryLight2, fontSize: 22 }]}>
                     ${breakdown.total.toFixed(2)}
                   </Text>
                 </View>
@@ -964,7 +964,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
 
           {/* Submit Button */}
           <TouchableOpacity style={[styles.placeOrderButton, loading && { opacity: 0.7 }]} onPress={handleSubmit} disabled={loading}>
-            <LinearGradient colors={['#29B554', '#6EAD16']} style={styles.placeOrderButtonGradient}>
+            <LinearGradient colors={[themeColors.primaryLight2, themeColors.primaryLight]} style={styles.placeOrderButtonGradient}>
               {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.placeOrderButtonText}>Create Order</Text>}
             </LinearGradient>
           </TouchableOpacity>
@@ -1085,7 +1085,7 @@ const styles = StyleSheet.create({
   paymentOptionGradient: { flex: 1, padding: 10, justifyContent: 'center', alignItems: 'center' },
   paymentOptionContent: { alignItems: 'center' },
   paymentIconContainer: { height: 45, justifyContent: 'center', marginBottom: 5 },
-  paymentOptionText: { fontFamily: fonts.family.medium, fontSize: 12, color: '#90B93E' },
+  paymentOptionText: { fontFamily: fonts.family.medium, fontSize: 12, color: themeColors.primary },
   paymentOptionTextActive: { color: '#373934' },
   binFormContainer: { borderRadius: 12, overflow: 'hidden' },
   binFormGradient: { padding: 12 },
@@ -1096,7 +1096,7 @@ const styles = StyleSheet.create({
   formSectionTitleSmall: { fontFamily: fonts.family.bold, fontSize: 15, color: '#373934', marginBottom: 12 },
   servicesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 15 },
   serviceCheckboxItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', minWidth: '45%' },
-  serviceCheckboxItemActive: { borderColor: '#29B554', backgroundColor: '#F0FDF4' },
+  serviceCheckboxItemActive: { borderColor: themeColors.primaryLight2, backgroundColor: '#F0FDF4' },
   serviceCheckboxLabel: { marginLeft: 8, fontFamily: fonts.family.medium, fontSize: 13, color: '#373934' },
   serviceCheckboxLabelActive: { color: '#166534' },
   searchButton: { marginBottom: 16 },
@@ -1121,7 +1121,7 @@ const styles = StyleSheet.create({
   helperText: { fontFamily: fonts.family.regular, fontSize: 12, color: '#6B7280', marginTop: 4 },
   row: { flexDirection: 'row' },
   miniLabel: { fontFamily: fonts.family.medium, fontSize: 12, color: '#373934', marginBottom: 4 },
-  priceText: { fontFamily: fonts.family.bold, fontSize: 16, color: '#29B554' },
+  priceText: { fontFamily: fonts.family.bold, fontSize: 16, color: themeColors.primaryLight2 },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

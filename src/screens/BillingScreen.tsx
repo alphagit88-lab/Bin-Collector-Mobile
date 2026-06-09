@@ -98,7 +98,7 @@ const BillingScreen: React.FC = () => {
     return (
       <View style={styles.container}>
         <LinearGradient
-          colors={['#29B554', '#6EAD16']}
+          colors={[themeColors.primaryLight2, themeColors.primaryLight]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.restrictedHeader}
@@ -107,7 +107,7 @@ const BillingScreen: React.FC = () => {
         </LinearGradient>
         <View style={styles.restrictedContent}>
           <View style={styles.lockCircle}>
-            <Ionicons name="lock-closed" size={60} color="#6EAD16" />
+            <Ionicons name="lock-closed" size={60} color={themeColors.primaryLight} />
           </View>
           <Text style={styles.restrictedTitle}>Access Restricted</Text>
           <Text style={styles.restrictedMessage}>
@@ -122,7 +122,7 @@ const BillingScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#29B554', '#6EAD16']}
+        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}
@@ -150,7 +150,7 @@ const BillingScreen: React.FC = () => {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#29B554" />
+          <ActivityIndicator size="large" color={themeColors.primaryLight2} />
         </View>
       ) : (
         <FlatList
@@ -159,7 +159,7 @@ const BillingScreen: React.FC = () => {
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#29B554']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primaryLight2]} />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
   amountValue: {
     fontFamily: fonts.family.bold,
     fontSize: 20,
-    color: '#29B554',
+    color: themeColors.primaryLight2,
   },
   downloadButton: {
     flexDirection: 'row',

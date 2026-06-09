@@ -99,7 +99,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                 >
                     <View style={styles.contentCard}>
                         <LinearGradient
-                            colors={['#29B554', '#6EAD16']}
+                            colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                             style={styles.headerGradient}
                         >
                             <Text style={styles.headerTitle}>New Service Request!</Text>
@@ -270,7 +270,7 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                                 activeOpacity={0.8}
                             >
                                 <LinearGradient
-                                    colors={['#C0F96F', '#90B93E']}
+                                    colors={[themeColors.primaryLight2, themeColors.primary]}
                                     style={styles.acceptButtonGradient}
                                 >
                                     <Text style={styles.acceptButtonText}>ACCEPT NOW</Text>
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     binSize: {
         fontFamily: fonts.family.medium,
         fontSize: 16,
-        color: '#29B554',
+        color: themeColors.primaryLight2,
     },
     divider: {
         height: 1,

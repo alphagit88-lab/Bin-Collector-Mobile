@@ -152,7 +152,6 @@ const LoginScreen: React.FC = () => {
             onPress={handleLogin}
             disabled={loading}
           >
-            <View style={styles.loginButtonOverlay} />
             <Text style={styles.loginButtonText}>
               {loading ? 'Logging in...' : 'Login'}
             </Text>
@@ -218,7 +217,7 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   binCollectGreen: {
-    color: '#9AD346',
+    color: themeColors.primary,
   },
   line1: {
     width: '72%',
@@ -235,7 +234,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 20,
     textAlign: 'center',
-    color: '#29B554',
+    color: themeColors.primary,
     marginBottom: 0,
   },
   middleImageContainer: {
@@ -249,7 +248,7 @@ const styles = StyleSheet.create({
   },
   formSection: {
     width: '100%',
-    backgroundColor: 'rgba(230, 251, 191, 0.33)',
+    backgroundColor: themeColors.backgroundLight,
     paddingTop: 20,
     paddingBottom: 20,
   },
@@ -384,18 +383,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
-    backgroundColor: '#C9E265',
+    backgroundColor: themeColors.primary,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     marginBottom: 14,
-  },
-  loginButtonOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(137, 217, 87, 0.2)',
   },
   loginButtonDisabled: {
     opacity: 0.6,

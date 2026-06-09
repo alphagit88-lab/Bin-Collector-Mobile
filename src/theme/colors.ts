@@ -5,10 +5,11 @@
 
 export const themeColors = {
   // Primary colors
-  primary: '#E6FBBF',
-  primarySemiDark: '#acbd8dff',
-  primaryDark: '#373934',
-  primaryLight: '#E6FBBF',
+  primary: '#275a47',
+  primarySemiDark: '#275a47',
+  primaryDark: '#1e4738',
+  primaryLight: '#b0e4cd',
+  primaryLight2: '#3ead7bff',
 
   // Text colors
   textPrimary: '#373934',
@@ -16,7 +17,7 @@ export const themeColors = {
 
   // Background colors
   background: '#FFFFFF',
-  backgroundLight: '#E6FBBF33', // primary with 33% opacity
+  backgroundLight: '#b0e4cd33', // primary with 33% opacity
 
   // Border colors
   border: 'rgba(0, 0, 0, 0.1)',

@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { SvgProps } from 'react-native-svg';
 import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 
 // Import SVG images - replace with Bin.Collect assets
 import HomeIcon from '../assets/images/Bin.Collect (1) 3.svg';
@@ -53,19 +53,6 @@ const OperationsBottomNavBar: React.FC<OperationsBottomNavBarProps> = ({
           activeOpacity={0.7}
           onPress={onPress}>
           <View style={styles.navItemActiveBackground}>
-            <LinearGradient
-              colors={['rgba(137, 217, 87, 0.2)', 'rgba(137, 217, 87, 0.2)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <LinearGradient
-              colors={['#78FF30', '#6DBC00']}
-              locations={[0.2487, 0.7225]}
-              start={{ x: 0.8, y: 0 }}
-              end={{ x: 0.2, y: 1 }}
-              style={[StyleSheet.absoluteFill, { borderRadius: 42 }]}
-            />
             <View style={styles.navItemActiveContent}>
               <View style={styles.iconCircleActive}>
                 <Icon width={28} height={28} />
@@ -110,21 +97,8 @@ const OperationsBottomNavBar: React.FC<OperationsBottomNavBarProps> = ({
       </TouchableOpacity>
 
       {/* Bottom Navigation */}
-      {/* Bottom Navigation (white base + translucent overlay) */}
       <View style={styles.bottomNavWrapper}>
-        <LinearGradient
-          colors={['#FFFFFF', '#FFFFFF']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.bottomNav}>
-          <LinearGradient
-            colors={['rgba(137, 217, 87, 0.2)', 'rgba(137, 217, 87, 0.2)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-
+        <View style={styles.bottomNav}>
           <View style={styles.bottomNavContent}>
             {renderNavItem('home', 'Home', HomeIcon, handleHomePress, {
               marginLeft: -12,
@@ -143,7 +117,7 @@ const OperationsBottomNavBar: React.FC<OperationsBottomNavBarProps> = ({
               { marginRight: -12 },
             )}
           </View>
-        </LinearGradient>
+        </View>
       </View>
     </View>
   );
@@ -211,6 +185,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     overflow: 'visible',
     justifyContent: 'center',
+    backgroundColor: themeColors.primaryLight,
   },
   bottomNavContent: {
     flex: 1,
@@ -238,6 +213,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     overflow: 'hidden',
+    backgroundColor: themeColors.primary,
   },
   navItemActiveContent: {
     flex: 1,

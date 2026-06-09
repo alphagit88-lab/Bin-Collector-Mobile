@@ -208,8 +208,8 @@ const SupplierDashboard: React.FC = () => {
           activeOpacity={0.9}
           onPress={() => navigation.navigate('SupplierEarnings' as never)}
         >
-          <LinearGradient
-            colors={['#29B554', '#6EAD16']}
+          <View
+            colors={[themeColors.primary, themeColors.primaryDark || '#1e4738']}
             start={{ x: 0.22, y: 0 }}
             end={{ x: 0.7, y: 1 }}
             style={styles.earningsGradient}>
@@ -220,8 +220,8 @@ const SupplierDashboard: React.FC = () => {
                 style={styles.earningsBgImage}
               />
             </View>
-            <LinearGradient
-              colors={['rgba(137, 217, 87, 0.2)', 'rgba(137, 217, 87, 0.2)']}
+            <View
+              colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.2)']}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
               style={styles.earningsOverlay}>
@@ -238,8 +238,8 @@ const SupplierDashboard: React.FC = () => {
               <View style={styles.earningsImageContainer}>
                 <EarningsImage width={219} height={175} />
               </View>
-            </LinearGradient>
-          </LinearGradient>
+            </View>
+          </View>
         </TouchableOpacity>
 
         {/* Quick Action: Create Order */}
@@ -247,19 +247,19 @@ const SupplierDashboard: React.FC = () => {
           style={styles.createOrderAction}
           onPress={() => navigation.navigate('SupplierCreateOrder')}
         >
-          <LinearGradient
-            colors={['rgba(41, 181, 84, 0.1)', 'rgba(110, 173, 22, 0.1)']}
+          <View
+            colors={[`${themeColors.primary}1A`, `${themeColors.primary}1A`]}
             style={styles.createOrderGradient}
           >
             <View style={styles.createOrderIcon}>
-              <Feather name="plus-circle" size={24} color="#29B554" />
+              <Feather name="plus-circle" size={24} color={themeColors.primary} />
             </View>
             <View style={styles.createOrderTextContainer}>
               <Text style={styles.createOrderTitle}>Create New Order</Text>
               <Text style={styles.createOrderSubtitle}>Assign booking to existing/new customer</Text>
             </View>
-            <Feather name="chevron-right" size={20} color="#29B554" />
-          </LinearGradient>
+            <Feather name="chevron-right" size={20} color={themeColors.primary} />
+          </View>
         </TouchableOpacity>
 
         {/* Job Management Section */}
@@ -270,14 +270,14 @@ const SupplierDashboard: React.FC = () => {
               style={styles.viewAllButton}
               onPress={() => navigation.navigate('SupplierJobs', { initialCategory: 'all' })}
             >
-              <LinearGradient
+              <View
                 colors={['#424141', '#2D2D2D']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.viewAllGradient}>
                 <Text style={styles.viewAllText}>View all</Text>
                 <PlayIcon width={30} height={30} />
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#29B554',
+    backgroundColor: themeColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -468,7 +468,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 20,
     lineHeight: 21,
-    color: '#29B554',
+    color: themeColors.primary,
   },
 
   earningsCard: {
@@ -481,6 +481,7 @@ const styles = StyleSheet.create({
   earningsGradient: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#f3f3f3',
   },
   earningsOverlay: {
     flex: 1,
@@ -509,7 +510,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 20,
     lineHeight: 24,
-    color: '#FFFFFF',
+    color: '#373934',
   },
   earningsNotification: {
     width: 45,
@@ -523,14 +524,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.bold,
     fontSize: 36,
     lineHeight: 43,
-    color: '#FFFFFF',
+    color: '#161616',
     marginTop: 100,
   },
   balanceLabel: {
     fontFamily: fonts.family.medium,
     fontSize: 17,
     lineHeight: 20,
-    color: '#FFFFFF',
+    color: '#373934',
     marginTop: 5,
   },
   earningsImageContainer: {
@@ -563,6 +564,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 17,
+    backgroundColor: themeColors.primary,
   },
   viewAllText: {
     fontFamily: fonts.family.medium,
@@ -572,7 +574,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   jobGridContainer: {
-    backgroundColor: '#EAFFCC',
+    backgroundColor: '#f3f3f3',
     borderRadius: 16,
     padding: 10,
   },
@@ -587,18 +589,12 @@ const styles = StyleSheet.create({
   jobCard: {
     flex: 1,
     height: 98,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f3f3f3',
     borderRadius: 16,
     padding: 12,
     position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   jobCardContent: {
     flex: 1,
@@ -653,18 +649,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(41, 181, 84, 0.2)',
+    borderColor: `${themeColors.primary}33`,
   },
   createOrderGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
+    backgroundColor: '#f3f3f3',
   },
   createOrderIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(41, 181, 84, 0.1)',
+    backgroundColor: `${themeColors.primary}1A`,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,

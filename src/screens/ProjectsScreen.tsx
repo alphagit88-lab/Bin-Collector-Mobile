@@ -16,6 +16,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 import BottomNavBar from '../components/BottomNavBar';
 import HeaderActionIcons from '../components/HeaderActionIcons';
 import { api } from '../config/api';
@@ -162,7 +163,7 @@ const ProjectsScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#9CCD17']} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primaryLight]} />
         }>
         
         {/* Header Section */}
@@ -182,12 +183,12 @@ const ProjectsScreen: React.FC = () => {
           activeOpacity={0.8}
           onPress={() => setCreateModalVisible(true)}>
           <LinearGradient
-            colors={['#9CCD17', '#009B5F']}
+            colors={[themeColors.primaryLight2, themeColors.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.orderButtonGradient}>
             <View style={styles.orderButtonIconContainer}>
-              <Ionicons name="add" size={28} color="#009B5F" />
+              <Ionicons name="add" size={28} color={themeColors.primaryLight2} />
             </View>
             <Text style={styles.orderButtonText}>Create New Project</Text>
           </LinearGradient>
@@ -199,7 +200,7 @@ const ProjectsScreen: React.FC = () => {
            
            {loading && !refreshing ? (
              <View style={{ paddingVertical: 40 }}>
-               <ActivityIndicator size="large" color="#9CCD17" />
+               <ActivityIndicator size="large" color="themeColors.primaryLight" />
              </View>
            ) : projects.length === 0 ? (
              <View style={styles.emptyContainer}>
@@ -216,7 +217,7 @@ const ProjectsScreen: React.FC = () => {
                    activeOpacity={0.9}
                    onPress={() => handleProjectPress(project)}>
                    <LinearGradient
-                     colors={index % 2 === 0 ? ['#C0F96F', '#90B93E'] : ['#A7DB3D', '#D6EF72']}
+                     colors={index % 2 === 0 ? [themeColors.primaryLight2, themeColors.primary] : [themeColors.primaryLight2, themeColors.primaryLight]}
                      start={{ x: 0, y: 0 }}
                      end={{ x: 0.7, y: 1 }}
                      style={styles.projectCardGradient}>
@@ -275,7 +276,7 @@ const ProjectsScreen: React.FC = () => {
             onPress={handleCreateProject}
             disabled={creating}>
             <LinearGradient
-              colors={['#9CCD17', '#009B5F']}
+              colors={[themeColors.primaryLight2, themeColors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.submitButtonGradient}>
@@ -339,7 +340,7 @@ const ProjectsScreen: React.FC = () => {
             style={styles.modalCloseButtonContainer}
             onPress={() => setDetailsModalVisible(false)}>
             <LinearGradient
-              colors={['#9CCD17', '#009B5F']}
+              colors={[themeColors.primaryLight2, themeColors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.submitButtonGradient}>
@@ -386,7 +387,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 20,
     lineHeight: 21,
-    color: '#A7DB3D',
+    color: themeColors.primaryLight2,
   },
   headerRight: {
     flexDirection: 'row',

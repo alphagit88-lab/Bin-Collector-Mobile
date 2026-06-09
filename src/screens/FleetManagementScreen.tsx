@@ -448,7 +448,7 @@ const FleetManagementScreen: React.FC = () => {
         {/* Fleet Management Card */}
         <View style={styles.fleetManagementContainer}>
           <LinearGradient
-            colors={['#C0F96F', '#90B93E']}
+            colors={[themeColors.primaryLight2, themeColors.primary]}
             locations={[0.2009, 0.7847]}
             start={{ x: 0.146, y: 0 }}
             end={{ x: 0.854, y: 1 }}
@@ -485,7 +485,7 @@ const FleetManagementScreen: React.FC = () => {
                 style={styles.addNewBinOverlay}
               />
               <LinearGradient
-                colors={['#9CCD17', '#009B5F']}
+                colors={[themeColors.primaryLight, themeColors.primaryLight2]}
                 locations={[0, 1]}
                 start={{ x: 0, y: 0.5 }}
                 end={{ x: 1, y: 0.5 }}
@@ -874,7 +874,7 @@ const styles = StyleSheet.create({
   addBinPlus: {
     fontFamily: fonts.family.semiBold,
     fontSize: 20,
-    color: '#009B5F',
+    color: themeColors.primaryLight2,
     lineHeight: 20,
   },
   addNewBinText: {

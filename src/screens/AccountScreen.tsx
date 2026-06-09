@@ -544,7 +544,7 @@ const AccountScreen: React.FC = () => {
                   </View>
                 ) : (
                   <LinearGradient
-                    colors={['#6EAD16', '#E1FFB7']}
+                    colors={[themeColors.primaryLight2, themeColors.primary]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 0, y: 1 }}
                     style={styles.avatarGradient}>
@@ -595,13 +595,13 @@ const AccountScreen: React.FC = () => {
             <View style={styles.settingsSection}>
               {user?.canViewBilling && (
                 <SettingsItem
-                  icon={<MaterialCommunityIcons name="receipt" size={28} color="#9CCD17" style={{ marginRight: 8 }} />}
+                  icon={<MaterialCommunityIcons name="receipt" size={28} color="themeColors.primaryLight" style={{ marginRight: 8 }} />}
                   label="Billing & Invoices"
                   onPress={() => navigation.navigate('Billing')}
                 />
               )}
               <SettingsItem
-                icon={<Feather name="headphones" size={28} color="#9CCD17" style={{ marginRight: 8 }} />}
+                icon={<Feather name="headphones" size={28} color="themeColors.primaryLight" style={{ marginRight: 8 }} />}
                 label="Customer Service"
                 onPress={async () => {
                   try {
@@ -665,7 +665,7 @@ const AccountScreen: React.FC = () => {
             onPress={handleLogout}
             activeOpacity={0.8}>
             <LinearGradient
-              colors={['#9CCD17', '#009B5F']}
+              colors={[themeColors.primaryLight2, themeColors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.logoutButtonGradient}>
@@ -1084,7 +1084,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#29B554',
+    backgroundColor: themeColors.primaryLight2,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1098,7 +1098,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.medium,
     fontSize: 20,
     lineHeight: 21,
-    color: '#82D100',
+    color: themeColors.primaryLight2,
   },
   mainCard: {
     marginHorizontal: 12,
@@ -1168,7 +1168,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontFamily: fonts.family.bold,
     fontSize: 40,
-    color: '#6EAD16',
+    color: themeColors.primaryLight,
   },
   profileName: {
     fontFamily: fonts.family.semiBold,

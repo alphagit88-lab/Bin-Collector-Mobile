@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '../theme/fonts';
+import { themeColors } from '../theme/colors';
 import AppModal from './AppModal';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -52,7 +53,7 @@ const AttachmentOptionModal: React.FC<AttachmentOptionModalProps> = ({
                                 style={styles.optionGradient}
                             >
                                 <View style={styles.iconCircle}>
-                                    <Ionicons name="camera" size={24} color="#29B554" />
+                                    <Ionicons name="camera" size={24} color={themeColors.primaryLight2} />
                                 </View>
                                 <Text style={styles.optionText}>Take Photo</Text>
                             </LinearGradient>
@@ -73,7 +74,7 @@ const AttachmentOptionModal: React.FC<AttachmentOptionModalProps> = ({
                                 style={styles.optionGradient}
                             >
                                 <View style={styles.iconCircle}>
-                                    <Ionicons name="images" size={24} color="#29B554" />
+                                    <Ionicons name="images" size={24} color={themeColors.primaryLight2} />
                                 </View>
                                 <Text style={styles.optionText}>Choose from Gallery</Text>
                             </LinearGradient>

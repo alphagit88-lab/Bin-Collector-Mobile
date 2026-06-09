@@ -10,6 +10,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import FlashMessage from 'react-native-flash-message';
 import { subscribeToForegroundNotifications } from './src/utils/fcmNotifications';
 import { VersionBlocker } from './src/components/VersionBlocker';
+import { themeColors } from './src/theme/colors';
 
 // Explicitly hide Expo splash screen immediately - we only use native splash
 // This prevents Expo from showing its splash screen at all
@@ -57,7 +58,7 @@ const App: React.FC = () => {
   const mainApp = (
     <AuthProvider>
       <SocketProvider>
-        <StatusBar style="dark" translucent={false} backgroundColor="#E6FBBF" />
+        <StatusBar style="light" translucent={false} backgroundColor={themeColors.primary} />
         <View style={styles.container}>
           <VersionBlocker>
             <AppNavigator />

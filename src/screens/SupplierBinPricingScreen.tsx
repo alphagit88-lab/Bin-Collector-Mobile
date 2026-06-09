@@ -179,7 +179,7 @@ const SupplierBinPricingScreen: React.FC = () => {
             disabled={saving || isLocked}
           >
             <LinearGradient
-              colors={isLocked ? ['#9CA3AF', '#D1D5DB'] : ['#29B554', '#6EAD16']}
+              colors={isLocked ? ['#9CA3AF', '#D1D5DB'] : [themeColors.primaryLight2, themeColors.primaryLight]}
               style={styles.saveGradient}
             >
               {saving ? (

@@ -4,6 +4,7 @@ import { showMessage } from 'react-native-flash-message';
 import { useAuth } from './AuthContext';
 import { BASE_URL, api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
+import { themeColors } from '../theme/colors';
 import { navigate } from '../navigation/navigationRef';
 import IncomingRequestModal from '../components/IncomingRequestModal';
 
@@ -64,7 +65,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     message: "Booking Status Updated",
                     description: data.message || `Your booking status is now ${data.status}`,
                     type: "info",
-                    backgroundColor: "#29B554",
+                    backgroundColor: themeColors.primaryLight2,
                     icon: "success",
                     duration: 5000,
                 });
@@ -97,7 +98,7 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                         message: "Success",
                         description: "Request accepted successfully!",
                         type: "success",
-                        backgroundColor: "#29B554",
+                        backgroundColor: themeColors.primaryLight2,
                     });
 
                     // Navigate to my jobs screen

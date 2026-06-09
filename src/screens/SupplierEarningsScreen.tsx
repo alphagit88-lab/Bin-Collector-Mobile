@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   payoutButton: {
-    backgroundColor: '#82D100',
+    backgroundColor: themeColors.primaryLight2,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   jobRowSelected: {
     backgroundColor: 'rgba(130, 209, 0, 0.15)',
     borderWidth: 1,
-    borderColor: '#82D100',
+    borderColor: themeColors.primaryLight2,
   },
   jobRowLeft: {
     flexDirection: 'row',
@@ -465,8 +465,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   checkboxSelected: {
-    backgroundColor: '#82D100',
-    borderColor: '#82D100',
+    backgroundColor: themeColors.primaryLight2,
+    borderColor: themeColors.primaryLight2,
   },
   jobCode: {
     fontFamily: fonts.family.semiBold,
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
     color: '#666666',
   },
   confirmBtn: {
-    backgroundColor: '#82D100',
+    backgroundColor: themeColors.primaryLight2,
   },
   confirmBtnText: {
     fontFamily: fonts.family.bold,

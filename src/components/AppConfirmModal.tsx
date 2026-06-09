@@ -57,7 +57,7 @@ const AppConfirmModal: React.FC<AppConfirmModalProps> = ({
                             activeOpacity={0.8}
                         >
                             <LinearGradient
-                                colors={isDestructive ? ['#FF4B2B', '#FF416C'] : ['#29B554', '#6EAD16']}
+                                colors={isDestructive ? ['#FF4B2B', '#FF416C'] : [themeColors.primaryLight2, themeColors.primaryLight]}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.confirmGradient}

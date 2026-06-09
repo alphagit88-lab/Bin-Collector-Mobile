@@ -1,4 +1,5 @@
 import { showMessage, MessageOptions } from "react-native-flash-message";
+import { themeColors } from "../theme/colors";
 
 // Local reference tracker to handle multiple FlashMessage instances (e.g., in Modals)
 let activeFlashMessage: any = null;
@@ -22,7 +23,7 @@ const toast = {
             description,
             onPress,
             type: "success",
-            backgroundColor: "#29B554",
+            backgroundColor: themeColors.primaryLight2,
             color: "#FFFFFF",
             icon: "success",
             duration: 3000,

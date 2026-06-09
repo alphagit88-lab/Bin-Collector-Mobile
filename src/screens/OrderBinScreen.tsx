@@ -16,7 +16,7 @@ import {
 import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { LinearGradient } from 'expo-linear-gradient';
+
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { useStripe } from '@stripe/stripe-react-native';
 import { fonts } from '../theme/fonts';
@@ -997,11 +997,7 @@ const OrderBinScreen: React.FC = () => {
         showsVerticalScrollIndicator={false}>
         {/* Header Banner */}
         <View style={styles.headerBanner}>
-          <LinearGradient
-            colors={['#29B554', '#6EAD16']}
-            start={{ x: 0.22, y: 0 }}
-            end={{ x: 0.7, y: 1 }}
-            style={styles.headerBannerGradient}>
+          <View style={styles.headerBannerGradient}>
             <View style={styles.headerContent}>
               <View style={styles.headerTextContainer}>
                 <Text style={styles.headerTitle}>Order Bin</Text>
@@ -1019,7 +1015,7 @@ const OrderBinScreen: React.FC = () => {
             <View style={styles.binCollectOverlay}>
               <BinCollect2 width={200} height={100} />
             </View>
-          </LinearGradient>
+          </View>
         </View>
 
         {/* Content Container */}
@@ -1032,11 +1028,7 @@ const OrderBinScreen: React.FC = () => {
 
           {/* Section 0: Project Assignment (Optional) */}
           <View style={styles.formSection}>
-            <LinearGradient
-              colors={['#EFF2F0', '#F8FFEE']}
-              locations={[0.2377, 0.6629]}
-              start={{ x: 0.34, y: 0 }}
-              end={{ x: 0.66, y: 1 }}
+            <View
               style={styles.formSectionGradient}>
               <Text style={[styles.paymentMethodTitle, { marginBottom: 25 }]}>
                 Assign to Project (Optional)
@@ -1050,16 +1042,12 @@ const OrderBinScreen: React.FC = () => {
                 onPress={() => projects.length > 0 && setProjectModalVisible(true)}
                 style={{ marginBottom: 0, marginTop: -10 }}
               />
-            </LinearGradient>
+            </View>
           </View>
 
           {/* Section 1: Service Type */}
           <View style={styles.formSection}>
-            <LinearGradient
-              colors={['#EFF2F0', '#F8FFEE']}
-              locations={[0.2377, 0.6629]}
-              start={{ x: 0.34, y: 0 }}
-              end={{ x: 0.66, y: 1 }}
+            <View
               style={styles.formSectionGradient}>
               <Text style={styles.paymentMethodTitle}>
                 Select Service Category*
@@ -1071,16 +1059,13 @@ const OrderBinScreen: React.FC = () => {
                   style={[styles.paymentOption, { width: (width - 70) / 3 }]}
                   activeOpacity={0.8}
                   onPress={() => { setServiceType('residential'); setCalculatedPrice(null); }}>
-                  <LinearGradient
-                    colors={
+                  <View
+                    style={[
+                      styles.paymentOptionGradient,
                       serviceType === 'residential'
-                        ? ['#C0F96F', '#90B93E']
-                        : ['#F3FFE2', '#E5EFD1']
-                    }
-                    locations={[0.2009, 0.7847]}
-                    start={{ x: 0.27, y: 0 }}
-                    end={{ x: 0.73, y: 1 }}
-                    style={styles.paymentOptionGradient}>
+                        ? styles.paymentOptionGradientActive
+                        : styles.paymentOptionGradientInactive
+                    ]}>
                     <View style={styles.paymentOptionContent}>
                       <View style={styles.paymentIconContainer}>
                         <Icon28_1_Residential width={50} height={40} />
@@ -1097,7 +1082,7 @@ const OrderBinScreen: React.FC = () => {
                     <View style={styles.binCollectPaymentOverlay}>
                       <BinCollect2 width={181} height={70} opacity={0.3} />
                     </View>
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
 
                 {/* Commercial Option */}
@@ -1105,16 +1090,13 @@ const OrderBinScreen: React.FC = () => {
                   style={[styles.paymentOption, { width: (width - 70) / 3 }]}
                   activeOpacity={0.8}
                   onPress={() => { setServiceType('commercial'); setCalculatedPrice(null); }}>
-                  <LinearGradient
-                    colors={
+                  <View
+                    style={[
+                      styles.paymentOptionGradient,
                       serviceType === 'commercial'
-                        ? ['#C0F96F', '#90B93E']
-                        : ['#F3FFE2', '#E5EFD1']
-                    }
-                    locations={[0.2009, 0.7847]}
-                    start={{ x: 0.27, y: 0 }}
-                    end={{ x: 0.73, y: 1 }}
-                    style={styles.paymentOptionGradient}>
+                        ? styles.paymentOptionGradientActive
+                        : styles.paymentOptionGradientInactive
+                    ]}>
                     <View style={styles.paymentOptionContent}>
                       <View style={styles.paymentIconContainer}>
                         <Icon28_2_Commercial width={57} height={45} />
@@ -1131,7 +1113,7 @@ const OrderBinScreen: React.FC = () => {
                     <View style={styles.binCollectPaymentOverlay}>
                       <BinCollect2 width={176} height={68} opacity={0.3} />
                     </View>
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
 
                 {/* Service Option */}
@@ -1139,19 +1121,16 @@ const OrderBinScreen: React.FC = () => {
                   style={[styles.paymentOption, { width: (width - 70) / 3 }]}
                   activeOpacity={0.8}
                   onPress={() => { setServiceType('service'); setCalculatedPrice(null); }}>
-                  <LinearGradient
-                    colors={
+                  <View
+                    style={[
+                      styles.paymentOptionGradient,
                       serviceType === 'service'
-                        ? ['#C0F96F', '#90B93E']
-                        : ['#F3FFE2', '#E5EFD1']
-                    }
-                    locations={[0.2009, 0.7847]}
-                    start={{ x: 0.27, y: 0 }}
-                    end={{ x: 0.73, y: 1 }}
-                    style={styles.paymentOptionGradient}>
+                        ? styles.paymentOptionGradientActive
+                        : styles.paymentOptionGradientInactive
+                    ]}>
                     <View style={styles.paymentOptionContent}>
                       <View style={styles.paymentIconContainer}>
-                        <Ionicons name="construct" size={40} color={serviceType === 'service' ? '#373934' : '#90B93E'} />
+                        <Ionicons name="construct" size={40} color={serviceType === 'service' ? '#373934' : themeColors.primary} />
                       </View>
                       <Text
                         style={[
@@ -1165,19 +1144,15 @@ const OrderBinScreen: React.FC = () => {
                     <View style={styles.binCollectPaymentOverlay}>
                       <BinCollect2 width={171} height={65} opacity={0.3} />
                     </View>
-                  </LinearGradient>
+                  </View>
                 </TouchableOpacity>
               </View>
-            </LinearGradient>
+            </View>
           </View>
 
           {/* Section 2: Location */}
           <View style={styles.formSection}>
-            <LinearGradient
-              colors={['#EFF2F0', '#F8FFEE']}
-              locations={[0.2377, 0.6629]}
-              start={{ x: 0.34, y: 0 }}
-              end={{ x: 0.66, y: 1 }}
+            <View
               style={styles.formSectionGradient}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
                 <View style={{ flex: 1 }}>
@@ -1200,7 +1175,7 @@ const OrderBinScreen: React.FC = () => {
                             style={styles.suggestionItem}
                             onPress={() => selectSuggestion(suggestion)}
                           >
-                            <Ionicons name="location-outline" size={18} color="#90B93E" style={{ marginRight: 8 }} />
+                            <Ionicons name="location-outline" size={18} color="themeColors.primary" style={{ marginRight: 8 }} />
                             <Text style={styles.suggestionText} numberOfLines={2}>
                               {suggestion.display_name}
                             </Text>
@@ -1211,22 +1186,15 @@ const OrderBinScreen: React.FC = () => {
                   )}
                 </View>
                 <TouchableOpacity
-                  style={styles.searchButton}
+                  style={[styles.searchButton, (isSearching || loadingDefaultLocation) && { opacity: 0.6 }]}
                   onPress={handleSearchAddress}
                   disabled={isSearching || loadingDefaultLocation}
                 >
-                  <LinearGradient
-                    colors={['#29B554', '#6EAD16']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.searchButtonGradient}
-                  >
                     {isSearching || loadingDefaultLocation ? (
                       <ActivityIndicator size="small" color="#FFF" />
                     ) : (
                       <Ionicons name="search" size={20} color="#FFF" />
                     )}
-                  </LinearGradient>
                 </TouchableOpacity>
               </View>
 
@@ -1248,17 +1216,14 @@ const OrderBinScreen: React.FC = () => {
                 </MapView>
                 <Text style={styles.mapHint}>Drag the pin to refine your exact location</Text>
               </View>
-            </LinearGradient>
+            </View>
           </View>
 
           {/* Section 3: Bin Selection */}
           {serviceType !== 'service' && (
             <View style={styles.formSection}>
-              <LinearGradient
-                colors={['#EFF2F0', '#F8FFEE']}
-                locations={[0.2377, 0.6629]}
-                start={{ x: 0.34, y: 0 }}
-                end={{ x: 0.66, y: 1 }}
+              <View
+
                 style={styles.formSectionGradient}>
                 <View style={styles.binSectionHeader}>
                   <Text style={styles.formSectionTitleSmall}>Bins *</Text>
@@ -1266,25 +1231,21 @@ const OrderBinScreen: React.FC = () => {
 
                 {!hasValidCoordinates ? (
                   <View style={{ padding: 20, alignItems: 'center' }}>
-                    <Ionicons name="location-outline" size={40} color="#90B93E" style={{ marginBottom: 10 }} />
+                    <Ionicons name="location-outline" size={40} color="themeColors.primary" style={{ marginBottom: 10 }} />
                     <Text style={{ color: '#64748B', textAlign: 'center' }}>
                       Please select a location first before choosing bins
                     </Text>
                   </View>
                 ) : fetchingBinTypes ? (
                   <View style={{ padding: 20, alignItems: 'center' }}>
-                    <ActivityIndicator size="small" color="#29B554" style={{ marginBottom: 10 }} />
+                    <ActivityIndicator size="small" color={themeColors.primary} style={{ marginBottom: 10 }} />
                     <Text style={{ color: '#64748B' }}>Getting available bin types...</Text>
                   </View>
                 ) : (
                   <>
                     {bins.map((bin, index) => (
                       <View key={index} style={[styles.binFormContainer, index > 0 && { marginTop: 12 }]}>
-                        <LinearGradient
-                          colors={['#EFF2F0', '#F8FFEE']}
-                          locations={[0.2377, 0.6629]}
-                          start={{ x: 0.34, y: 0 }}
-                          end={{ x: 0.66, y: 1 }}
+                        <View
                           style={styles.binFormGradient}>
                           {bins.length > 1 && (
                             <TouchableOpacity
@@ -1326,7 +1287,7 @@ const OrderBinScreen: React.FC = () => {
                             value={bin.quantity}
                             onChangeText={(val) => updateBin(index, { quantity: val })}
                           />
-                        </LinearGradient>
+                        </View>
                       </View>
                     ))}
 
@@ -1334,36 +1295,26 @@ const OrderBinScreen: React.FC = () => {
                       style={[styles.addBinButton, { marginTop: 10, width: 140, height: 35, alignSelf: 'flex-end' }]}
                       activeOpacity={0.7}
                       onPress={addBin}>
-                      <LinearGradient
-                        colors={['#29B554', '#6EAD16']}
-                        locations={[0.2227, 0.7018]}
-                        start={{ x: 0.7, y: 0 }}
-                        end={{ x: 0, y: 0.8 }}
-                        style={styles.addBinButtonGradient}>
                         <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
-                      </LinearGradient>
                     </TouchableOpacity>
                   </>
                 )}
-              </LinearGradient>
+              </View>
             </View>
           )}
 
           {/* Section 4: Service Selection (Conditional) */}
           {serviceType === 'service' && (
             <View style={styles.formSection}>
-              <LinearGradient
-                colors={['#EFF2F0', '#F8FFEE']}
-                locations={[0.2377, 0.6629]}
-                start={{ x: 0.34, y: 0 }}
-                end={{ x: 0.66, y: 1 }}
+              <View
+
                 style={styles.formSectionGradient}>
                 <View style={styles.binSectionHeader}>
                   <Text style={styles.formSectionTitleSmall}>Select Services *</Text>
                 </View>
 
                 {fetchingCategories ? (
-                  <ActivityIndicator size="small" color="#29B554" style={{ marginVertical: 20 }} />
+                  <ActivityIndicator size="small" color={themeColors.primary} style={{ marginVertical: 20 }} />
                 ) : (
                   <View style={styles.servicesGrid}>
                     {serviceCategories.map((category) => (
@@ -1377,7 +1328,7 @@ const OrderBinScreen: React.FC = () => {
                         <Ionicons
                           name={selectedServices.includes(category.id) ? "checkbox" : "square-outline"}
                           size={24}
-                          color={selectedServices.includes(category.id) ? "#29B554" : "#90B93E"}
+                          color={selectedServices.includes(category.id) ? themeColors.primary : "#888"}
                         />
                         <Text style={[
                           styles.serviceCheckboxLabel,
@@ -1405,17 +1356,13 @@ const OrderBinScreen: React.FC = () => {
                   onChangeText={setCustomerBudget}
                   keyboardType="numeric"
                 />
-              </LinearGradient>
+              </View>
             </View>
           )}
 
           {/* Section 5: Dates */}
           <View style={styles.formSection}>
-            <LinearGradient
-              colors={['#EFF2F0', '#F8FFEE']}
-              locations={[0.2377, 0.6629]}
-              start={{ x: 0.34, y: 0 }}
-              end={{ x: 0.66, y: 1 }}
+            <View
               style={styles.formSectionGradient}>
               <View style={styles.binSectionHeader}>
                 <Text style={styles.formSectionTitleSmall}>{serviceType === 'commercial' ? 'Dates' : 'Dates *'}</Text>
@@ -1456,16 +1403,12 @@ const OrderBinScreen: React.FC = () => {
                   minimumDate={deliveryDateObj}
                 />
               )}
-            </LinearGradient>
+            </View>
           </View>
 
           {/* Section 4: Project & Contact Details */}
           <View style={styles.formSection}>
-            <LinearGradient
-              colors={['#EFF2F0', '#F8FFEE']}
-              locations={[0.2377, 0.6629]}
-              start={{ x: 0.34, y: 0 }}
-              end={{ x: 0.66, y: 1 }}
+            <View
               style={styles.formSectionGradient}>
               <FormField
                 label="Mobile Number"
@@ -1480,16 +1423,12 @@ const OrderBinScreen: React.FC = () => {
                 value={additionalContact}
                 onChangeText={setAdditionalContact}
               />
-            </LinearGradient>
+            </View>
           </View>
 
           {/* Section 5: Instructions */}
           {serviceType !== 'service' && <View style={styles.formSection}>
-            <LinearGradient
-              colors={['#EFF2F0', '#F8FFEE']}
-              locations={[0.2377, 0.6629]}
-              start={{ x: 0.34, y: 0 }}
-              end={{ x: 0.66, y: 1 }}
+            <View
               style={styles.formSectionGradient}>
               <Text style={styles.instructionsLabel}>Instructions</Text>
               <View style={styles.notesContainer}>
@@ -1511,16 +1450,12 @@ const OrderBinScreen: React.FC = () => {
                   onChangeText={setPoNumber}
                 />
               </View>
-            </LinearGradient>
+            </View>
           </View>}
 
           {/* Section: Upload Attachment */}
           <View style={styles.formSection}>
-            <LinearGradient
-              colors={['#EFF2F0', '#F8FFEE']}
-              locations={[0.2377, 0.6629]}
-              start={{ x: 0.34, y: 0 }}
-              end={{ x: 0.66, y: 1 }}
+            <View
               style={styles.formSectionGradient}>
               <Text style={styles.instructionsLabel}>Upload Attachments (Optional)</Text>
               <View style={styles.multiAttachmentContainer}>
@@ -1543,17 +1478,14 @@ const OrderBinScreen: React.FC = () => {
                   </TouchableOpacity>
                 )}
               </View>
-            </LinearGradient>
+            </View>
           </View>
 
           {/* Section 6: Payment Method */}
           {serviceType !== 'commercial' && (
             <View style={styles.formSection}>
-              <LinearGradient
-                colors={['#EFF2F0', '#F8FFEE']}
-                locations={[0.2377, 0.6629]}
-                start={{ x: 0.34, y: 0 }}
-                end={{ x: 0.66, y: 1 }}
+              <View
+
                 style={styles.formSectionGradient}>
                 <Text style={styles.paymentMethodTitle}>Payment Method*</Text>
 
@@ -1563,16 +1495,13 @@ const OrderBinScreen: React.FC = () => {
                     style={styles.paymentOption}
                     activeOpacity={0.8}
                     onPress={() => setPaymentMethod('online')}>
-                    <LinearGradient
-                      colors={
+                    <View
+                      style={[
+                        styles.paymentOptionGradient,
                         paymentMethod === 'online'
-                          ? ['#C0F96F', '#90B93E']
-                          : ['#F3FFE2', '#E5EFD1']
-                      }
-                      locations={[0.2009, 0.7847]}
-                      start={{ x: 0.27, y: 0 }}
-                      end={{ x: 0.73, y: 1 }}
-                      style={styles.paymentOptionGradient}>
+                          ? styles.paymentOptionGradientActive
+                          : styles.paymentOptionGradientInactive
+                      ]}>
                       <View style={styles.paymentOptionContent}>
                         <View style={styles.paymentIconContainer}>
                           <Icon28_1 width={50} height={40} />
@@ -1589,7 +1518,7 @@ const OrderBinScreen: React.FC = () => {
                       <View style={styles.binCollectPaymentOverlay}>
                         <BinCollect2 width={181} height={70} />
                       </View>
-                    </LinearGradient>
+                    </View>
                   </TouchableOpacity>
 
                   {/* Cash on Delivery Option */}
@@ -1597,16 +1526,13 @@ const OrderBinScreen: React.FC = () => {
                     style={styles.paymentOption}
                     activeOpacity={0.8}
                     onPress={() => setPaymentMethod('cash')}>
-                    <LinearGradient
-                      colors={
+                    <View
+                      style={[
+                        styles.paymentOptionGradient,
                         paymentMethod === 'cash'
-                          ? ['#C0F96F', '#90B93E']
-                          : ['#F3FFE2', '#E5EFD1']
-                      }
-                      locations={[0.2009, 0.7847]}
-                      start={{ x: 0.27, y: 0 }}
-                      end={{ x: 0.73, y: 1 }}
-                      style={styles.paymentOptionGradient}>
+                          ? styles.paymentOptionGradientActive
+                          : styles.paymentOptionGradientInactive
+                      ]}>
                       <View style={styles.paymentOptionContent}>
                         <View style={styles.paymentIconContainer}>
                           <Icon28_2 width={57} height={45} />
@@ -1623,25 +1549,22 @@ const OrderBinScreen: React.FC = () => {
                       <View style={styles.binCollectPaymentOverlay}>
                         <BinCollect2 width={176} height={68} />
                       </View>
-                    </LinearGradient>
+                    </View>
                   </TouchableOpacity>
                 </View>
 
                 <Text style={styles.paymentNote}>
                   Payment will be processed when order is confirmed
                 </Text>
-              </LinearGradient>
+              </View>
             </View>
           )}
 
           {/* Order Summary / Estimated Total */}
           {serviceType !== 'service' && bins.some(b => b.bin_size_id) && deliveryAddress && (serviceType === 'commercial' || (deliveryDate && pickupDate)) && (
             <View style={styles.formSection}>
-              <LinearGradient
-                colors={['#EFF2F0', '#F8FFEE']}
-                locations={[0.2377, 0.6629]}
-                start={{ x: 0.34, y: 0 }}
-                end={{ x: 0.66, y: 1 }}
+              <View
+
                 style={styles.formSectionGradient}>
 
                 {fetchingCalculatedPrice ? (
@@ -1678,7 +1601,7 @@ const OrderBinScreen: React.FC = () => {
 
                     <View style={styles.summaryRow}>
                       <Text style={styles.summaryLabel}>Estimated Total:</Text>
-                      <Text style={[styles.summaryValue, { color: '#29B554' }]}>
+                      <Text style={[styles.summaryValue, { color: themeColors.primary }]}>
                         ${calculatedPrice.total.toFixed(2)}
                       </Text>
                     </View>
@@ -1690,27 +1613,21 @@ const OrderBinScreen: React.FC = () => {
                 )}
 
                 {fetchingPrices && <ActivityIndicator size="small" color={themeColors.primary} style={{ marginTop: 5 }} />}
-              </LinearGradient>
+              </View>
             </View>
           )}
 
           {/* Place Order Button */}
           <TouchableOpacity
-            style={styles.placeOrderButton}
+            style={[styles.placeOrderButton, (loading || fetchingSizes || fetchingCalculatedPrice) && { opacity: 0.7 }]}
             activeOpacity={0.8}
             onPress={handlePlaceOrder}
             disabled={loading || fetchingSizes || fetchingCalculatedPrice}>
-            <LinearGradient
-              colors={['#29B554', '#6EAD16']}
-              start={{ x: 0.22, y: 0 }}
-              end={{ x: 0.7, y: 1 }}
-              style={[styles.placeOrderButtonGradient, (loading || fetchingSizes || fetchingCalculatedPrice) && { opacity: 0.7 }]}>
               {loading || fetchingSizes || fetchingCalculatedPrice ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.placeOrderButtonText}>Next</Text>
               )}
-            </LinearGradient>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -1818,7 +1735,7 @@ const OrderBinScreen: React.FC = () => {
               onPress={() => selectProject(project)}>
               <Text style={styles.modalItemText}>{project.name}</Text>
               {selectedProjectId === project.id && (
-                <Ionicons name="checkmark-circle" size={20} color="#9CCD17" />
+                <Ionicons name="checkmark-circle" size={20} color="themeColors.primaryLight" />
               )}
             </TouchableOpacity>
           ))}
@@ -1857,6 +1774,7 @@ const styles = StyleSheet.create({
     flex: 1,
     borderBottomLeftRadius: 9,
     borderBottomRightRadius: 9,
+    backgroundColor: themeColors.primary,
   },
   headerContent: {
     flexDirection: 'row',
@@ -2007,6 +1925,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: themeColors.backgroundLight,
   },
   formSectionTitle: {
     fontFamily: fonts.family.bold,
@@ -2033,13 +1952,9 @@ const styles = StyleSheet.create({
     height: 30,
     borderRadius: 7,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-  },
-  addBinButtonGradient: {
-    flex: 1,
+    backgroundColor: themeColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 7,
   },
   addBinButtonText: {
     fontFamily: fonts.family.medium,
@@ -2055,6 +1970,7 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: themeColors.backgroundLight,
   },
   formField: {
     marginBottom: 12,
@@ -2231,6 +2147,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
+  paymentOptionGradientActive: {
+    backgroundColor: themeColors.primaryLight2,
+  },
+  paymentOptionGradientInactive: {
+    backgroundColor: themeColors.backgroundLight,
+  },
   paymentOptionContent: {
     alignItems: 'center',
     zIndex: 1,
@@ -2272,12 +2194,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginTop: 10,
     marginBottom: 20,
-  },
-  placeOrderButtonGradient: {
-    flex: 1,
+    backgroundColor: themeColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 25,
   },
   placeOrderButtonText: {
     fontFamily: fonts.family.bold,
@@ -2324,7 +2243,7 @@ const styles = StyleSheet.create({
     color: '#414141',
   },
   selectedOptionText: {
-    color: '#9AD346',
+    color: themeColors.primary,
     fontFamily: fonts.family.semiBold,
   },
   modalItem: {
@@ -2352,9 +2271,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     overflow: 'hidden',
     marginBottom: 12,
-  },
-  searchButtonGradient: {
-    flex: 1,
+    backgroundColor: themeColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -2373,7 +2290,7 @@ const styles = StyleSheet.create({
   mapHint: {
     position: 'absolute',
     fontSize: 10,
-    color: '#6EAD16',
+    color: themeColors.primaryLight,
     textAlign: 'center',
     marginTop: 5,
     fontFamily: fonts.family.medium,
@@ -2412,8 +2329,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   serviceCheckboxItemActive: {
-    backgroundColor: '#C0F96F',
-    borderColor: '#90B93E',
+    backgroundColor: themeColors.primaryLight2,
+    borderColor: themeColors.primary,
   },
   serviceCheckboxLabel: {
     fontSize: 12,

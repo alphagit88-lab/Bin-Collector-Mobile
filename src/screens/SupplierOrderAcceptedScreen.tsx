@@ -205,7 +205,7 @@ const SupplierOrderAcceptedScreen: React.FC = () => {
                   activeOpacity={0.8}
                   onPress={handleGoToJobs}>
                   <LinearGradient
-                    colors={['rgba(137, 217, 87, 0.2)', '#29B554', '#6EAD16']}
+                    colors={['rgba(137, 217, 87, 0.2)', themeColors.primaryLight2, themeColors.primaryLight]}
                     locations={[0, 0.2227, 0.7018]}
                     start={{ x: 0.5, y: 0 }}
                     end={{ x: 0.5, y: 1 }}
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#29B554',
+    backgroundColor: themeColors.primaryLight2,
     justifyContent: 'center',
     alignItems: 'center',
   },
