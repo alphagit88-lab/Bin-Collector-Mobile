@@ -768,7 +768,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                       <Ionicons
                         name={selectedServices.includes(category.id) ? "checkbox" : "square-outline"}
                         size={24}
-                        color={selectedServices.includes(category.id) ? themeColors.primaryLight2 : "themeColors.primary"}
+                        color={selectedServices.includes(category.id) ? themeColors.primaryLight2 : themeColors.primary}
                       />
                       <Text style={[styles.serviceCheckboxLabel, selectedServices.includes(category.id) && styles.serviceCheckboxLabelActive]}>
                         {category.name}
@@ -824,7 +824,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                             style={styles.suggestionItem}
                             onPress={() => selectSuggestion(suggestion)}
                           >
-                            <Ionicons name="location-outline" size={18} color="themeColors.primary" style={{ marginRight: 8 }} />
+                            <Ionicons name="location-outline" size={18} color={themeColors.primary} style={{ marginRight: 8 }} />
                             <Text style={styles.suggestionText} numberOfLines={2}>
                               {suggestion.display_name}
                             </Text>
@@ -847,8 +847,8 @@ const SupplierCreateOrderScreen: React.FC = () => {
                     <Marker coordinate={{ latitude, longitude }} draggable onDragEnd={onMarkerDragEnd} />
                   )}
                 </MapView>
-                <Text style={styles.mapHint}>Drag pin to refine location</Text>
               </View>
+              <Text style={styles.mapHint}>Hold and move the pin</Text>
 
               <FormField
                 label="Start Date*"
@@ -1101,9 +1101,9 @@ const styles = StyleSheet.create({
   serviceCheckboxLabelActive: { color: '#166534' },
   searchButton: { marginBottom: 16 },
   searchButtonGradient: { height: 45, width: 45, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  mapContainer: { height: 180, borderRadius: 12, overflow: 'hidden', marginBottom: 16 },
+  mapContainer: { height: 180, borderRadius: 12, overflow: 'hidden' },
   map: { flex: 1 },
-  mapHint: { position: 'absolute', bottom: 10, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', color: '#FFF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, fontSize: 10 },
+  mapHint: { fontSize: 12, color: '#64748B', textAlign: 'center', marginTop: 6, marginBottom: 16, fontFamily: fonts.family.medium },
   instructionsLabel: { fontFamily: fonts.family.bold, fontSize: 15, color: '#373934', marginBottom: 10 },
   notesContainer: { backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', padding: 12, minHeight: 100 },
   notesInput: { fontFamily: fonts.family.regular, fontSize: 14, color: '#373934', textAlignVertical: 'top' },

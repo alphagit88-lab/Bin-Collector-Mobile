@@ -412,7 +412,7 @@ const BookingsScreen: React.FC = () => {
             onPress={() => setViewMode('list')}>
             <LinearGradient
               colors={[themeColors.primaryLight, themeColors.primaryLight2]}
-              locations={[0.1651, 0.6554, 0.8017]}
+              locations={[0.1651, 0.8017]}
               start={{ x: 0, y: 0 }}
               end={{ x: 0.7, y: 1 }}
               style={styles.bookingCardGradient}>
@@ -490,7 +490,7 @@ const BookingsScreen: React.FC = () => {
 
             {loading && !refreshing ? (
               <View style={{ paddingVertical: 40 }}>
-                <ActivityIndicator size="large" color="themeColors.primaryLight" />
+                <ActivityIndicator size="large" color={themeColors.primaryLight} />
               </View>
             ) : viewMode === 'list' ? (
               filteredBookings.length > 0 ? (

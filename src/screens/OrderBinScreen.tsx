@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, MapPressEvent, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
@@ -541,7 +542,9 @@ const OrderBinScreen: React.FC = () => {
   const loadDefaultLocation = React.useCallback(async () => {
     setLoadingDefaultLocation(true);
     try {
-      const raw = await AsyncStorage.getItem('defaultLocation');
+      //const raw = await AsyncStorage.getItem('defaultLocation');
+      const raw = false;
+      
       if (raw) {
         // ── Has a saved default location ──────────────────────────────
         try {
@@ -817,7 +820,13 @@ const OrderBinScreen: React.FC = () => {
     });
 
     if (!result.canceled) {
-      setAttachments(prev => [...prev, ...result.assets]);
+      const compressedAssets = await Promise.all(
+        result.assets.map(async (asset) => ({
+          ...asset,
+          uri: await compressImage(asset.uri),
+        }))
+      );
+      setAttachments(prev => [...prev, ...compressedAssets]);
     }
   };
 
@@ -834,12 +843,32 @@ const OrderBinScreen: React.FC = () => {
     });
 
     if (!result.canceled) {
-      setAttachments(prev => [...prev, ...result.assets]);
+      const compressedAssets = await Promise.all(
+        result.assets.map(async (asset) => ({
+          ...asset,
+          uri: await compressImage(asset.uri),
+        }))
+      );
+      setAttachments(prev => [...prev, ...compressedAssets]);
     }
   };
 
   const removeAttachment = (index: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const compressImage = async (uri: string): Promise<string> => {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      return result.uri;
+    } catch (error) {
+      console.error('Image compression error:', error);
+      return uri; // Fall back to original if compression fails
+    }
   };
 
   const handleAttachmentPress = () => {
@@ -1175,7 +1204,7 @@ const OrderBinScreen: React.FC = () => {
                             style={styles.suggestionItem}
                             onPress={() => selectSuggestion(suggestion)}
                           >
-                            <Ionicons name="location-outline" size={18} color="themeColors.primary" style={{ marginRight: 8 }} />
+                            <Ionicons name="location-outline" size={18} color={themeColors.primary} style={{ marginRight: 8 }} />
                             <Text style={styles.suggestionText} numberOfLines={2}>
                               {suggestion.display_name}
                             </Text>
@@ -1214,8 +1243,8 @@ const OrderBinScreen: React.FC = () => {
                     />
                   )}
                 </MapView>
-                <Text style={styles.mapHint}>Drag the pin to refine your exact location</Text>
               </View>
+              <Text style={styles.mapHint}>Hold and move the pin</Text>
             </View>
           </View>
 
@@ -1231,7 +1260,7 @@ const OrderBinScreen: React.FC = () => {
 
                 {!hasValidCoordinates ? (
                   <View style={{ padding: 20, alignItems: 'center' }}>
-                    <Ionicons name="location-outline" size={40} color="themeColors.primary" style={{ marginBottom: 10 }} />
+                    <Ionicons name="location-outline" size={40} color={themeColors.primary} style={{ marginBottom: 10 }} />
                     <Text style={{ color: '#64748B', textAlign: 'center' }}>
                       Please select a location first before choosing bins
                     </Text>
@@ -1735,7 +1764,7 @@ const OrderBinScreen: React.FC = () => {
               onPress={() => selectProject(project)}>
               <Text style={styles.modalItemText}>{project.name}</Text>
               {selectedProjectId === project.id && (
-                <Ionicons name="checkmark-circle" size={20} color="themeColors.primaryLight" />
+                <Ionicons name="checkmark-circle" size={20} color={themeColors.primaryLight} />
               )}
             </TouchableOpacity>
           ))}
@@ -2288,11 +2317,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   mapHint: {
-    position: 'absolute',
-    fontSize: 10,
-    color: themeColors.primaryLight,
+    fontSize: 12,
+    color: '#64748B',
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 6,
+    marginBottom: 8,
     fontFamily: fonts.family.medium,
   },
   errorContainer: {

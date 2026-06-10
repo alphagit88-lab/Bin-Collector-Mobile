@@ -465,7 +465,7 @@ const ServiceTrackingScreen: React.FC = () => {
 
             {/* Content Area */}
             {loading ? (
-              <ActivityIndicator size="large" color="themeColors.primaryLight2" style={{ marginTop: 100 }} />
+              <ActivityIndicator size="large" color={themeColors.primaryLight2} style={{ marginTop: 100 }} />
             ) : requests.length === 0 ? (
               /* No Active Services Content */
               <View style={styles.emptyStateContainer}>

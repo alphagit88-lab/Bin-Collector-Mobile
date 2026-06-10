@@ -72,7 +72,7 @@ const SupplierDriversScreen: React.FC = () => {
   };
 
   const handleAddDriver = async () => {
-    if (!name || !phone || !password) {
+    if (!name || !phone || !email || !password) {
       toast.error('Missing Info', 'Please fill in all required fields');
       return;
     }
@@ -215,7 +215,7 @@ const SupplierDriversScreen: React.FC = () => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Email (Optional)</Text>
+                <Text style={styles.label}>Email *</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="driver@example.com"

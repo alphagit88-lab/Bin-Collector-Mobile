@@ -134,13 +134,13 @@ const MessageInboxScreen: React.FC = () => {
           }}
           style={styles.headerIcon}
         >
-          <Feather name="edit" size={20} color="themeColors.primaryLight" />
+          <Feather name="edit" size={20} color={themeColors.primaryLight} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="themeColors.primaryLight" />
+          <ActivityIndicator size="large" color={themeColors.primaryLight} />
         </View>
       ) : conversations.length > 0 ? (
         <FlatList

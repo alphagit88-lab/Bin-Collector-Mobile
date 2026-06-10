@@ -20,7 +20,7 @@ export interface User {
 export interface SignupData {
   name: string;
   phone: string;
-  email?: string;
+  email: string;
   password: string;
   role: 'customer' | 'supplier';
   supplierType?: string;
@@ -30,7 +30,7 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (phone: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; message?: string }>;
+  login: (identifier: string, password: string, rememberMe?: boolean) => Promise<{ success: boolean; message?: string }>;
   signup: (data: SignupData) => Promise<{ success: boolean; message?: string }>;
   updateProfile: (email: string) => Promise<{ success: boolean; message?: string }>;
   updateProfilePhoto: (uri: string) => Promise<{ success: boolean; message?: string }>;
@@ -100,12 +100,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const login = async (phone: string, password: string, rememberMe: boolean = false) => {
+  const login = async (identifier: string, password: string, rememberMe: boolean = false) => {
     try {
-      const response = await api.post<{ user: User; token: string }>(ENDPOINTS.AUTH.LOGIN, {
-        phone,
-        password,
-      });
+      // Check if identifier is email or phone
+      const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
+      
+      const requestData: any = { password };
+      if (isEmail) {
+        requestData.email = identifier;
+      } else {
+        requestData.phone = identifier;
+      }
+
+      const response = await api.post<{ user: User; token: string }>(ENDPOINTS.AUTH.LOGIN, requestData);
 
       if (response.success && response.data) {
         const { user, token } = response.data;
@@ -113,8 +120,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         await AsyncStorage.setItem('user', JSON.stringify(user));
 
         if (rememberMe) {
-          await AsyncStorage.setItem('rememberedPhone', phone);
-          setRememberedPhone(phone);
+          // Remember phone if it's a phone, otherwise just remember the identifier
+          if (!isEmail) {
+            await AsyncStorage.setItem('rememberedPhone', identifier);
+            setRememberedPhone(identifier);
+          }
         } else {
           await AsyncStorage.removeItem('rememberedPhone');
           setRememberedPhone(null);

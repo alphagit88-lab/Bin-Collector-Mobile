@@ -116,7 +116,7 @@ const NotificationsScreen: React.FC = () => {
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="themeColors.primaryLight" />
+          <ActivityIndicator size="large" color={themeColors.primaryLight} />
         </View>
       ) : notifications.length > 0 ? (
         <FlatList

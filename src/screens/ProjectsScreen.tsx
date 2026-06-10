@@ -200,7 +200,7 @@ const ProjectsScreen: React.FC = () => {
            
            {loading && !refreshing ? (
              <View style={{ paddingVertical: 40 }}>
-               <ActivityIndicator size="large" color="themeColors.primaryLight" />
+               <ActivityIndicator size="large" color={themeColors.primaryLight} />
              </View>
            ) : projects.length === 0 ? (
              <View style={styles.emptyContainer}>

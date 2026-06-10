@@ -59,7 +59,20 @@ class ApiClient {
         headers,
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get('content-type') || '';
+      
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        // Handle non-JSON responses gracefully
+        const textResponse = await response.text();
+        data = {
+          success: false,
+          message: 'Unexpected response from server',
+          debugInfo: { rawResponse: textResponse, status: response.status, url }
+        };
+      }
 
       if (!response.ok) {
         if (response.status === 401) {

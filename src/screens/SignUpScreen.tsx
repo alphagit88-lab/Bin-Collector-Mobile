@@ -41,6 +41,10 @@ const SignUpScreen: React.FC = () => {
       toast.error('Error', 'Please enter your phone number');
       return;
     }
+    if (!email.trim()) {
+      toast.error('Error', 'Please enter your email address');
+      return;
+    }
     if (userType === 'Supplier' && !supplierType) {
       toast.error('Error', 'Please select a supplier type');
       return;
@@ -67,7 +71,7 @@ const SignUpScreen: React.FC = () => {
     const result = await signup({
       name: fullName,
       phone: phoneNumber,
-      email: email.trim() || undefined,
+      email: email.trim(),
       password: password,
       role: userType.toLowerCase() as 'customer' | 'supplier',
       supplierType: userType === 'Supplier' ? backendSupplierType : undefined,
@@ -195,7 +199,7 @@ const SignUpScreen: React.FC = () => {
             />
           </View>
 
-          {/* Email Address Input (Optional) */}
+          {/* Email Address Input */}
           <View style={styles.inputField}>
             <Image
               source={require('../assets/images/image2_25_2.png')}
@@ -204,7 +208,7 @@ const SignUpScreen: React.FC = () => {
             />
             <TextInput
               style={styles.input}
-              placeholder="Email Address (Optional)"
+              placeholder="Email Address"
               placeholderTextColor="#979897"
               value={email}
               onChangeText={setEmail}

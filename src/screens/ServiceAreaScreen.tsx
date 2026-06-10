@@ -130,7 +130,7 @@ const ServiceAreaScreen: React.FC = () => {
     setModalVisible(true);
 
     let hasExistingLocation = false;
-    try {
+    /*try {
       const raw = await AsyncStorage.getItem('defaultLocation');
       if (raw) {
         try {
@@ -154,7 +154,7 @@ const ServiceAreaScreen: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading location:', error);
-    }
+    }*/
 
     if (!hasExistingLocation) {
       setGpsLoading(true);
@@ -681,6 +681,7 @@ const ServiceAreaScreen: React.FC = () => {
                   </View>
                 )}
               </View>
+              <Text style={styles.mapHint}>Hold and move the pin</Text>
 
               <TextInput
                 style={styles.input}
@@ -965,6 +966,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(0, 0, 0, 0.1)',
     marginTop: 8,
+  },
+  mapHint: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 4,
+    fontFamily: fonts.family.medium,
   },
   bottomSpacing: {
     height: 120,

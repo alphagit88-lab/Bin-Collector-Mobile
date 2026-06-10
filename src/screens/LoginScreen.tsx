@@ -20,26 +20,26 @@ import toast from '../utils/toast';
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation();
   const { login, rememberedPhone } = useAuth();
-  const [phone, setPhone] = useState(rememberedPhone || '');
+  const [identifier, setIdentifier] = useState(rememberedPhone || '');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(!!rememberedPhone);
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
     if (rememberedPhone) {
-      setPhone(rememberedPhone);
+      setIdentifier(rememberedPhone);
       setRememberMe(true);
     }
   }, [rememberedPhone]);
 
   const handleLogin = async () => {
-    if (!phone.trim() || !password.trim()) {
-      toast.error('Error', 'Please enter both phone number and password');
+    if (!identifier.trim() || !password.trim()) {
+      toast.error('Error', 'Please enter both email/phone and password');
       return;
     }
 
     setLoading(true);
-    const result = await login(phone, password, rememberMe);
+    const result = await login(identifier, password, rememberMe);
     setLoading(false);
 
     if (!result.success) {
@@ -97,7 +97,7 @@ const LoginScreen: React.FC = () => {
           {/* Login title */}
           <Text style={styles.loginTitle}>Login</Text>
 
-          {/* Input field 1 - Phone */}
+          {/* Input field 1 - Email or Phone */}
           <View style={styles.inputField1}>
             <Image
               source={require('../assets/images/image2_25_2.png')}
@@ -106,11 +106,11 @@ const LoginScreen: React.FC = () => {
             />
             <TextInput
               style={styles.input1}
-              placeholder="Phone Number"
+              placeholder="Email or Phone Number"
               placeholderTextColor="#979897"
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
+              value={identifier}
+              onChangeText={setIdentifier}
+              keyboardType="default"
               autoCapitalize="none"
             />
           </View>

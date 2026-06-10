@@ -595,13 +595,13 @@ const AccountScreen: React.FC = () => {
             <View style={styles.settingsSection}>
               {user?.canViewBilling && (
                 <SettingsItem
-                  icon={<MaterialCommunityIcons name="receipt" size={28} color="themeColors.primaryLight" style={{ marginRight: 8 }} />}
+                  icon={<MaterialCommunityIcons name="receipt" size={28} color={themeColors.primaryLight} style={{ marginRight: 8 }} />}
                   label="Billing & Invoices"
                   onPress={() => navigation.navigate('Billing')}
                 />
               )}
               <SettingsItem
-                icon={<Feather name="headphones" size={28} color="themeColors.primaryLight" style={{ marginRight: 8 }} />}
+                icon={<MaterialCommunityIcons name="face-agent" size={28} color={themeColors.primaryLight} style={{ marginRight: 8 }} />}
                 label="Customer Service"
                 onPress={async () => {
                   try {
@@ -812,6 +812,7 @@ const AccountScreen: React.FC = () => {
               </View>
             )}
           </View>
+          <Text style={styles.mapHint}>Hold and move the pin</Text>
 
           {/* Address preview + confirm */}
           {mapAddress ? (
@@ -1417,6 +1418,13 @@ const styles = StyleSheet.create({
   },
   mapView: {
     flex: 1,
+  },
+  mapHint: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
+    paddingVertical: 8,
+    fontFamily: fonts.family.medium,
   },
   mapAddressRow: {
     flexDirection: 'row',

@@ -141,13 +141,13 @@ const ChatDetailScreen: React.FC = () => {
           <Text style={styles.headerSubtitle}>Active now</Text>
         </View>
         <TouchableOpacity onPress={handleCall} style={styles.callButton}>
-          <Feather name="phone" size={20} color="themeColors.primaryLight" />
+          <Feather name="phone" size={20} color={themeColors.primaryLight} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="themeColors.primaryLight" />
+          <ActivityIndicator size="large" color={themeColors.primaryLight} />
         </View>
       ) : (
         <FlatList
