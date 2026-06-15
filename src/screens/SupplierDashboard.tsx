@@ -70,7 +70,7 @@ const SupplierDashboard: React.FC = () => {
         const inProgress = myJobs.filter((j: any) => ['on_delivery', 'delivered', 'pickup'].includes(j.status)).length;
         const readyToPickup = myJobs.filter((j: any) => j.status === 'ready_to_pickup').length;
         const completed = myJobs.filter((j: any) => j.status === 'completed').length;
- 
+
         setCounts({ pending, confirmed, inProgress, readyToPickup, completed });
 
         if (walletResponse.success && walletResponse.data?.wallet) {
@@ -184,13 +184,13 @@ const SupplierDashboard: React.FC = () => {
             >
               <View style={styles.iconCircle}>
                 {user?.profilePhoto ? (
-                  <Image 
-                    source={{ 
-                      uri: user.profilePhoto.startsWith('http') 
-                        ? user.profilePhoto 
-                        : api.getBaseUrl() + user.profilePhoto 
-                    }} 
-                    style={styles.profilePhoto} 
+                  <Image
+                    source={{
+                      uri: user.profilePhoto.startsWith('http')
+                        ? user.profilePhoto
+                        : api.getBaseUrl() + user.profilePhoto
+                    }}
+                    style={styles.profilePhoto}
                   />
                 ) : (
                   <Ionicons name="person-circle-outline" size={24} color="#FFFFFF" />
@@ -209,9 +209,9 @@ const SupplierDashboard: React.FC = () => {
           onPress={() => navigation.navigate('SupplierEarnings' as never)}
         >
           <View
-            colors={[themeColors.primary, themeColors.primaryDark || '#1e4738']}
-            start={{ x: 0.22, y: 0 }}
-            end={{ x: 0.7, y: 1 }}
+            // colors={[themeColors.primary, themeColors.primaryDark || '#1e4738']}
+            // start={{ x: 0.22, y: 0 }}
+            // end={{ x: 0.7, y: 1 }}
             style={styles.earningsGradient}>
             <View style={styles.earningsBackground}>
               <BinCollectBg
@@ -221,10 +221,11 @@ const SupplierDashboard: React.FC = () => {
               />
             </View>
             <View
-              colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.2)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.earningsOverlay}>
+              //colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.2)']}
+              //start={{ x: 0, y: 0 }}
+              //end={{ x: 0, y: 1 }}
+              style={styles.earningsOverlay}
+            >
               <View style={styles.earningsContent}>
                 <View style={styles.earningsHeader}>
                   <Text style={styles.earningsTitle}>Payouts & Earnings</Text>
@@ -248,7 +249,7 @@ const SupplierDashboard: React.FC = () => {
           onPress={() => navigation.navigate('SupplierCreateOrder')}
         >
           <View
-            colors={[`${themeColors.primary}1A`, `${themeColors.primary}1A`]}
+            // colors={[`${themeColors.primary}1A`, `${themeColors.primary}1A`]}
             style={styles.createOrderGradient}
           >
             <View style={styles.createOrderIcon}>
@@ -271,9 +272,9 @@ const SupplierDashboard: React.FC = () => {
               onPress={() => navigation.navigate('SupplierJobs', { initialCategory: 'all' })}
             >
               <View
-                colors={['#424141', '#2D2D2D']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                // colors={['#424141', '#2D2D2D']}
+                // start={{ x: 0, y: 0 }}
+                // end={{ x: 1, y: 1 }}
                 style={styles.viewAllGradient}>
                 <Text style={styles.viewAllText}>View all</Text>
                 <PlayIcon width={30} height={30} />
@@ -336,7 +337,7 @@ const SupplierDashboard: React.FC = () => {
                     <PlayIcon width={18} height={18} />
                   </View>
                 </TouchableOpacity>
- 
+
                 {/* Ready To Pickup */}
                 <TouchableOpacity
                   style={styles.jobCard}

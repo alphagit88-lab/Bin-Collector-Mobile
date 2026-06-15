@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     directionsText: {
         fontFamily: fonts.family.semiBold,
         fontSize: 12,
-        color: themeColors.primary,
+        color: '#FFFFFF',
         lineHeight: 14,
     },
     priceInputContainer: {

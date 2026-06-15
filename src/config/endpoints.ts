@@ -25,6 +25,7 @@ export const ENDPOINTS = {
         ACCEPT: (id: string) => `/bookings/${id}/accept`,
         DETAILS: (id: string) => `/bookings/${id}`,
         UPDATE_STATUS: (id: string) => `/bookings/${id}/status`,
+        UPDATE_ITEM_STATUS: (bookingId: string | number, itemId: number) => `/bookings/${bookingId}/order-items/${itemId}/status`,
         ORDER_ITEMS: (id: string) => `/bookings/${id}/order-items`,
         MARK_READY: (id: string) => `/bookings/${id}/ready-to-pickup`,
         CANCEL: (id: string) => `/bookings/${id}`,

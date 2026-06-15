@@ -46,6 +46,23 @@ const statusSteps = [
   { key: 'completed', label: 'Completed', icon: 'checkmark-done-circle-outline', iconType: 'ionicon' },
 ];
 
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'pending': return '#F59E0B'; // Amber
+    case 'awaiting_payment': return '#3B82F6'; // Blue
+    case 'confirmed': return '#10B981'; // Green
+    case 'on_delivery':
+    case 'loaded': return '#8B5CF6'; // Purple
+    case 'delivered': return '#059669'; // Emerald
+    case 'ready_to_pickup': return '#EF4444'; // Red
+    case 'picked_up':
+    case 'pickup': return '#6B7280'; // Gray
+    case 'completed': return '#10B981'; // Green
+    case 'cancelled': return '#DC2626'; // Dark Red
+    default: return '#9CA3AF'; // Light Gray
+  }
+};
+
 const ServiceTrackingScreen: React.FC = () => {
   const { user } = useAuth();
   const { socket } = useSocket();
@@ -164,6 +181,28 @@ const ServiceTrackingScreen: React.FC = () => {
   };
 
 
+
+  const handleSingleBinMarkReady = async (itemId: number) => {
+    if (!selectedRequest) return;
+    setLoading(true);
+    try {
+      const response = await api.put(
+        `/bookings/${selectedRequest.id}/order-items/${itemId}/status`,
+        { status: 'ready_to_pickup' }
+      );
+      if (response.success) {
+        toast.success('Success', 'Bin marked as ready for pickup');
+        fetchRequests();
+      } else {
+        toast.error('Error', response.message || 'Failed to update status');
+      }
+    } catch (error) {
+      console.error('Error updating bin status:', error);
+      toast.error('Error', 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleMarkReadyToPickup = async () => {
     if (!selectedRequest) return;
@@ -288,24 +327,75 @@ const ServiceTrackingScreen: React.FC = () => {
         <Text style={[styles.sectionTitle, { marginTop: 0 }]}>Status Timeline</Text>
         <View style={styles.timelineList}>
           {filteredSteps.map((step, index) => {
-            const isCompleted = step.isStatic || index <= currentIndex;
+            let isCompleted = false;
+            let isPartiallyCompleted = false;
+            let hintText = '';
+            const totalItemsCount = Array.isArray(orderItems) ? orderItems.length : 0;
+
+            if (step.key === 'cash_collected') {
+              isCompleted = request.payment_status === 'paid' ||
+                request.status === 'cash_collected' ||
+                (Array.isArray(request.status_history) && request.status_history.some((h: any) => h.status === 'cash_collected'));
+            } else if (!isService && totalItemsCount > 0) {
+              const items = orderItems as any[];
+              if (step.key === 'on_delivery') {
+                const targetStatuses = ['loaded', 'cash_collected', 'delivered', 'ready_to_pickup', 'picked_up', 'completed'];
+                const reachedCount = items.filter(item => targetStatuses.includes(item.status || '')).length;
+                isCompleted = reachedCount === totalItemsCount;
+                isPartiallyCompleted = reachedCount > 0 && reachedCount < totalItemsCount;
+                if (reachedCount > 0) {
+                  hintText = `(${reachedCount}/${totalItemsCount} loaded)`;
+                }
+              } else if (step.key === 'delivered') {
+                const targetStatuses = ['delivered', 'ready_to_pickup', 'picked_up', 'completed'];
+                const reachedCount = items.filter(item => targetStatuses.includes(item.status || '')).length;
+                isCompleted = reachedCount === totalItemsCount;
+                isPartiallyCompleted = reachedCount > 0 && reachedCount < totalItemsCount;
+                if (reachedCount > 0) {
+                  hintText = `(${reachedCount}/${totalItemsCount} delivered)`;
+                }
+              } else if (step.key === 'ready_to_pickup') {
+                const targetStatuses = ['ready_to_pickup', 'picked_up', 'completed'];
+                const reachedCount = items.filter(item => targetStatuses.includes(item.status || '')).length;
+                isCompleted = reachedCount === totalItemsCount;
+                isPartiallyCompleted = reachedCount > 0 && reachedCount < totalItemsCount;
+                if (reachedCount > 0) {
+                  hintText = `(${reachedCount}/${totalItemsCount} ready)`;
+                }
+              } else if (step.key === 'pickup') {
+                const targetStatuses = ['picked_up', 'completed'];
+                const reachedCount = items.filter(item => targetStatuses.includes(item.status || '')).length;
+                isCompleted = reachedCount === totalItemsCount;
+                isPartiallyCompleted = reachedCount > 0 && reachedCount < totalItemsCount;
+                if (reachedCount > 0) {
+                  hintText = `(${reachedCount}/${totalItemsCount} picked up)`;
+                }
+              } else {
+                isCompleted = step.isStatic || index <= currentIndex;
+              }
+            } else {
+              isCompleted = step.isStatic || index <= currentIndex;
+            }
+
             const isCurrent = !step.isStatic && index === currentIndex;
             const time = getStatusTime(request, step.key);
+            const iconColor = isCompleted ? '#FFFFFF' : isPartiallyCompleted ? '#10B981' : '#FFFFFF';
 
             return (
               <View key={step.key} style={styles.timelineItem}>
                 <View style={[
                   styles.timelineIconContainer,
-                  isCompleted ? styles.timelineIconActive : styles.timelineIconInactive
+                  isCompleted ? styles.timelineIconActive :
+                  isPartiallyCompleted ? styles.timelineIconPartial : styles.timelineIconInactive
                 ]}>
                   {step.iconType === 'material' ? (
-                    <MaterialCommunityIcons name={step.icon as any} size={22} color="#FFFFFF" />
+                    <MaterialCommunityIcons name={step.icon as any} size={22} color={iconColor} />
                   ) : step.iconType === 'ionicon' ? (
-                    <Ionicons name={step.icon as any} size={22} color="#FFFFFF" />
+                    <Ionicons name={step.icon as any} size={22} color={iconColor} />
                   ) : step.iconType === 'material-icon' ? (
-                    <MaterialIcons name={step.icon as any} size={22} color="#FFFFFF" />
+                    <MaterialIcons name={step.icon as any} size={22} color={iconColor} />
                   ) : (
-                    <MaterialIcons name={step.icon as any} size={22} color="#FFFFFF" />
+                    <MaterialIcons name={step.icon as any} size={22} color={iconColor} />
                   )}
                 </View>
                 <View style={styles.timelineContent}>
@@ -313,12 +403,15 @@ const ServiceTrackingScreen: React.FC = () => {
                     <Text style={[
                       styles.timelineLabel,
                       isCurrent && styles.timelineLabelCurrent,
-                      isCompleted && styles.timelineLabelCompleted
+                      (isCompleted || isPartiallyCompleted) && styles.timelineLabelCompleted
                     ]}>
                       {step.label}
                     </Text>
                     {time ? <Text style={styles.statusTime}>{time}</Text> : null}
                   </View>
+                  {hintText ? (
+                    <Text style={styles.timelineHintText}>{hintText}</Text>
+                  ) : null}
                   {isCurrent && (
                     <Text style={styles.currentStatusBadge}>Current Status</Text>
                   )}
@@ -583,6 +676,54 @@ const ServiceTrackingScreen: React.FC = () => {
                           <Text style={styles.actionButtonText}>Mark Ready for Pickup</Text>
                         </LinearGradient>
                       </TouchableOpacity>
+                    )}
+
+                    {/* Bins Status Card */}
+                    {selectedRequest.service_category !== 'service' && orderItems.length > 0 && (
+                      <LinearGradient
+                        colors={['#EFF2F0', '#EAFFCC']}
+                        locations={[0.2377, 0.6629]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.detailsCard}
+                      >
+                        <Text style={styles.sectionTitle}>Bins Status</Text>
+                        {orderItems.map((item, index) => (
+                          <View key={item.id || index} style={[styles.orderItemCard, index > 0 && { marginTop: 12 }]}>
+                            <View style={styles.orderItemHeader}>
+                              <Text style={styles.orderItemTitle}>
+                                • {item.bin_type_name} {item.bin_size ? `(${item.bin_size})` : ''}
+                              </Text>
+                              <View style={[
+                                styles.statusBadge, 
+                                { backgroundColor: getStatusColor(item.status || 'pending') }
+                              ]}>
+                                <Text style={styles.statusBadgeText}>
+                                  {(item.status || 'pending').toUpperCase().replace(/_/g, ' ')}
+                                </Text>
+                              </View>
+                            </View>
+
+                            {item.bin_code && (
+                              <Text style={styles.binCodeText}>
+                                Assigned Bin: <Text style={{ fontFamily: fonts.family.bold }}>{item.bin_code}</Text>
+                              </Text>
+                            )}
+
+                            {/* Customer Action Button: Mark Ready to Pickup */}
+                            {item.status === 'delivered' && (
+                              <View style={styles.itemActionContainer}>
+                                <TouchableOpacity
+                                  style={styles.itemPickupButton}
+                                  onPress={() => handleSingleBinMarkReady(item.id)}
+                                >
+                                  <Text style={styles.itemPickupButtonText}>Mark Ready for Pickup</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                          </View>
+                        ))}
+                      </LinearGradient>
                     )}
 
                     {renderTimeline(selectedRequest)}
@@ -918,6 +1059,17 @@ const styles = StyleSheet.create({
   timelineIconInactive: {
     backgroundColor: '#E5E7EB',
   },
+  timelineIconPartial: {
+    backgroundColor: '#E6F4EA',
+    borderWidth: 2,
+    borderColor: '#10B981',
+  },
+  timelineHintText: {
+    fontSize: 13,
+    color: '#059669',
+    fontFamily: fonts.family.medium,
+    marginTop: 2,
+  },
   timelineIcon: {
     fontSize: 20,
   },
@@ -1084,7 +1236,68 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
-  }
+  },
+  orderItemCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  orderItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  orderItemTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#1F2937',
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusBadgeText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 11,
+  },
+  binCodeText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#4B5563',
+    marginBottom: 8,
+  },
+  itemActionContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  itemPickupButton: {
+    backgroundColor: themeColors.primary,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  itemPickupButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 14,
+  },
 });
 
 export default ServiceTrackingScreen;

@@ -77,7 +77,9 @@ const NotificationsScreen: React.FC = () => {
     if (notification.type === 'message') {
       nav.navigate('ChatDetail', { conversationId: notification.related_id });
     } else if (notification.type === 'order' || notification.type === 'status_update') {
-      if (!(user?.role === 'supplier' || user?.role === 'driver')) {
+      if (user?.role === 'supplier' || user?.role === 'driver') {
+        nav.navigate('JobDetail', { jobId: notification.related_id });
+      } else {
         nav.navigate('ServiceTracking', { requestId: notification.related_id });
       }
     }

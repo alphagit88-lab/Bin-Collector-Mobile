@@ -38,6 +38,11 @@ interface OrderItem {
   bin_type_name: string;
   bin_size: string;
   price?: string;
+  status?: string;
+  physical_bin_id?: number | null;
+  bin_code?: string | null;
+  physical_bin_status?: string | null;
+  delivery_photo_url?: string | null;
 }
 
 interface JobDetail {
@@ -54,6 +59,8 @@ interface JobDetail {
   customerPhone?: string;
   status: string;
   payment_method?: string;
+  payment_status?: string;
+  status_history?: any[];
   orderItems?: OrderItem[];
   attachment_url?: string;
   latitude?: number | string;
@@ -99,10 +106,29 @@ const mockJobDetail: JobDetail = {
   ]
 };
 
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'pending': return '#F59E0B'; // Amber
+    case 'awaiting_payment': return '#3B82F6'; // Blue
+    case 'confirmed': return '#10B981'; // Green
+    case 'on_delivery':
+    case 'loaded': return '#8B5CF6'; // Purple
+    case 'delivered': return '#059669'; // Emerald
+    case 'ready_to_pickup': return '#EF4444'; // Red
+    case 'picked_up':
+    case 'pickup': return '#6B7280'; // Gray
+    case 'completed': return '#10B981'; // Green
+    case 'cancelled': return '#DC2626'; // Dark Red
+    default: return '#9CA3AF'; // Light Gray
+  }
+};
+
 const JobDetailScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route = useRoute();
-  const initialData = (route.params as any)?.booking || (route.params as any)?.job || mockJobDetail;
+  const routeParams = route.params as any;
+  const passedJobId = routeParams?.jobId || routeParams?.job?.id || routeParams?.booking?.id;
+  const initialData = routeParams?.booking || routeParams?.job || (passedJobId ? { id: passedJobId } : null) || mockJobDetail;
 
   const formatDisplayDate = (dateStr: any) => {
     if (!dateStr || dateStr === 'N/A') return null;
@@ -135,6 +161,8 @@ const JobDetailScreen: React.FC = () => {
       customerPhone: data.customer_phone || data.customerPhone,
       status: data.status,
       payment_method: data.payment_method,
+      payment_status: data.payment_status,
+      status_history: data.status_history,
       orderItems: data.orderItems || data.items,
       attachment_url: data.attachment_url,
       latitude: data.latitude,
@@ -165,6 +193,7 @@ const JobDetailScreen: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [deliveryPhoto, setDeliveryPhoto] = useState<string | null>(null);
+  const [itemPhotos, setItemPhotos] = useState<Record<number, string>>({});
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
     title: '',
@@ -178,6 +207,7 @@ const JobDetailScreen: React.FC = () => {
   const [showDriverModal, setShowDriverModal] = useState(false);
   const [drivers, setDrivers] = useState<any[]>([]);
   const [assigningDriver, setAssigningDriver] = useState(false);
+  const [selectedItemForBinAssignment, setSelectedItemForBinAssignment] = useState<OrderItem | null>(null);
   const { user } = require('../contexts/AuthContext').useAuth();
 
   const isPending = jobDetail.status === 'pending';
@@ -348,6 +378,81 @@ const JobDetailScreen: React.FC = () => {
     } finally {
       setUpdatingStatus(false);
       setShowBinModal(false);
+    }
+  };
+
+  const handleItemStatusUpdate = async (itemId: number, newStatus: string, itemPhoto?: string | null, binCode?: string | null) => {
+    if (newStatus === 'delivered' && !itemPhoto) {
+      toast.error('Error', 'Please take a delivery photo for this bin first');
+      return;
+    }
+    setUpdatingStatus(true);
+    try {
+      const formData = new FormData();
+      formData.append('status', newStatus);
+
+      if (binCode) {
+        formData.append('bin_code', binCode);
+      }
+
+      if (newStatus === 'delivered' && itemPhoto) {
+        const filename = itemPhoto.split('/').pop();
+        const match = /\.(\w+)$/.exec(filename || '');
+        const type = match ? `image/${match[1]}` : `image`;
+
+        formData.append('delivery_photo', {
+          uri: itemPhoto,
+          name: filename,
+          type,
+        } as any);
+      }
+
+      const response = await api.put(
+        ENDPOINTS.BOOKINGS.UPDATE_ITEM_STATUS(jobDetail.id.toString(), itemId),
+        formData
+      );
+
+      if (response.success) {
+        toast.success('Success', `Bin status updated to ${newStatus}`);
+
+        // Refresh job details to show updated state
+        fetchJobData();
+
+        // Reset item photo state
+        setItemPhotos(prev => {
+          const updated = { ...prev };
+          delete updated[itemId];
+          return updated;
+        });
+      } else {
+        toast.error('Error', response.message || 'Failed to update status');
+      }
+    } catch (error) {
+      console.error('Update item status error:', error);
+      toast.error('Error', 'An error occurred while updating bin status');
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
+
+  const handleCaptureItemPhoto = async (itemId: number) => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error('Permission Denied', 'Camera permission is required to capture delivery photo.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setItemPhotos(prev => ({
+        ...prev,
+        [itemId]: result.assets[0].uri
+      }));
     }
   };
 
@@ -573,7 +678,7 @@ const JobDetailScreen: React.FC = () => {
                   style={styles.directionsButton}
                   onPress={handleOpenDirections}
                 >
-                  <Ionicons name="navigate-circle" size={24} color={themeColors.primary} />
+                  <Ionicons name="navigate-circle" size={24} color="#FFFFFF" />
                   <Text style={styles.directionsText}>Directions</Text>
                 </TouchableOpacity>
               </View>
@@ -605,13 +710,113 @@ const JobDetailScreen: React.FC = () => {
                   )}
                 </View>
               ) : jobDetail.orderItems && jobDetail.orderItems.length > 0 ? (
-                jobDetail.orderItems.map((item, index) => (
-                  <View key={item.id} style={[styles.orderItemRow, index > 0 && { marginTop: 8 }]}>
-                    <Text style={styles.detailValue}>
-                      • {item.bin_type_name} {item.bin_size ? `(${item.bin_size})` : ''}
-                    </Text>
-                  </View>
-                ))
+                jobDetail.orderItems.map((item, index) => {
+                  const isUserStaff = user?.role === 'supplier' || user?.role === 'driver';
+                  const showActions = isUserStaff && !isPending;
+                  const itemPhoto = itemPhotos[item.id];
+
+                  return (
+                    <View key={item.id} style={[styles.orderItemCard, index > 0 && { marginTop: 12 }]}>
+                      <View style={styles.orderItemHeader}>
+                        <Text style={styles.orderItemTitle}>
+                          • {item.bin_type_name} {item.bin_size ? `(${item.bin_size})` : ''}
+                        </Text>
+                        <View style={[
+                          styles.statusBadge,
+                          { backgroundColor: getStatusColor(item.status || 'pending') }
+                        ]}>
+                          <Text style={styles.statusBadgeText}>
+                            {(item.status || 'pending').toUpperCase().replace(/_/g, ' ')}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {item.bin_code && (
+                        <Text style={styles.binCodeText}>
+                          Assigned Bin: <Text style={{ fontFamily: fonts.family.bold }}>{item.bin_code}</Text>
+                        </Text>
+                      )}
+
+                      {/* Display delivery photo for this item if it exists in backend */}
+                      {item.delivery_photo_url && (
+                        <View style={{ marginTop: 8 }}>
+                          <Text style={styles.detailLabel}>Delivery Photo:</Text>
+                          <Image
+                            source={{ uri: `${BASE_URL}${item.delivery_photo_url}` }}
+                            style={styles.itemPhotoPreview}
+                            resizeMode="contain"
+                          />
+                        </View>
+                      )}
+
+                      {/* Supplier/Driver Action Buttons for individual item */}
+                      {showActions && (
+                        <View style={styles.itemActionContainer}>
+                          {item.status === 'loaded' && (
+                            <View style={{ width: '100%', gap: 8 }}>
+                              {!itemPhoto ? (
+                                <TouchableOpacity
+                                  style={styles.itemPhotoButton}
+                                  onPress={() => handleCaptureItemPhoto(item.id)}
+                                >
+                                  <Ionicons name="camera" size={18} color="#374151" style={{ marginRight: 6 }} />
+                                  <Text style={styles.photoButtonText}>Take Delivery Photo</Text>
+                                </TouchableOpacity>
+                              ) : (
+                                <View style={{ alignItems: 'center', width: '100%' }}>
+                                  <Image source={{ uri: itemPhoto }} style={styles.itemPhotoPreview} resizeMode="contain" />
+                                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, width: '100%' }}>
+                                    <TouchableOpacity
+                                      style={[styles.itemPhotoButton, { flex: 1 }]}
+                                      onPress={() => handleCaptureItemPhoto(item.id)}
+                                    >
+                                      <Ionicons name="refresh" size={16} color="#374151" style={{ marginRight: 6 }} />
+                                      <Text style={styles.photoButtonText}>Retake</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                      style={[styles.itemDeliverButton, { flex: 1 }]}
+                                      onPress={() => handleItemStatusUpdate(item.id, 'delivered', itemPhoto)}
+                                    >
+                                      <Text style={styles.itemDeliverButtonText}>Deliver Bin</Text>
+                                    </TouchableOpacity>
+                                  </View>
+                                </View>
+                              )}
+                            </View>
+                          )}
+
+                          {(item.status === 'pending' || item.status === 'confirmed' || !item.status) && (
+                            <TouchableOpacity
+                              style={styles.itemLoadButton}
+                              onPress={() => setSelectedItemForBinAssignment(item)}
+                            >
+                              <Ionicons name="cube-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                              <Text style={styles.itemLoadButtonText}>Start Delivery (Assign Bin)</Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {item.status === 'ready_to_pickup' && (
+                            <TouchableOpacity
+                              style={styles.itemPickupButton}
+                              onPress={() => handleItemStatusUpdate(item.id, 'pickup')}
+                            >
+                              <Text style={styles.itemPickupButtonText}>Start Pickup</Text>
+                            </TouchableOpacity>
+                          )}
+
+                          {item.status === 'picked_up' && (
+                            <TouchableOpacity
+                              style={styles.itemCompleteButton}
+                              onPress={() => handleItemStatusUpdate(item.id, 'completed')}
+                            >
+                              <Text style={styles.itemCompleteButtonText}>Complete Pickup</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })
               ) : (
                 <Text style={styles.detailValue}>
                   {jobDetail.binType} {jobDetail.binSize ? `(${jobDetail.binSize})` : ''}
@@ -650,7 +855,7 @@ const JobDetailScreen: React.FC = () => {
                   <Text style={styles.detailValue}>
                     {jobDetail.driver_name || 'Driver Assigned'}
                   </Text>
-                  {user?.role === 'supplier' && jobDetail.status === 'confirmed' && (
+                  {user?.role === 'supplier' && !['completed', 'cancelled'].includes(jobDetail.status) && (
                     <TouchableOpacity onPress={() => setShowDriverModal(true)}>
                       <Text style={{ color: themeColors.primary, fontFamily: fonts.family.medium }}>Change</Text>
                     </TouchableOpacity>
@@ -668,7 +873,7 @@ const JobDetailScreen: React.FC = () => {
               if (jobDetail.additional_images && jobDetail.additional_images.length > 0) {
                 allImages = [...allImages, ...jobDetail.additional_images];
               }
-              
+
               if (allImages.length > 0) {
                 return (
                   <LinearGradient
@@ -855,12 +1060,12 @@ const JobDetailScreen: React.FC = () => {
             {/* Status Update Buttons for Supplier/Driver */}
             {(user?.role === 'supplier' || user?.role === 'driver') && !isPending && (
               <View style={{ gap: 8 }}>
-                {user?.role === 'supplier' && !jobDetail.driver_id && jobDetail.status === 'confirmed' && (
+                {user?.role === 'supplier' && !jobDetail.driver_id && !['completed', 'cancelled'].includes(jobDetail.status) && (
                   <TouchableOpacity
                     style={styles.assignDriverButton}
                     onPress={() => setShowDriverModal(true)}
                   >
-                    <Ionicons name="people-outline" size={20} color={themeColors.primary} style={{ marginRight: 8 }} />
+                    <Ionicons name="people-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
                     <Text style={styles.assignDriverButtonText}>Assign Driver</Text>
                   </TouchableOpacity>
                 )}
@@ -962,20 +1167,25 @@ const JobDetailScreen: React.FC = () => {
                       </LinearGradient>
                     </TouchableOpacity>
                   )}
-
-                  {jobDetail.service_category !== 'service' && jobDetail.status === 'on_delivery' && (
+                  {/* Cash Collected button: show when cash order, at least one bin delivered, not yet collected */}
+                  {jobDetail.service_category !== 'service' &&
+                    jobDetail.payment_method === 'cash' &&
+                    jobDetail.status !== 'cash_collected' &&
+                    jobDetail.payment_status !== 'paid' &&
+                    Array.isArray(jobDetail.orderItems) &&
+                    jobDetail.orderItems.some(item =>
+                      ['delivered', 'ready_to_pickup', 'picked_up', 'completed'].includes(item.status || '')
+                    ) && (
                     <TouchableOpacity
                       style={styles.acceptButtonWrapper}
                       onPress={() => setConfirmModal({
                         visible: true,
-                        title: 'Confirm',
-                        message: jobDetail.payment_method === 'cash'
-                          ? 'Confirm cash collection for this order?'
-                          : 'Mark this order as delivered?',
+                        title: 'Collect Cash',
+                        message: 'Confirm that cash has been collected from the customer?',
                         confirmText: 'Confirm',
                         onConfirm: () => {
                           setConfirmModal(prev => ({ ...prev, visible: false }));
-                          handleStatusUpdate(jobDetail.payment_method === 'cash' ? 'cash_collected' : 'delivered');
+                          handleStatusUpdate('cash_collected');
                         },
                         isDestructive: false,
                         singleButton: false,
@@ -984,125 +1194,11 @@ const JobDetailScreen: React.FC = () => {
                       <LinearGradient
                         colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                         style={styles.acceptButton}>
-                        <Text style={styles.acceptButtonText}>
-                          {jobDetail.payment_method === 'cash' ? 'Mark as Cash Collected' : 'Mark as Delivered'}
-                        </Text>
+                        <Text style={styles.acceptButtonText}>Mark as Cash Collected</Text>
                       </LinearGradient>
                     </TouchableOpacity>
                   )}
 
-                  {jobDetail.service_category !== 'service' && (jobDetail.status === 'cash_collected' || (jobDetail.status === 'on_delivery' && jobDetail.payment_method !== 'cash')) && !deliveryPhoto && (
-                    <View style={{ width: '100%' }}>
-                      <TouchableOpacity
-                        style={styles.photoButton}
-                        onPress={handleCapturePhoto}
-                        activeOpacity={0.8}>
-                        <Ionicons name="camera" size={20} color="#374151" />
-                        <Text style={styles.photoButtonText}>Take Delivery Photo</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {jobDetail.service_category !== 'service' && (jobDetail.status === 'cash_collected' || (jobDetail.status === 'on_delivery' && jobDetail.payment_method !== 'cash')) && deliveryPhoto && (
-                    <View style={{ width: '100%', alignItems: 'center' }}>
-                      <Image source={{ uri: deliveryPhoto }} style={[styles.deliveryPhotoPreview, { aspectRatio: imageAspectRatios['preview_delivery_photo'] || 1.5 }]} resizeMode="contain" onLoad={(event) => {
-                        const { width, height } = event.nativeEvent.source;
-
-                        setImageAspectRatios(prev => ({
-                          ...prev,
-                          preview_delivery_photo: width / height
-                        }));
-                      }} />
-                      <TouchableOpacity
-                        onPress={handleCapturePhoto}
-                        style={[styles.photoButton, { marginTop: 8 }]}>
-                        <Ionicons name="refresh" size={18} color="#374151" />
-                        <Text style={styles.photoButtonText}>Retake Photo</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {jobDetail.service_category !== 'service' && (jobDetail.status === 'cash_collected' || (jobDetail.status === 'on_delivery' && jobDetail.payment_method !== 'cash')) && (
-                    <View style={{ width: '100%', marginTop: 10 }}>
-                      <TouchableOpacity
-                        style={[
-                          styles.acceptButtonWrapper,
-                          (jobDetail.status === 'cash_collected' || (jobDetail.status === 'on_delivery' && jobDetail.payment_method !== 'cash')) && !deliveryPhoto && { opacity: 0.7 }
-                        ]}
-                        disabled={!deliveryPhoto}
-                        onPress={() => {
-                          setConfirmModal({
-                            visible: true,
-                            title: 'Confirm',
-                            message: jobDetail.status === 'cash_collected'
-                              ? 'Cash collected. Mark this order as delivered now?'
-                              : 'Mark this order as delivered?',
-                            confirmText: 'Confirm',
-                            onConfirm: () => {
-                              setConfirmModal(prev => ({ ...prev, visible: false }));
-                              handleStatusUpdate('delivered');
-                            },
-                            isDestructive: false,
-                            singleButton: false,
-                          });
-                        }}
-                        activeOpacity={0.8}>
-                        <LinearGradient
-                          colors={[themeColors.primaryLight2, themeColors.primaryLight]}
-                          style={styles.acceptButton}>
-                          <Text style={styles.acceptButtonText}>Mark as Delivered</Text>
-                        </LinearGradient>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-
-                  {jobDetail.service_category !== 'service' && jobDetail.status === 'ready_to_pickup' && (
-                    <TouchableOpacity
-                      style={styles.acceptButtonWrapper}
-                      onPress={() => setConfirmModal({
-                        visible: true,
-                        title: 'Confirm',
-                        message: 'Start pickup process for this order?',
-                        confirmText: 'Confirm',
-                        onConfirm: () => {
-                          setConfirmModal(prev => ({ ...prev, visible: false }));
-                          handleStatusUpdate('pickup');
-                        },
-                        isDestructive: false,
-                        singleButton: false,
-                      })}
-                      activeOpacity={0.8}>
-                      <LinearGradient
-                        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
-                        style={styles.acceptButton}>
-                        <Text style={styles.acceptButtonText}>Start Pickup</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
-
-                  {jobDetail.service_category !== 'service' && jobDetail.status === 'pickup' && (
-                    <TouchableOpacity
-                      style={styles.acceptButtonWrapper}
-                      onPress={() => setConfirmModal({
-                        visible: true,
-                        title: 'Confirm',
-                        message: 'Complete this job? Bins will be marked as available.',
-                        confirmText: 'Confirm',
-                        onConfirm: () => {
-                          setConfirmModal(prev => ({ ...prev, visible: false }));
-                          handleStatusUpdate('completed');
-                        },
-                        isDestructive: false,
-                        singleButton: false,
-                      })}
-                      activeOpacity={0.8}>
-                      <LinearGradient
-                        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
-                        style={styles.acceptButton}>
-                        <Text style={styles.acceptButtonText}>Complete Job</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
 
                   {jobDetail.status === 'completed' && (
                     <View style={styles.acceptButtonWrapper}>
@@ -1134,14 +1230,65 @@ const JobDetailScreen: React.FC = () => {
                   })
                   .map((step, index, filteredSteps) => {
                     const currentIndex = filteredSteps.findIndex(s => s.key === jobDetail.status);
-                    const isCompleted = index <= currentIndex;
+
+                    let isCompleted = false;
+                    let isPartiallyCompleted = false;
+                    let hintText = '';
+                    const totalItemsCount = Array.isArray(jobDetail.orderItems) ? jobDetail.orderItems.length : 0;
+
+                    if (step.key === 'cash_collected') {
+                      isCompleted = jobDetail.payment_status === 'paid' ||
+                        jobDetail.status === 'cash_collected' ||
+                        (Array.isArray(jobDetail.status_history) && jobDetail.status_history.some((h: any) => h.status === 'cash_collected'));
+                    } else if (jobDetail.service_category !== 'service' && totalItemsCount > 0) {
+                      const items = jobDetail.orderItems as any[];
+                      if (step.key === 'on_delivery') {
+                        const targetStatuses = ['loaded', 'cash_collected', 'delivered', 'ready_to_pickup', 'picked_up', 'completed'];
+                        const reachedCount = items.filter(item => targetStatuses.includes(item.status || '')).length;
+                        isCompleted = reachedCount === totalItemsCount;
+                        isPartiallyCompleted = reachedCount > 0 && reachedCount < totalItemsCount;
+                        if (reachedCount > 0) {
+                          hintText = `(${reachedCount}/${totalItemsCount} loaded)`;
+                        }
+                      } else if (step.key === 'delivered') {
+                        const targetStatuses = ['delivered', 'ready_to_pickup', 'picked_up', 'completed'];
+                        const reachedCount = items.filter(item => targetStatuses.includes(item.status || '')).length;
+                        isCompleted = reachedCount === totalItemsCount;
+                        isPartiallyCompleted = reachedCount > 0 && reachedCount < totalItemsCount;
+                        if (reachedCount > 0) {
+                          hintText = `(${reachedCount}/${totalItemsCount} delivered)`;
+                        }
+                      } else if (step.key === 'ready_to_pickup') {
+                        const targetStatuses = ['ready_to_pickup', 'picked_up', 'completed'];
+                        const reachedCount = items.filter(item => targetStatuses.includes(item.status || '')).length;
+                        isCompleted = reachedCount === totalItemsCount;
+                        isPartiallyCompleted = reachedCount > 0 && reachedCount < totalItemsCount;
+                        if (reachedCount > 0) {
+                          hintText = `(${reachedCount}/${totalItemsCount} ready)`;
+                        }
+                      } else if (step.key === 'pickup') {
+                        const targetStatuses = ['picked_up', 'completed'];
+                        const reachedCount = items.filter(item => targetStatuses.includes(item.status || '')).length;
+                        isCompleted = reachedCount === totalItemsCount;
+                        isPartiallyCompleted = reachedCount > 0 && reachedCount < totalItemsCount;
+                        if (reachedCount > 0) {
+                          hintText = `(${reachedCount}/${totalItemsCount} picked up)`;
+                        }
+                      } else {
+                        isCompleted = index <= currentIndex;
+                      }
+                    } else {
+                      isCompleted = index <= currentIndex;
+                    }
+
                     const isCurrent = index === currentIndex;
 
                     return (
                       <View key={step.key} style={styles.timelineItem}>
                         <View style={[
                           styles.timelineIconContainer,
-                          isCompleted ? styles.timelineIconActive : styles.timelineIconInactive
+                          isCompleted ? styles.timelineIconActive :
+                          isPartiallyCompleted ? styles.timelineIconPartial : styles.timelineIconInactive
                         ]}>
                           <Text style={styles.timelineIcon}>{step.icon}</Text>
                         </View>
@@ -1149,10 +1296,14 @@ const JobDetailScreen: React.FC = () => {
                           <Text style={[
                             styles.timelineLabel,
                             isCompleted && styles.timelineLabelActive,
+                            isPartiallyCompleted && styles.timelineLabelActive,
                             isCurrent && styles.timelineLabelCurrent
                           ]}>
                             {step.label}
                           </Text>
+                          {hintText ? (
+                            <Text style={styles.timelineHintText}>{hintText}</Text>
+                          ) : null}
                         </View>
                         {index < filteredSteps.length - 1 && (
                           <View style={[
@@ -1233,6 +1384,21 @@ const JobDetailScreen: React.FC = () => {
         onSubmit={handleStatusUpdate}
         isLoading={updatingStatus}
       />
+
+      {/* Single Bin Assignment Modal */}
+      {selectedItemForBinAssignment && (
+        <BinAssignmentModal
+          visible={!!selectedItemForBinAssignment}
+          orderItems={[selectedItemForBinAssignment]}
+          onClose={() => setSelectedItemForBinAssignment(null)}
+          onSubmit={async (status, assignments) => {
+            const binCode = assignments[0];
+            await handleItemStatusUpdate(selectedItemForBinAssignment.id, 'loaded', null, binCode);
+            setSelectedItemForBinAssignment(null);
+          }}
+          isLoading={updatingStatus}
+        />
+      )}
 
       <AppConfirmModal
         visible={confirmModal.visible}
@@ -1620,6 +1786,17 @@ const styles = StyleSheet.create({
   timelineIconInactive: {
     backgroundColor: '#E5E7EB',
   },
+  timelineIconPartial: {
+    backgroundColor: '#E6F4EA',
+    borderWidth: 2,
+    borderColor: '#10B981',
+  },
+  timelineHintText: {
+    fontSize: 12,
+    color: '#059669',
+    fontFamily: fonts.family.medium,
+    marginTop: 2,
+  },
   timelineIcon: {
     fontSize: 18,
   },
@@ -1663,7 +1840,7 @@ const styles = StyleSheet.create({
   directionsText: {
     fontFamily: fonts.family.semiBold,
     fontSize: 12,
-    color: themeColors.primary,
+    color: '#FFFFFF',
     lineHeight: 14,
   },
   deliveryPhotoPreview: {
@@ -1723,7 +1900,7 @@ const styles = StyleSheet.create({
   assignDriverButtonText: {
     fontFamily: fonts.family.bold,
     fontSize: 16,
-    color: themeColors.primary,
+    color: '#FFFFFF',
   },
   driverInfoRow: {
     flexDirection: 'row',
@@ -1840,7 +2017,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   repeatOrderText: {
-    color: themeColors.primaryDark,
+    color: '#FFFFFF',
     fontFamily: fonts.family.bold,
     fontSize: 16,
   },
@@ -1877,6 +2054,123 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontFamily: fonts.family.bold,
     fontSize: 16,
+  },
+  orderItemCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  orderItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  orderItemTitle: {
+    fontFamily: fonts.family.bold,
+    fontSize: 16,
+    color: '#1F2937',
+    flex: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusBadgeText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 11,
+  },
+  binCodeText: {
+    fontFamily: fonts.family.regular,
+    fontSize: 14,
+    color: '#4B5563',
+    marginBottom: 8,
+  },
+  itemActionContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  itemPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    width: '100%',
+  },
+  itemDeliverButton: {
+    backgroundColor: themeColors.primary,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemDeliverButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 14,
+  },
+  itemPickupButton: {
+    backgroundColor: themeColors.primary,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  itemPickupButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 14,
+  },
+  itemCompleteButton: {
+    backgroundColor: themeColors.primary,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  itemCompleteButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 14,
+  },
+  itemPhotoPreview: {
+    width: '100%',
+    height: 150,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  itemLoadButton: {
+    backgroundColor: themeColors.primary,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    width: '100%',
+  },
+  itemLoadButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fonts.family.bold,
+    fontSize: 14,
   },
 });
 
