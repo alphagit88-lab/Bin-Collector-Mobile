@@ -76,6 +76,15 @@ const ServiceTrackingScreen: React.FC = () => {
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [confirmVisible, setConfirmVisible] = useState(false);
+  const [cancelModal, setCancelModal] = useState({
+    visible: false,
+    title: '',
+    message: '',
+    confirmText: '',
+    isDestructive: false,
+    singleButton: false,
+    onConfirm: () => {},
+  });
   const [paying, setPaying] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const detailsRef = React.useRef<View>(null);
@@ -268,6 +277,35 @@ const ServiceTrackingScreen: React.FC = () => {
       toast.error('Error', 'Something went wrong while processing payment');
     } finally {
       setPaying(false);
+    }
+  };
+
+  const handleCancelOrder = async (requestId?: string | number) => {
+    const idParam = (typeof requestId === 'string' || typeof requestId === 'number') ? requestId : undefined;
+    const targetId = idParam || selectedRequest?.id;
+    if (!targetId) return;
+    try {
+      const response = await api.delete(ENDPOINTS.BOOKINGS.CANCEL(targetId.toString()));
+      if (response.success) {
+        toast.success('Success', 'Order cancelled successfully');
+        setCancelModal(prev => ({ ...prev, visible: false }));
+        fetchRequests();
+      }
+    } catch (error: any) {
+      console.error('Cancel error:', error);
+      if (error?.response?.data?.requireContact) {
+        setCancelModal({
+          visible: true,
+          title: 'Cancel Order',
+          message: 'Please contact customer service to cancel this order.',
+          confirmText: 'Close',
+          isDestructive: false,
+          singleButton: true,
+          onConfirm: () => setCancelModal(prev => ({ ...prev, visible: false })),
+        });
+      } else {
+        toast.error('Error', error?.response?.data?.message || 'Failed to cancel order');
+      }
     }
   };
 
@@ -635,6 +673,40 @@ const ServiceTrackingScreen: React.FC = () => {
                           <Text style={styles.simpleCardLocation} numberOfLines={1}>
                             {req.location}
                           </Text>
+                          {req.status !== 'completed' && req.status !== 'cancelled' && (
+                            <View style={{ flexDirection: 'row', marginTop: 10, justifyContent: 'flex-end' }}>
+                              <TouchableOpacity
+                                style={styles.cancelListButton}
+                                activeOpacity={0.7}
+                                onPress={() => {
+                                  setSelectedRequest(req);
+                                  if (req.status === 'pending') {
+                                    setCancelModal({
+                                      visible: true,
+                                      title: 'Cancel Order',
+                                      message: 'Are you sure you want to cancel this order?',
+                                      confirmText: 'Cancel Order',
+                                      isDestructive: true,
+                                      singleButton: false,
+                                      onConfirm: () => handleCancelOrder(req.id),
+                                    });
+                                  } else {
+                                    setCancelModal({
+                                      visible: true,
+                                      title: 'Cancel Order',
+                                      message: 'Please contact customer service to cancel this order.',
+                                      confirmText: 'Close',
+                                      isDestructive: false,
+                                      singleButton: true,
+                                      onConfirm: () => setCancelModal(prev => ({ ...prev, visible: false })),
+                                    });
+                                  }
+                                }}>
+                                <Ionicons name="close-circle" size={14} color="#FFFFFF" />
+                                <Text style={styles.cancelListButtonText}>Cancel</Text>
+                              </TouchableOpacity>
+                            </View>
+                          )}
                         </TouchableOpacity>
                       ))}
                     </ScrollView>
@@ -804,6 +876,17 @@ const ServiceTrackingScreen: React.FC = () => {
         message="Are you sure the bin is ready for pickup?"
         onConfirm={executeMarkReady}
         onCancel={() => setConfirmVisible(false)}
+      />
+
+      <AppConfirmModal
+        visible={cancelModal.visible}
+        title={cancelModal.title}
+        message={cancelModal.message}
+        confirmText={cancelModal.confirmText}
+        isDestructive={cancelModal.isDestructive}
+        onConfirm={cancelModal.onConfirm}
+        onCancel={() => setCancelModal(prev => ({ ...prev, visible: false }))}
+        singleButton={cancelModal.singleButton}
       />
 
       <BottomNavBar activeTab="tracking" />
@@ -1198,6 +1281,20 @@ const styles = StyleSheet.create({
     fontFamily: fonts.family.regular,
     fontSize: 13,
     color: '#666',
+  },
+  cancelListButton: {
+    backgroundColor: '#FF3B30',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cancelListButtonText: {
+    fontFamily: fonts.family.medium,
+    fontSize: 12,
+    color: '#FFFFFF',
   },
   noResultsText: {
     textAlign: 'center',

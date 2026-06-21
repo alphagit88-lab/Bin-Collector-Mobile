@@ -18,6 +18,7 @@ import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import OperationsBottomNavBar from '../components/OperationsBottomNavBar';
 import HeaderActionIcons from '../components/HeaderActionIcons';
+import { geocodeAddress, reverseGeocode } from '../utils/geocode';
 import AppModal from '../components/AppModal';
 import AppConfirmModal from '../components/AppConfirmModal';
 import { api } from '../config/api';
@@ -174,13 +175,9 @@ const ServiceAreaScreen: React.FC = () => {
             longitudeDelta: 0.1,
           });
 
-          // Reverse geocode
+          // Try to get address from reverse geocoding
           try {
-            const geoResp = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
-              { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-            );
-            const geoData = await geoResp.json();
+            const geoData = await reverseGeocode(latitude, longitude);
             if (geoData && geoData.display_name) {
               const { address = {}, display_name } = geoData;
               const detectedCountry = address.country || '';
@@ -242,11 +239,7 @@ const ServiceAreaScreen: React.FC = () => {
     Keyboard.dismiss();
     setIsSearching(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(newCity)}&format=json&limit=1&addressdetails=1&countrycodes=ca`,
-        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-      );
-      const data = await response.json();
+      const data = await geocodeAddress(newCity);
       if (data && data.length > 0) {
         const { lat, lon, display_name, address = {} } = data[0];
         const newLat = parseFloat(lat);
@@ -288,17 +281,7 @@ const ServiceAreaScreen: React.FC = () => {
     }
 
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-          query
-        )}&format=json&limit=5&countrycodes=ca`,
-        {
-          headers: {
-            'User-Agent': 'BinDropApp/1.0',
-          },
-        }
-      );
-      const data = await response.json();
+      const data = await geocodeAddress(query);
       setLocationSuggestions(data);
       setShowSuggestions(true);
     } catch (error) {
@@ -351,11 +334,7 @@ const ServiceAreaScreen: React.FC = () => {
     setNewLatitude(newLat);
     setNewLongitude(newLon);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json&addressdetails=1`,
-        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-      );
-      const data = await response.json();
+      const data = await reverseGeocode(newLat, newLon);
       if (data && data.display_name) {
         const { address = {}, display_name } = data;
         const detectedCountry = address.country || '';

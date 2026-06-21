@@ -10,9 +10,10 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface HeaderActionIconsProps {
   useWhiteWrapper?: boolean;
+  onNavigateAction?: (action: () => void) => void;
 }
 
-const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper = false }) => {
+const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper = false, onNavigateAction }) => {
   const navigation = useNavigation<any>();
   const { user, refreshUser } = useAuth();
   const [notificationCount, setNotificationCount] = React.useState(0);
@@ -42,9 +43,18 @@ const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper =
     }, [fetchCounts])
   );
 
+  const handleNavigation = (screen: string) => {
+    const action = () => navigation.navigate(screen as never);
+    if (onNavigateAction) {
+      onNavigateAction(action);
+    } else {
+      action();
+    }
+  };
+
   const content = (
     <View style={styles.row}>
-      <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Notifications')}>
+      <TouchableOpacity style={styles.iconButton} onPress={() => handleNavigation('Notifications')}>
         <View style={styles.iconCircle}>
           <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
         </View>
@@ -55,7 +65,7 @@ const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper =
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('MessageInbox')}>
+      <TouchableOpacity style={styles.iconButton} onPress={() => handleNavigation('MessageInbox')}>
         <View style={styles.iconCircle}>
           <Ionicons name="chatbox-outline" size={22} color="#FFFFFF" />
         </View>
@@ -66,7 +76,7 @@ const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper =
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.iconButton} onPress={() => navigation.navigate('Account')}>
+      <TouchableOpacity style={styles.iconButton} onPress={() => handleNavigation('Account')}>
         <View style={styles.iconCircle}>
           {user?.profilePhoto ? (
             <Image 

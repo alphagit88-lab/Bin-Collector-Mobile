@@ -32,6 +32,7 @@ import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 import HeaderActionIcons from '../components/HeaderActionIcons';
 import toast from '../utils/toast';
 import { api } from '../config/api';
+import { geocodeAddress, reverseGeocode } from '../utils/geocode';
 
 // Import SVG icons
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -209,11 +210,7 @@ const AccountScreen: React.FC = () => {
     Keyboard.dismiss();
     setMapSearching(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(mapAddress)}&format=json&limit=1&countrycodes=ca`,
-        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-      );
-      const data = await response.json();
+      const data = await geocodeAddress(mapAddress);
       if (data && data.length > 0) {
         const { lat, lon, display_name } = data[0];
         const newLat = parseFloat(lat);
@@ -240,17 +237,7 @@ const AccountScreen: React.FC = () => {
     }
 
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-          query
-        )}&format=json&limit=5&countrycodes=ca`,
-        {
-          headers: {
-            'User-Agent': 'BinDropApp/1.0',
-          },
-        }
-      );
-      const data = await response.json();
+      const data = await geocodeAddress(query);
       setLocationSuggestions(data);
       setShowSuggestions(true);
     } catch (error) {
@@ -293,11 +280,7 @@ const AccountScreen: React.FC = () => {
     setMapLon(newLon);
     setMapRegion(prev => ({ ...prev, latitude: newLat, longitude: newLon }));
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
-        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-      );
-      const data = await response.json();
+      const data = await reverseGeocode(newLat, newLon);
       if (data && data.display_name) setMapAddress(data.display_name);
     } catch (error) {
       console.error('Reverse geocode error:', error);
@@ -310,11 +293,7 @@ const AccountScreen: React.FC = () => {
     setMapLon(newLon);
     setMapRegion(prev => ({ ...prev, latitude: newLat, longitude: newLon }));
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
-        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-      );
-      const data = await response.json();
+      const data = await reverseGeocode(newLat, newLon);
       if (data && data.display_name) setMapAddress(data.display_name);
     } catch (error) {
       console.error('Reverse geocode error:', error);
@@ -364,11 +343,7 @@ const AccountScreen: React.FC = () => {
 
           // Reverse geocode
           try {
-            const geoResp = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-              { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-            );
-            const geoData = await geoResp.json();
+            const geoData = await reverseGeocode(latitude, longitude);
             if (geoData && geoData.display_name) {
               setMapAddress(geoData.display_name);
             }
@@ -531,15 +506,15 @@ const AccountScreen: React.FC = () => {
               <TouchableOpacity style={styles.avatarContainer} onPress={handleUpdateProfilePhoto} activeOpacity={0.8}>
                 {user?.profilePhoto || profilePhoto ? (
                   <View style={styles.avatarGradient}>
-                    <Image 
-                      source={{ 
-                        uri: profilePhoto && profilePhoto.startsWith('file://') 
-                          ? profilePhoto 
-                          : (user?.profilePhoto?.startsWith('http') 
-                              ? user.profilePhoto 
-                              : api.getBaseUrl() + user?.profilePhoto) 
-                      }} 
-                      style={styles.avatarPhoto} 
+                    <Image
+                      source={{
+                        uri: profilePhoto && profilePhoto.startsWith('file://')
+                          ? profilePhoto
+                          : (user?.profilePhoto?.startsWith('http')
+                            ? user.profilePhoto
+                            : api.getBaseUrl() + user?.profilePhoto)
+                      }}
+                      style={styles.avatarPhoto}
                     />
                   </View>
                 ) : (
@@ -616,7 +591,7 @@ const AccountScreen: React.FC = () => {
               />
               <SettingsItem
                 icon={<Icon11_4 width={35} height={35} />}
-                label="About App"
+                label={`About App (v${Constants.nativeAppVersion || Constants.expoConfig?.version || '1.0.0'})`}
                 onPress={() => setAboutModalVisible(true)}
               />
               <SettingsItem
@@ -761,8 +736,8 @@ const AccountScreen: React.FC = () => {
               />
               {showSuggestions && locationSuggestions.length > 0 && (
                 <View style={styles.suggestionsDropdown}>
-                  <ScrollView 
-                    style={{ maxHeight: 170 }} 
+                  <ScrollView
+                    style={{ maxHeight: 170 }}
                     nestedScrollEnabled={true}
                     showsVerticalScrollIndicator={true}
                   >

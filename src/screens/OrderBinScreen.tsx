@@ -32,7 +32,9 @@ import HeaderActionIcons from '../components/HeaderActionIcons';
 import { Ionicons } from '@expo/vector-icons';
 import toast from '../utils/toast';
 import AppModal from '../components/AppModal';
+import AppConfirmModal from '../components/AppConfirmModal';
 import AttachmentOptionModal from '../components/AttachmentOptionModal';
+import { geocodeAddress, reverseGeocode } from '../utils/geocode';
 
 // Import SVG images
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
@@ -57,6 +59,7 @@ interface FormFieldProps {
   keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad';
   secureTextEntry?: boolean;
   style?: any;
+  onClear?: () => void;
 }
 
 const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
@@ -71,6 +74,7 @@ const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
   keyboardType = 'default',
   secureTextEntry = false,
   style,
+  onClear,
 }) => (
   <TouchableOpacity
     activeOpacity={isDropdown ? 0.7 : 1}
@@ -90,6 +94,11 @@ const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
         keyboardType={keyboardType}
         secureTextEntry={secureTextEntry}
       />
+      {value && onClear ? (
+        <TouchableOpacity onPress={onClear} style={{ paddingHorizontal: 10, justifyContent: 'center' }}>
+          <Ionicons name="close-circle" size={18} color="#979897" />
+        </TouchableOpacity>
+      ) : null}
       {customIcon && <View style={styles.dropdownIcon}>{customIcon}</View>}
       {isDropdown && !customIcon && (
         <View style={styles.dropdownIcon}>
@@ -125,6 +134,56 @@ interface ServiceCategory {
 const OrderBinScreen: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation<any>();
+  const isOrderPlacedRef = React.useRef(false);
+  const [confirmModal, setConfirmModal] = useState({
+    visible: false,
+    title: 'Exit Confirmation',
+    message: 'Are you sure you want to leave this screen? Your order progress will be lost.',
+    confirmText: 'Leave',
+    onConfirm: () => { },
+    isDestructive: false,
+  });
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e: any) => {
+      if (isOrderPlacedRef.current) {
+        return;
+      }
+      e.preventDefault();
+      setConfirmModal({
+        visible: true,
+        title: 'Exit Confirmation',
+        message: 'Are you sure you want to leave this screen? Your order progress will be lost.',
+        confirmText: 'Leave',
+        isDestructive: true,
+        onConfirm: () => {
+          setConfirmModal(prev => ({ ...prev, visible: false }));
+          isOrderPlacedRef.current = true;
+          navigation.dispatch(e.data.action);
+        },
+      });
+    });
+    return unsubscribe;
+  }, [navigation]);
+
+  const handleExternalNavigation = React.useCallback((action: () => void) => {
+    if (isOrderPlacedRef.current) {
+      action();
+      return;
+    }
+    setConfirmModal({
+      visible: true,
+      title: 'Exit Confirmation',
+      message: 'Are you sure you want to leave this screen? Your order progress will be lost.',
+      confirmText: 'Leave',
+      isDestructive: true,
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, visible: false }));
+        isOrderPlacedRef.current = true;
+        action();
+      },
+    });
+  }, []);
   const route = useRoute<any>();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'cash'>(
@@ -201,17 +260,7 @@ const OrderBinScreen: React.FC = () => {
     Keyboard.dismiss();
     setIsSearching(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-          deliveryAddress
-        )}&format=json&limit=1&countrycodes=ca`,
-        {
-          headers: {
-            'User-Agent': 'BinDropApp/1.0',
-          },
-        }
-      );
-      const data = await response.json();
+      const data = await geocodeAddress(deliveryAddress);
 
       if (data && data.length > 0) {
         const { lat, lon, display_name } = data[0];
@@ -256,17 +305,7 @@ const OrderBinScreen: React.FC = () => {
     }
 
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-          query
-        )}&format=json&limit=5&countrycodes=ca`,
-        {
-          headers: {
-            'User-Agent': 'BinDropApp/1.0',
-          },
-        }
-      );
-      const data = await response.json();
+      const data = await geocodeAddress(query);
       setLocationSuggestions(data);
       setShowSuggestions(true);
     } catch (error) {
@@ -277,16 +316,34 @@ const OrderBinScreen: React.FC = () => {
 
   const handleAddressChange = (text: string) => {
     setDeliveryAddress(text);
-    
+
     if (debounceTimer) {
       clearTimeout(debounceTimer);
     }
-    
+
     const timer = setTimeout(() => {
       fetchLocationSuggestions(text);
     }, 500);
-    
+
     setDebounceTimer(timer);
+  };
+
+  const handleClearAddress = () => {
+    setDeliveryAddress('');
+    setLatitude(null);
+    setLongitude(null);
+    setShowSuggestions(false);
+    setLocationSuggestions([]);
+    setBins([
+      {
+        bin_type_id: '',
+        bin_type_name: '',
+        bin_size_id: '',
+        bin_size_name: '',
+        quantity: '1',
+      },
+    ]);
+    setBinSizesMap({});
   };
 
   const selectSuggestion = (suggestion: any) => {
@@ -305,7 +362,7 @@ const OrderBinScreen: React.FC = () => {
     setShowSuggestions(false);
     setLocationSuggestions([]);
     Keyboard.dismiss();
-    
+
     // Reset bin selections when location changes
     setBins([
       {
@@ -343,15 +400,7 @@ const OrderBinScreen: React.FC = () => {
     setBinSizesMap({});
 
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
-        {
-          headers: {
-            'User-Agent': 'BinDropApp/1.0',
-          },
-        }
-      );
-      const data = await response.json();
+      const data = await reverseGeocode(newLat, newLon);
       if (data && data.display_name) {
         setDeliveryAddress(data.display_name);
       }
@@ -378,11 +427,11 @@ const OrderBinScreen: React.FC = () => {
     setFetchingBinTypes(true);
     try {
       const response = await api.get<{ binTypes: BinType[] }>(`${ENDPOINTS.BINS.AVAILABLE_TYPES}?lat=${lat}&lon=${lon}`);
-      
+
       if (response.success && response.data) {
         const binTypes = response.data.binTypes;
         setBinTypes(binTypes);
-        
+
         if (
           binTypes !== null &&
           binTypes !== undefined &&
@@ -447,7 +496,7 @@ const OrderBinScreen: React.FC = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestBody)
-      });console.log('Calculated price:', JSON.stringify(requestBody));
+      }); console.log('Calculated price:', JSON.stringify(requestBody));
 
       const result = await response.json();
 
@@ -544,7 +593,7 @@ const OrderBinScreen: React.FC = () => {
     try {
       //const raw = await AsyncStorage.getItem('defaultLocation');
       const raw = false;
-      
+
       if (raw) {
         // ── Has a saved default location ──────────────────────────────
         try {
@@ -580,11 +629,7 @@ const OrderBinScreen: React.FC = () => {
 
             // Reverse-geocode to get a human-readable address
             try {
-              const geoResp = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?lat=${gpsLat}&lon=${gpsLon}&format=json`,
-                { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-              );
-              const geoData = await geoResp.json();
+              const geoData = await reverseGeocode(gpsLat, gpsLon);
               if (geoData && geoData.display_name) {
                 setDeliveryAddress(geoData.display_name);
               }
@@ -826,6 +871,7 @@ const OrderBinScreen: React.FC = () => {
           uri: await compressImage(asset.uri),
         }))
       );
+      console.log(compressedAssets)
       setAttachments(prev => [...prev, ...compressedAssets]);
     }
   };
@@ -929,11 +975,7 @@ const OrderBinScreen: React.FC = () => {
       // Auto-geocode if coordinates are missing
       if (!finalLat || !finalLon) {
         try {
-          const geoResponse = await fetch(
-            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1&countrycodes=us`,
-            { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-          );
-          const geoData = await geoResponse.json();
+          const geoData = await geocodeAddress(deliveryAddress);
           if (geoData && geoData.length > 0) {
             finalLat = parseFloat(geoData[0].lat);
             finalLon = parseFloat(geoData[0].lon);
@@ -1006,6 +1048,7 @@ const OrderBinScreen: React.FC = () => {
         } else {
           toast.success('Success', 'Your order has been placed successfully!');
         }
+        isOrderPlacedRef.current = true;
         navigation.navigate('Bookings' as never);
       } else {
         toast.error('Sorry', response.message || 'Failed to place order');
@@ -1035,7 +1078,7 @@ const OrderBinScreen: React.FC = () => {
                 </Text>
               </View>
               <View style={styles.headerIconsWrapper}>
-                <HeaderActionIcons useWhiteWrapper />
+                <HeaderActionIcons useWhiteWrapper onNavigateAction={handleExternalNavigation} />
               </View>
             </View>
             <View style={styles.headerImageContainer}>
@@ -1190,11 +1233,12 @@ const OrderBinScreen: React.FC = () => {
                     placeholder="Enter Delivery Address"
                     value={deliveryAddress}
                     onChangeText={handleAddressChange}
+                    onClear={handleClearAddress}
                   />
                   {showSuggestions && locationSuggestions.length > 0 && (
                     <View style={styles.suggestionsDropdown}>
-                      <ScrollView 
-                        style={{ maxHeight: 170 }} 
+                      <ScrollView
+                        style={{ maxHeight: 170 }}
                         nestedScrollEnabled={true}
                         showsVerticalScrollIndicator={true}
                       >
@@ -1219,11 +1263,11 @@ const OrderBinScreen: React.FC = () => {
                   onPress={handleSearchAddress}
                   disabled={isSearching || loadingDefaultLocation}
                 >
-                    {isSearching || loadingDefaultLocation ? (
-                      <ActivityIndicator size="small" color="#FFF" />
-                    ) : (
-                      <Ionicons name="search" size={20} color="#FFF" />
-                    )}
+                  {isSearching || loadingDefaultLocation ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <Ionicons name="search" size={20} color="#FFF" />
+                  )}
                 </TouchableOpacity>
               </View>
 
@@ -1296,12 +1340,12 @@ const OrderBinScreen: React.FC = () => {
                             <FormField
                               label="Bin Size*"
                               placeholder={
-                                !bin.bin_type_id 
-                                  ? "Select Type First" 
-                                  : fetchingSizes 
-                                    ? "Getting bin sizes..." 
-                                    : binSizesMap[parseInt(bin.bin_type_id as string)]?.length === 0 
-                                      ? "No sizes available" 
+                                !bin.bin_type_id
+                                  ? "Select Type First"
+                                  : fetchingSizes
+                                    ? "Getting bin sizes..."
+                                    : binSizesMap[parseInt(bin.bin_type_id as string)]?.length === 0
+                                      ? "No sizes available"
                                       : "Select Bin Size"
                               }
                               value={bin.bin_size_name}
@@ -1324,7 +1368,7 @@ const OrderBinScreen: React.FC = () => {
                       style={[styles.addBinButton, { marginTop: 10, width: 140, height: 35, alignSelf: 'flex-end' }]}
                       activeOpacity={0.7}
                       onPress={addBin}>
-                        <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
+                      <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
                     </TouchableOpacity>
                   </>
                 )}
@@ -1498,7 +1542,7 @@ const OrderBinScreen: React.FC = () => {
                     </TouchableOpacity>
                   </View>
                 ))}
-                {attachments.length < 10 && (
+                {attachments.length < 5 && (
                   <TouchableOpacity
                     style={styles.addAttachmentSquare}
                     onPress={handleAttachmentPress}>
@@ -1652,17 +1696,17 @@ const OrderBinScreen: React.FC = () => {
             activeOpacity={0.8}
             onPress={handlePlaceOrder}
             disabled={loading || fetchingSizes || fetchingCalculatedPrice}>
-              {loading || fetchingSizes || fetchingCalculatedPrice ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.placeOrderButtonText}>Next</Text>
-              )}
+            {loading || fetchingSizes || fetchingCalculatedPrice ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.placeOrderButtonText}>Next</Text>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>
 
       {/* Bottom Navigation */}
-      <BottomNavBar activeTab="orderBin" />
+      <BottomNavBar activeTab="orderBin" onNavigateAction={handleExternalNavigation} />
 
       {/* Bin Type Selection Modal */}
       <AppModal
@@ -1685,15 +1729,40 @@ const OrderBinScreen: React.FC = () => {
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Select Bin Type</Text>
             <ScrollView style={styles.optionsList}>
-              {binTypes.map((type) => (
-                <TouchableOpacity
-                  key={type.id}
-                  style={styles.optionItem}
-                  onPress={() => selectBinType(type)}
-                >
-                  <Text style={[styles.optionText, bins[activeBinIndex]?.bin_type_id === type.id.toString() && styles.selectedOptionText]}>{type.name}</Text>
-                </TouchableOpacity>
-              ))}
+              {binTypes.map((type) => {
+                const availableSizes = binSizesMap[Number(type.id)] || [];
+                let isTypeDisabled = false;
+                if (availableSizes.length > 0) {
+                  isTypeDisabled = availableSizes.every((size: BinSize) =>
+                    bins.some((b, idx) =>
+                      idx !== activeBinIndex &&
+                      b.bin_type_id === type.id.toString() &&
+                      b.bin_size_id === size.id.toString()
+                    )
+                  );
+                } else {
+                  isTypeDisabled = bins.some((b, idx) =>
+                    idx !== activeBinIndex &&
+                    b.bin_type_id === type.id.toString()
+                  );
+                }
+                return (
+                  <TouchableOpacity
+                    key={type.id}
+                    style={[styles.optionItem, isTypeDisabled && { opacity: 0.5 }]}
+                    onPress={() => !isTypeDisabled && selectBinType(type)}
+                    disabled={isTypeDisabled}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      bins[activeBinIndex]?.bin_type_id === type.id.toString() && styles.selectedOptionText,
+                      isTypeDisabled && { color: '#979897' }
+                    ]}>
+                      {type.name} {isTypeDisabled ? '(All Sizes Selected)' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
               {binTypes.length === 0 && <Text style={styles.noDataText}>No bin types available</Text>}
             </ScrollView>
           </View>
@@ -1721,22 +1790,34 @@ const OrderBinScreen: React.FC = () => {
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Select Bin Size</Text>
             <ScrollView style={styles.optionsList}>
-              {binSizesMap[parseInt(bins[activeBinIndex]?.bin_type_id)]?.map((size) => (
-                <TouchableOpacity
-                  key={size.id}
-                  onPress={() => selectBinSize(size)}
-                  style={styles.optionItem}
-                >
-                  <Text style={[styles.optionText, bins[activeBinIndex]?.bin_size_id === size.id.toString() && styles.selectedOptionText]}>
-                    {size.size}
-                  </Text>
-                  {binPrices.some(p => p.bin_size_id === size.id) && (
-                    <Text style={styles.optionPrice}>
-                      ${binPrices.find(p => p.bin_size_id === size.id)?.admin_final_price}
+              {binSizesMap[parseInt(bins[activeBinIndex]?.bin_type_id)]?.map((size: BinSize) => {
+                const isSizeAlreadySelected = bins.some((b, idx) =>
+                  idx !== activeBinIndex &&
+                  b.bin_type_id === bins[activeBinIndex]?.bin_type_id &&
+                  b.bin_size_id === size.id.toString()
+                );
+                return (
+                  <TouchableOpacity
+                    key={size.id}
+                    onPress={() => !isSizeAlreadySelected && selectBinSize(size)}
+                    style={[styles.optionItem, isSizeAlreadySelected && { opacity: 0.5 }]}
+                    disabled={isSizeAlreadySelected}
+                  >
+                    <Text style={[
+                      styles.optionText,
+                      bins[activeBinIndex]?.bin_size_id === size.id.toString() && styles.selectedOptionText,
+                      isSizeAlreadySelected && { color: '#979897' }
+                    ]}>
+                      {size.size} {isSizeAlreadySelected ? '(Already Selected)' : ''}
                     </Text>
-                  )}
-                </TouchableOpacity>
-              ))}
+                    {binPrices.some(p => p.bin_size_id === size.id) && (
+                      <Text style={[styles.optionPrice, isSizeAlreadySelected && { color: '#979897' }]}>
+                        ${binPrices.find(p => p.bin_size_id === size.id)?.admin_final_price}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
               {(!bins[activeBinIndex]?.bin_type_id || !binSizesMap[parseInt(bins[activeBinIndex]?.bin_type_id)]?.length) && (
                 <Text style={styles.noDataText}>No sizes available for this type</Text>
               )}
@@ -1750,6 +1831,16 @@ const OrderBinScreen: React.FC = () => {
         onClose={() => setAttachmentModalVisible(false)}
         onTakePhoto={takePhoto}
         onChooseGallery={pickImage}
+      />
+
+      <AppConfirmModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        isDestructive={confirmModal.isDestructive}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
       />
 
       <AppModal
@@ -1918,6 +2009,7 @@ const styles = StyleSheet.create({
   },
   thumbnailImage: {
     width: 70,
+    height: 70,
     borderRadius: 8,
     resizeMode: 'contain',
   },

@@ -95,7 +95,7 @@ const BookingsScreen: React.FC = () => {
     title: '',
     message: '',
     confirmText: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
     isDestructive: false,
     singleButton: false,
   });
@@ -312,10 +312,13 @@ const BookingsScreen: React.FC = () => {
     return colorPairs[index % colorPairs.length];
   };
 
-  const handleCancelOrder = async () => {
-    if (!selectedBooking) return;
+  const handleCancelOrder = async (bookingId?: string | number) => {
+    // If called with an event object, ignore it
+    const idParam = (typeof bookingId === 'string' || typeof bookingId === 'number') ? bookingId : undefined;
+    const targetId = idParam || selectedBooking?.id;
+    if (!targetId) return;
     try {
-      const response = await api.delete(ENDPOINTS.BOOKINGS.CANCEL(selectedBooking.id.toString()));
+      const response = await api.delete(ENDPOINTS.BOOKINGS.CANCEL(targetId.toString()));
       if (response.success) {
         toast.success('Success', 'Order cancelled successfully');
         setConfirmModal(prev => ({ ...prev, visible: false }));
@@ -586,8 +589,40 @@ const BookingsScreen: React.FC = () => {
                               activeOpacity={0.7}
                               onPress={() => (navigation as any).navigate('ServiceTracking', { requestId: booking.id })}>
                               <PlayIcon width={21} height={17} />
-                              <Text style={styles.trackButtonTextNew}>Track Order</Text>
+                              <Text style={styles.trackButtonTextNew}>Track</Text>
                             </TouchableOpacity>
+                            {booking.status !== 'completed' && booking.status !== 'cancelled' && (
+                              <TouchableOpacity
+                                style={styles.cancelListButton}
+                                activeOpacity={0.7}
+                                onPress={() => {
+                                  setSelectedBooking(booking);
+                                  if (booking.status === 'pending') {
+                                    setConfirmModal({
+                                      visible: true,
+                                      title: 'Cancel Order',
+                                      message: 'Are you sure you want to cancel this order?',
+                                      confirmText: 'Cancel Order',
+                                      isDestructive: true,
+                                      singleButton: false,
+                                      onConfirm: () => handleCancelOrder(booking.id),
+                                    });
+                                  } else {
+                                    setConfirmModal({
+                                      visible: true,
+                                      title: 'Cancel Order',
+                                      message: 'Please contact customer service to cancel this order.',
+                                      confirmText: 'Close',
+                                      isDestructive: false,
+                                      singleButton: true,
+                                      onConfirm: () => setConfirmModal(prev => ({ ...prev, visible: false })),
+                                    });
+                                  }
+                                }}>
+                                <Ionicons name="close-circle" size={17} color="#FFFFFF" />
+                                <Text style={styles.cancelListButtonText}>Cancel</Text>
+                              </TouchableOpacity>
+                            )}
                           </View>
                         </View>
                       </View>
@@ -894,7 +929,7 @@ const BookingsScreen: React.FC = () => {
                         allImages = [...allImages, ...parsed];
                       }
                     }
-                    
+
                     if (allImages.length > 0 || selectedBooking.delivery_photo_url) {
                       return (
                         <View style={styles.modalAttachmentSection}>
@@ -957,42 +992,42 @@ const BookingsScreen: React.FC = () => {
                   </TouchableOpacity>
 
                   {selectedBooking.status !== 'completed' && selectedBooking.status !== 'cancelled' && (
-                  <TouchableOpacity
-                    style={[styles.cancelButtonContainer, { marginTop: 0, marginBottom: 10 }]}
-                    onPress={() => {
-                      if (selectedBooking.status === 'pending') {
-                        setConfirmModal({
-                          visible: true,
-                          title: 'Cancel Order',
-                          message: 'Are you sure you want to cancel this order?',
-                          confirmText: 'Cancel Order',
-                          isDestructive: true,
-                          singleButton: false,
-                          onConfirm: handleCancelOrder,
-                        });
-                      } else {
-                        setConfirmModal({
-                          visible: true,
-                          title: 'Cancel Order',
-                          message: 'Please contact customer service to cancel this order.',
-                          confirmText: 'Close',
-                          isDestructive: false,
-                          singleButton: true,
-                          onConfirm: () => setConfirmModal(prev => ({ ...prev, visible: false })),
-                        });
-                      }
-                    }}
-                  >
-                    <LinearGradient
-                      colors={['#EF4444', '#DC2626']}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.cancelButtonGradient}
+                    <TouchableOpacity
+                      style={[styles.cancelButtonContainer, { marginTop: 0, marginBottom: 10 }]}
+                      onPress={() => {
+                        if (selectedBooking.status === 'pending') {
+                          setConfirmModal({
+                            visible: true,
+                            title: 'Cancel Order',
+                            message: 'Are you sure you want to cancel this order?',
+                            confirmText: 'Cancel Order',
+                            isDestructive: true,
+                            singleButton: false,
+                            onConfirm: handleCancelOrder,
+                          });
+                        } else {
+                          setConfirmModal({
+                            visible: true,
+                            title: 'Cancel Order',
+                            message: 'Please contact customer service to cancel this order.',
+                            confirmText: 'Close',
+                            isDestructive: false,
+                            singleButton: true,
+                            onConfirm: () => setConfirmModal(prev => ({ ...prev, visible: false })),
+                          });
+                        }
+                      }}
                     >
-                      <Text style={styles.cancelButtonText}>Cancel Order</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                )}
+                      <LinearGradient
+                        colors={['#EF4444', '#DC2626']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={styles.cancelButtonGradient}
+                      >
+                        <Text style={styles.cancelButtonText}>Cancel Order</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  )}
                 </>
               )}
             </ScrollView>
@@ -1448,6 +1483,25 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   viewButtonTextNew: {
+    fontFamily: fonts.family.medium,
+    fontSize: 16,
+    lineHeight: 15,
+    color: '#FFFFFF',
+  },
+  cancelListButton: {
+    flex: 1,
+    maxWidth: 167,
+    height: 31,
+    backgroundColor: '#FF3B30',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  cancelListButtonText: {
     fontFamily: fonts.family.medium,
     fontSize: 16,
     lineHeight: 15,

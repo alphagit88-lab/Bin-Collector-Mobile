@@ -324,7 +324,7 @@ const JobDetailScreen: React.FC = () => {
   const handleCancelOrder = async () => {
     try {
       const response = await api.delete(ENDPOINTS.BOOKINGS.CANCEL(jobDetail.id.toString()));
-      console.log('asd', response)
+
       if (response.success) {
         toast.success('Success', 'Order cancelled successfully');
         setConfirmModal(prev => ({ ...prev, visible: false }));
@@ -1176,28 +1176,28 @@ const JobDetailScreen: React.FC = () => {
                     jobDetail.orderItems.some(item =>
                       ['delivered', 'ready_to_pickup', 'picked_up', 'completed'].includes(item.status || '')
                     ) && (
-                    <TouchableOpacity
-                      style={styles.acceptButtonWrapper}
-                      onPress={() => setConfirmModal({
-                        visible: true,
-                        title: 'Collect Cash',
-                        message: 'Confirm that cash has been collected from the customer?',
-                        confirmText: 'Confirm',
-                        onConfirm: () => {
-                          setConfirmModal(prev => ({ ...prev, visible: false }));
-                          handleStatusUpdate('cash_collected');
-                        },
-                        isDestructive: false,
-                        singleButton: false,
-                      })}
-                      activeOpacity={0.8}>
-                      <LinearGradient
-                        colors={[themeColors.primaryLight2, themeColors.primaryLight]}
-                        style={styles.acceptButton}>
-                        <Text style={styles.acceptButtonText}>Mark as Cash Collected</Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  )}
+                      <TouchableOpacity
+                        style={styles.acceptButtonWrapper}
+                        onPress={() => setConfirmModal({
+                          visible: true,
+                          title: 'Collect Cash',
+                          message: 'Confirm that cash has been collected from the customer?',
+                          confirmText: 'Confirm',
+                          onConfirm: () => {
+                            setConfirmModal(prev => ({ ...prev, visible: false }));
+                            handleStatusUpdate('cash_collected');
+                          },
+                          isDestructive: false,
+                          singleButton: false,
+                        })}
+                        activeOpacity={0.8}>
+                        <LinearGradient
+                          colors={[themeColors.primaryLight2, themeColors.primaryLight]}
+                          style={styles.acceptButton}>
+                          <Text style={styles.acceptButtonText}>Mark as Cash Collected</Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    )}
 
 
                   {jobDetail.status === 'completed' && (
@@ -1288,7 +1288,7 @@ const JobDetailScreen: React.FC = () => {
                         <View style={[
                           styles.timelineIconContainer,
                           isCompleted ? styles.timelineIconActive :
-                          isPartiallyCompleted ? styles.timelineIconPartial : styles.timelineIconInactive
+                            isPartiallyCompleted ? styles.timelineIconPartial : styles.timelineIconInactive
                         ]}>
                           <Text style={styles.timelineIcon}>{step.icon}</Text>
                         </View>

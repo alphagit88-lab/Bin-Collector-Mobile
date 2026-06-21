@@ -28,6 +28,7 @@ import { Ionicons } from '@expo/vector-icons';
 import toast from '../utils/toast';
 import AppModal from '../components/AppModal';
 import AttachmentOptionModal from '../components/AttachmentOptionModal';
+import { geocodeAddress, reverseGeocode } from '../utils/geocode';
 
 // Import SVG images
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
@@ -49,6 +50,7 @@ interface FormFieldProps {
   keyboardType?: 'default' | 'numeric' | 'email-address' | 'phone-pad';
   secureTextEntry?: boolean;
   style?: any;
+  onClear?: () => void;
 }
 
 const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
@@ -63,6 +65,7 @@ const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
   keyboardType = 'default',
   secureTextEntry = false,
   style,
+  onClear,
 }) => (
   <TouchableOpacity
     activeOpacity={isDropdown ? 0.7 : 1}
@@ -82,6 +85,11 @@ const FormField: React.FC<FormFieldProps & { onPress?: () => void }> = ({
         keyboardType={keyboardType}
         secureTextEntry={secureTextEntry}
       />
+      {value && onClear ? (
+        <TouchableOpacity onPress={onClear} style={{ paddingHorizontal: 10, justifyContent: 'center' }}>
+          <Ionicons name="close-circle" size={18} color="#979897" />
+        </TouchableOpacity>
+      ) : null}
       {customIcon && <View style={styles.dropdownIcon}>{customIcon}</View>}
       {isDropdown && !customIcon && (
         <View style={styles.dropdownIcon}>
@@ -148,6 +156,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
   const [binSizesMap, setBinSizesMap] = useState<Record<number, BinSize[]>>({});
   const [typeModalVisible, setTypeModalVisible] = useState(false);
   const [sizeModalVisible, setSizeModalVisible] = useState(false);
+  const [fetchingLocationBins, setFetchingLocationBins] = useState(false);
 
   // Service Mode
   const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([]);
@@ -174,16 +183,27 @@ const SupplierCreateOrderScreen: React.FC = () => {
     fetchInitialData();
   }, []);
 
-  const fetchInitialData = async () => {
+  const fetchBinPrices = async (lat: number, lon: number) => {
     try {
-      const [typesRes, sizesRes, categoriesRes, settingsRes] = await Promise.all([
-        api.get('/bins/supplier/types') as any,
-        api.get('/bins/supplier/sizes') as any,
-        api.get(ENDPOINTS.SERVICES.CATEGORIES) as any,
-        api.get('/settings') as any,
+      const response = await api.get(`${ENDPOINTS.BINS.PRICES}?lat=${lat}&lon=${lon}`) as any;
+      if (response.success && response.data) {
+        setBinPrices(response.data.prices);
+      }
+    } catch (error) {
+      console.error('Error fetching prices:', error);
+    }
+  };
+
+  const fetchLocationBins = async (lat: number, lon: number) => {
+    setFetchingLocationBins(true);
+    try {
+      const [typesRes, sizesRes] = await Promise.all([
+        api.get(`/bins/supplier/types?lat=${lat}&lon=${lon}`) as any,
+        api.get(`/bins/supplier/sizes?lat=${lat}&lon=${lon}`) as any,
       ]);
 
       if (typesRes.success && typesRes.data) {
+        console.log('types', typesRes)
         setBinTypes(typesRes.data.binTypes);
       }
       if (sizesRes.success && sizesRes.data) {
@@ -196,6 +216,31 @@ const SupplierCreateOrderScreen: React.FC = () => {
         });
         setBinSizesMap(map);
       }
+    } catch (error) {
+      console.error('Error fetching location-based bins:', error);
+    } finally {
+      setFetchingLocationBins(false);
+    }
+  };
+
+  useEffect(() => {
+    if (latitude && longitude) {
+      fetchBinPrices(latitude, longitude);
+      fetchLocationBins(latitude, longitude);
+    } else {
+      setBinTypes([]);
+      setBinSizesMap({});
+      setBinPrices([]);
+    }
+  }, [latitude, longitude]);
+
+  const fetchInitialData = async () => {
+    try {
+      const [categoriesRes, settingsRes] = await Promise.all([
+        api.get(ENDPOINTS.SERVICES.CATEGORIES) as any,
+        api.get('/settings') as any,
+      ]);
+
       if (categoriesRes.success && categoriesRes.data) {
         setServiceCategories(categoriesRes.data.categories);
       }
@@ -234,11 +279,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
     Keyboard.dismiss();
     setIsSearching(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(deliveryAddress)}&format=json&limit=1&countrycodes=ca`,
-        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-      );
-      const data = await response.json();
+      const data = await geocodeAddress(deliveryAddress);
       if (data && data.length > 0) {
         const newLat = parseFloat(data[0].lat);
         const newLon = parseFloat(data[0].lon);
@@ -246,7 +287,16 @@ const SupplierCreateOrderScreen: React.FC = () => {
         setLongitude(newLon);
         setDeliveryAddress(data[0].display_name);
         setMapRegion(prev => ({ ...prev, latitude: newLat, longitude: newLon }));
-        fetchBinPrices(newLat, newLon);
+        setBins([
+          {
+            bin_type_id: '',
+            bin_type_name: '',
+            bin_size_id: '',
+            bin_size_name: '',
+            quantity: '1',
+            price: '',
+          },
+        ]);
       } else {
         toast.error('Location not found', 'Please try a more specific address.');
       }
@@ -265,17 +315,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
     }
 
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
-          query
-        )}&format=json&limit=5&countrycodes=ca`,
-        {
-          headers: {
-            'User-Agent': 'BinDropApp/1.0',
-          },
-        }
-      );
-      const data = await response.json();
+      const data = await geocodeAddress(query);
       setLocationSuggestions(data);
       setShowSuggestions(true);
     } catch (error) {
@@ -298,6 +338,25 @@ const SupplierCreateOrderScreen: React.FC = () => {
     setDebounceTimer(timer);
   };
 
+  const handleClearAddress = () => {
+    setDeliveryAddress('');
+    setLatitude(null);
+    setLongitude(null);
+    setShowSuggestions(false);
+    setLocationSuggestions([]);
+    setBins([
+      {
+        bin_type_id: '',
+        bin_type_name: '',
+        bin_size_id: '',
+        bin_size_name: '',
+        quantity: '1',
+        price: '',
+      },
+    ]);
+    setBinPrices([]);
+  };
+
   const selectSuggestion = (suggestion: any) => {
     const { lat, lon, display_name } = suggestion;
     const newLat = parseFloat(lat);
@@ -310,7 +369,16 @@ const SupplierCreateOrderScreen: React.FC = () => {
     setShowSuggestions(false);
     setLocationSuggestions([]);
     Keyboard.dismiss();
-    fetchBinPrices(newLat, newLon);
+    setBins([
+      {
+        bin_type_id: '',
+        bin_type_name: '',
+        bin_size_id: '',
+        bin_size_name: '',
+        quantity: '1',
+        price: '',
+      },
+    ]);
   };
 
   const onMarkerDragEnd = async (e: any) => {
@@ -318,27 +386,21 @@ const SupplierCreateOrderScreen: React.FC = () => {
     setLatitude(newLat);
     setLongitude(newLon);
     setMapRegion(prev => ({ ...prev, latitude: newLat, longitude: newLon }));
+    setBins([
+      {
+        bin_type_id: '',
+        bin_type_name: '',
+        bin_size_id: '',
+        bin_size_name: '',
+        quantity: '1',
+        price: '',
+      },
+    ]);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${newLat}&lon=${newLon}&format=json`,
-        { headers: { 'User-Agent': 'BinDropApp/1.0' } }
-      );
-      const data = await response.json();
+      const data = await reverseGeocode(newLat, newLon);
       if (data && data.display_name) setDeliveryAddress(data.display_name);
-      fetchBinPrices(newLat, newLon);
     } catch (error) {
       console.error('Reverse geocode error:', error);
-    }
-  };
-
-  const fetchBinPrices = async (lat: number, lon: number) => {
-    try {
-      const response = await api.get(`${ENDPOINTS.BINS.PRICES}?lat=${lat}&lon=${lon}`) as any;
-      if (response.success && response.data) {
-        setBinPrices(response.data.prices);
-      }
-    } catch (error) {
-      console.error('Error fetching prices:', error);
     }
   };
 
@@ -690,6 +752,64 @@ const SupplierCreateOrderScreen: React.FC = () => {
             </LinearGradient>
           </View>
 
+          {/* Section: Location & Schedule */}
+          <View style={styles.formSection}>
+            <LinearGradient
+              colors={['#EFF2F0', '#F8FFEE']}
+              locations={[0.2377, 0.6629]}
+              start={{ x: 0.34, y: 0 }}
+              end={{ x: 0.66, y: 1 }}
+              style={styles.formSectionGradient}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <FormField
+                    label="Location*"
+                    placeholder="Enter Delivery Address"
+                    value={deliveryAddress}
+                    onChangeText={handleAddressChange}
+                    onClear={handleClearAddress}
+                  />
+                  {showSuggestions && locationSuggestions.length > 0 && (
+                    <View style={styles.suggestionsDropdown}>
+                      <ScrollView
+                        style={{ maxHeight: 170 }}
+                        nestedScrollEnabled={true}
+                        showsVerticalScrollIndicator={true}
+                      >
+                        {locationSuggestions.map((suggestion, index) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.suggestionItem}
+                            onPress={() => selectSuggestion(suggestion)}
+                          >
+                            <Ionicons name="location-outline" size={18} color={themeColors.primary} style={{ marginRight: 8 }} />
+                            <Text style={styles.suggestionText} numberOfLines={2}>
+                              {suggestion.display_name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </ScrollView>
+                    </View>
+                  )}
+                </View>
+                <TouchableOpacity style={styles.searchButton} onPress={handleSearchAddress} disabled={isSearching}>
+                  <LinearGradient colors={[themeColors.primaryLight2, themeColors.primaryLight]} style={styles.searchButtonGradient}>
+                    {isSearching ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="search" size={20} color="#FFF" />}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.mapContainer}>
+                <MapView style={styles.map} provider={PROVIDER_GOOGLE} region={mapRegion}>
+                  {latitude !== null && longitude !== null && (
+                    <Marker coordinate={{ latitude, longitude }} draggable onDragEnd={onMarkerDragEnd} />
+                  )}
+                </MapView>
+              </View>
+              <Text style={styles.mapHint}>Hold and move the pin</Text>
+            </LinearGradient>
+          </View>
+
           {/* Section: Bins Selection */}
           {serviceType !== 'service' && (
             <View style={styles.formSection}>
@@ -700,51 +820,74 @@ const SupplierCreateOrderScreen: React.FC = () => {
                 end={{ x: 0.66, y: 1 }}
                 style={styles.formSectionGradient}>
                 <Text style={styles.formSectionTitleSmall}>Bins*</Text>
-                {bins.map((bin, index) => (
-                  <View key={index} style={[styles.binFormContainer, index > 0 && { marginTop: 12 }]}>
-                    <LinearGradient colors={['#EFF2F0', '#F8FFEE']} style={styles.binFormGradient}>
-                      {bins.length > 1 && (
-                        <TouchableOpacity style={styles.removeBinButton} onPress={() => removeBin(index)}>
-                          <Ionicons name="close-circle" size={24} color="#EF4444" />
-                        </TouchableOpacity>
-                      )}
-                      <FormField
-                        label="Bin Type*"
-                        placeholder="Select Type"
-                        value={bin.bin_type_name}
-                        onChangeText={() => { }}
-                        isDropdown
-                        onPress={() => openTypeModal(index)}
-                      />
-                      {(!bin.bin_type_id || (binSizesMap[parseInt(bin.bin_type_id)] && binSizesMap[parseInt(bin.bin_type_id)].length > 0)) && (
-                        <FormField
-                          label="Bin Size*"
-                          placeholder={bin.bin_type_id ? "Select Size" : "Select Type First"}
-                          value={bin.bin_size_name}
-                          onChangeText={() => { }}
-                          isDropdown
-                          onPress={() => openSizeModal(index)}
-                        />
-                      )}
-                      <View style={styles.row}>
-                        <View style={{ flex: 1 }}>
-                          <FormField
-                            label="Quantity*"
-                            placeholder="1"
-                            value={bin.quantity}
-                            onChangeText={(val) => updateBin(index, { quantity: val })}
-                            keyboardType="numeric"
-                          />
-                        </View>
-                      </View>
-                    </LinearGradient>
+                {(!latitude || !longitude) ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Ionicons name="location-outline" size={40} color={themeColors.primary} style={{ marginBottom: 10 }} />
+                    <Text style={{ color: '#64748B', textAlign: 'center' }}>
+                      Please select a location first before choosing bins
+                    </Text>
                   </View>
-                ))}
-                <TouchableOpacity style={styles.addBinButton} onPress={addBin}>
-                  <LinearGradient colors={[themeColors.primaryLight2, themeColors.primaryLight]} style={styles.addBinButtonGradient}>
-                    <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                ) : fetchingLocationBins ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color={themeColors.primary} style={{ marginBottom: 10 }} />
+                    <Text style={{ color: '#64748B' }}>Getting available bin types...</Text>
+                  </View>
+                ) : binTypes.length === 0 ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <Ionicons name="location-outline" size={40} color={themeColors.primary} style={{ marginBottom: 10 }} />
+                    <Text style={{ color: '#64748B', textAlign: 'center' }}>
+                      No bins available for this location.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    {bins.map((bin, index) => (
+                      <View key={index} style={[styles.binFormContainer, index > 0 && { marginTop: 12 }]}>
+                        <LinearGradient colors={['#EFF2F0', '#F8FFEE']} style={styles.binFormGradient}>
+                          {bins.length > 1 && (
+                            <TouchableOpacity style={styles.removeBinButton} onPress={() => removeBin(index)}>
+                              <Ionicons name="close-circle" size={24} color="#EF4444" />
+                            </TouchableOpacity>
+                          )}
+                          <FormField
+                            label="Bin Type*"
+                            placeholder="Select Type"
+                            value={bin.bin_type_name}
+                            onChangeText={() => { }}
+                            isDropdown
+                            onPress={() => openTypeModal(index)}
+                          />
+                          {(!bin.bin_type_id || (binSizesMap[parseInt(bin.bin_type_id as string)] && binSizesMap[parseInt(bin.bin_type_id as string)].length > 0)) && (
+                            <FormField
+                              label="Bin Size*"
+                              placeholder={bin.bin_type_id ? "Select Size" : "Select Type First"}
+                              value={bin.bin_size_name}
+                              onChangeText={() => { }}
+                              isDropdown
+                              onPress={() => openSizeModal(index)}
+                            />
+                          )}
+                          <View style={styles.row}>
+                            <View style={{ flex: 1 }}>
+                              <FormField
+                                label="Quantity*"
+                                placeholder="1"
+                                value={bin.quantity}
+                                onChangeText={(val) => updateBin(index, { quantity: val })}
+                                keyboardType="numeric"
+                              />
+                            </View>
+                          </View>
+                        </LinearGradient>
+                      </View>
+                    ))}
+                    <TouchableOpacity style={styles.addBinButton} onPress={addBin}>
+                      <LinearGradient colors={[themeColors.primaryLight2, themeColors.primaryLight]} style={styles.addBinButtonGradient}>
+                        <Text style={styles.addBinButtonText}>+ Add More Bin</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </>
+                )}
               </LinearGradient>
             </View>
           )}
@@ -795,7 +938,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
           )}
 
 
-          {/* Section: Location & Schedule */}
+          {/* Section: Schedule */}
           <View style={styles.formSection}>
             <LinearGradient
               colors={['#EFF2F0', '#F8FFEE']}
@@ -803,53 +946,6 @@ const SupplierCreateOrderScreen: React.FC = () => {
               start={{ x: 0.34, y: 0 }}
               end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <FormField
-                    label="Location*"
-                    placeholder="Enter Delivery Address"
-                    value={deliveryAddress}
-                    onChangeText={handleAddressChange}
-                  />
-                  {showSuggestions && locationSuggestions.length > 0 && (
-                    <View style={styles.suggestionsDropdown}>
-                      <ScrollView 
-                        style={{ maxHeight: 170 }} 
-                        nestedScrollEnabled={true}
-                        showsVerticalScrollIndicator={true}
-                      >
-                        {locationSuggestions.map((suggestion, index) => (
-                          <TouchableOpacity
-                            key={index}
-                            style={styles.suggestionItem}
-                            onPress={() => selectSuggestion(suggestion)}
-                          >
-                            <Ionicons name="location-outline" size={18} color={themeColors.primary} style={{ marginRight: 8 }} />
-                            <Text style={styles.suggestionText} numberOfLines={2}>
-                              {suggestion.display_name}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </ScrollView>
-                    </View>
-                  )}
-                </View>
-                <TouchableOpacity style={styles.searchButton} onPress={handleSearchAddress} disabled={isSearching}>
-                  <LinearGradient colors={[themeColors.primaryLight2, themeColors.primaryLight]} style={styles.searchButtonGradient}>
-                    {isSearching ? <ActivityIndicator size="small" color="#FFF" /> : <Ionicons name="search" size={20} color="#FFF" />}
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.mapContainer}>
-                <MapView style={styles.map} provider={PROVIDER_GOOGLE} region={mapRegion}>
-                  {latitude !== null && longitude !== null && (
-                    <Marker coordinate={{ latitude, longitude }} draggable onDragEnd={onMarkerDragEnd} />
-                  )}
-                </MapView>
-              </View>
-              <Text style={styles.mapHint}>Hold and move the pin</Text>
-
               <FormField
                 label="Start Date*"
                 placeholder="Select Start Date"
@@ -995,21 +1091,60 @@ const SupplierCreateOrderScreen: React.FC = () => {
       {/* Selection Modals */}
       <AppModal visible={typeModalVisible} onClose={() => setTypeModalVisible(false)} title="Select Bin Type">
         <ScrollView style={{ maxHeight: 400 }}>
-          {binTypes.map(type => (
-            <TouchableOpacity key={type.id} style={styles.modalItem} onPress={() => selectBinType(type)}>
-              <Text style={styles.modalItemText}>{type.name}</Text>
-            </TouchableOpacity>
-          ))}
+          {binTypes.map(type => {
+            const availableSizes = binSizesMap[Number(type.id)] || [];
+            let isTypeDisabled = false;
+            if (availableSizes.length > 0) {
+              isTypeDisabled = availableSizes.every((size: BinSize) =>
+                bins.some((b, idx) =>
+                  idx !== activeBinIndex &&
+                  b.bin_type_id === type.id.toString() &&
+                  b.bin_size_id === size.id.toString()
+                )
+              );
+            } else {
+              isTypeDisabled = bins.some((b, idx) =>
+                idx !== activeBinIndex &&
+                b.bin_type_id === type.id.toString()
+              );
+            }
+            return (
+              <TouchableOpacity
+                key={type.id}
+                style={[styles.modalItem, isTypeDisabled && { opacity: 0.5 }]}
+                onPress={() => !isTypeDisabled && selectBinType(type)}
+                disabled={isTypeDisabled}
+              >
+                <Text style={[styles.modalItemText, isTypeDisabled && { color: '#979897' }]}>
+                  {type.name} {isTypeDisabled ? '(All Sizes Selected)' : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </AppModal>
 
       <AppModal visible={sizeModalVisible} onClose={() => setSizeModalVisible(false)} title="Select Bin Size">
         <ScrollView style={{ maxHeight: 400 }}>
-          {(binSizesMap[parseInt(bins[activeBinIndex]?.bin_type_id)] || []).map(size => (
-            <TouchableOpacity key={size.id} style={styles.modalItem} onPress={() => selectBinSize(size)}>
-              <Text style={styles.modalItemText}>{size.size}</Text>
-            </TouchableOpacity>
-          ))}
+          {(binSizesMap[parseInt(bins[activeBinIndex]?.bin_type_id)] || []).map((size: BinSize) => {
+            const isSizeAlreadySelected = bins.some((b, idx) =>
+              idx !== activeBinIndex &&
+              b.bin_type_id === bins[activeBinIndex]?.bin_type_id &&
+              b.bin_size_id === size.id.toString()
+            );
+            return (
+              <TouchableOpacity
+                key={size.id}
+                style={[styles.modalItem, isSizeAlreadySelected && { opacity: 0.5 }]}
+                onPress={() => !isSizeAlreadySelected && selectBinSize(size)}
+                disabled={isSizeAlreadySelected}
+              >
+                <Text style={[styles.modalItemText, isSizeAlreadySelected && { color: '#979897' }]}>
+                  {size.size} {isSizeAlreadySelected ? '(Already Selected)' : ''}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </AppModal>
 
@@ -1041,7 +1176,7 @@ const styles = StyleSheet.create({
   dividerLine: { height: 1, backgroundColor: '#E5E7EB', marginBottom: 12 },
   formSection: { marginBottom: 16, borderRadius: 12, overflow: 'hidden' },
   formSectionGradient: { padding: 16 },
-  formField: { marginBottom: 16 },
+  formField: { marginBottom: 15 },
   formFieldLabel: { fontFamily: fonts.family.medium, fontSize: 14, color: '#373934', marginBottom: 8 },
   formFieldInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', paddingHorizontal: 12 },
   formFieldInput: { flex: 1, height: 45, fontFamily: fonts.family.regular, fontSize: 14, color: '#373934' },
@@ -1105,11 +1240,11 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   mapHint: { fontSize: 12, color: '#64748B', textAlign: 'center', marginTop: 6, marginBottom: 16, fontFamily: fonts.family.medium },
   instructionsLabel: { fontFamily: fonts.family.bold, fontSize: 15, color: '#373934', marginBottom: 10 },
-  notesContainer: { backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', padding: 12, minHeight: 100 },
+  notesContainer: { backgroundColor: '#FFFFFF', borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB', padding: 12, minHeight: 100, marginBottom: 15 },
   notesInput: { fontFamily: fonts.family.regular, fontSize: 14, color: '#373934', textAlignVertical: 'top' },
   multiAttachmentContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
   attachmentThumbnail: { width: 70, height: 70, borderRadius: 8, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' },
-  thumbnailImage: { width: '100%', borderRadius: 8, resizeMode: 'contain' },
+  thumbnailImage: { width: '100%', height: 70, borderRadius: 8, resizeMode: 'contain' },
   removeThumbnailButton: { position: 'absolute', top: 2, right: 2 },
   addAttachmentSquare: { width: 70, height: 70, borderRadius: 8, borderStyle: 'dashed', borderWidth: 1, borderColor: '#979897', justifyContent: 'center', alignItems: 'center' },
   addAttachmentText: { fontSize: 10, color: '#979897', marginTop: 2 },

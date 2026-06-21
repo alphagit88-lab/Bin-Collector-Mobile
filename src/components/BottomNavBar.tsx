@@ -14,12 +14,23 @@ import Icon5 from '../assets/images/1 239.svg';
 
 interface BottomNavBarProps {
   activeTab?: 'dashboard' | 'orderBin' | 'bookings' | 'tracking' | 'account';
+  onNavigateAction?: (action: () => void) => void;
 }
 
 const BottomNavBar: React.FC<BottomNavBarProps> = ({
   activeTab = 'dashboard',
+  onNavigateAction,
 }) => {
   const navigation = useNavigation();
+
+  const handleNavigation = (screen: string) => {
+    const action = () => navigation.navigate(screen as never);
+    if (onNavigateAction) {
+      onNavigateAction(action);
+    } else {
+      action();
+    }
+  };
 
   return (
     <View style={styles.bottomNav}>
@@ -33,7 +44,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
                 : styles.navItemInactive
             }
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('CustomerDashboard' as never)}>
+            onPress={() => handleNavigation('CustomerDashboard')}>
             {activeTab === 'dashboard' ? (
               <View style={styles.navItemActiveBackground}>
                 <View style={styles.navItemActiveContent}>
@@ -59,7 +70,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
               activeTab === 'orderBin' ? styles.navItem : styles.navItemInactive
             }
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('OrderBin' as never)}>
+            onPress={() => handleNavigation('OrderBin')}>
             {activeTab === 'orderBin' ? (
               <View style={styles.navItemActiveBackground}>
                 <View style={styles.navItemActiveContent}>
@@ -85,7 +96,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
               activeTab === 'bookings' ? styles.navItem : styles.navItemInactive
             }
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('Bookings' as never)}>
+            onPress={() => handleNavigation('Bookings')}>
             {activeTab === 'bookings' ? (
               <View style={styles.navItemActiveBackground}>
                 <View style={styles.navItemActiveContent}>
@@ -111,7 +122,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
               activeTab === 'tracking' ? styles.navItem : styles.navItemInactive
             }
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('ServiceTracking' as never)}>
+            onPress={() => handleNavigation('ServiceTracking')}>
             {activeTab === 'tracking' ? (
               <View style={styles.navItemActiveBackground}>
                 <View style={styles.navItemActiveContent}>
@@ -137,7 +148,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
               activeTab === 'account' ? styles.navItem : styles.navItemInactive
             }
             activeOpacity={0.7}
-            onPress={() => navigation.navigate('Account' as never)}>
+            onPress={() => handleNavigation('Account')}>
             {activeTab === 'account' ? (
               <View style={styles.navItemActiveBackground}>
                 <View style={styles.navItemActiveContent}>
