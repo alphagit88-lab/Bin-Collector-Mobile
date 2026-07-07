@@ -1010,7 +1010,7 @@ const OrderBinScreen: React.FC = () => {
       formData.append('contact_number', contactNumber);
       formData.append('contact_email', additionalContact);
       formData.append('instructions', notes);
-      if (selectedProjectId) {
+      if (selectedProjectId && serviceType === 'commercial') {
         formData.append('project_id', selectedProjectId.toString());
       }
       if (poNumber) formData.append('po_number', poNumber);
@@ -1098,26 +1098,7 @@ const OrderBinScreen: React.FC = () => {
           {/* Divider Line */}
           <View style={styles.dividerLine} />
 
-          {/* Section 0: Project Assignment (Optional) */}
-          <View style={styles.formSection}>
-            <View
-              style={styles.formSectionGradient}>
-              <Text style={[styles.paymentMethodTitle, { marginBottom: 25 }]}>
-                Assign to Project (Optional)
-              </Text>
-              <FormField
-                label=""
-                placeholder={projects.length > 0 ? "Select a project" : "No projects to select"}
-                value={selectedProjectName}
-                onChangeText={() => { }}
-                isDropdown={true}
-                onPress={() => projects.length > 0 && setProjectModalVisible(true)}
-                style={{ marginBottom: 0, marginTop: -10 }}
-              />
-            </View>
-          </View>
-
-          {/* Section 1: Service Type */}
+          {/* Section 0: Service Type */}
           <View style={styles.formSection}>
             <View
               style={styles.formSectionGradient}>
@@ -1221,6 +1202,25 @@ const OrderBinScreen: React.FC = () => {
               </View>
             </View>
           </View>
+
+          {/* Section 1: Project Assignment (Optional) */}
+          {serviceType === 'commercial' && <View style={styles.formSection}>
+            <View
+              style={styles.formSectionGradient}>
+              <Text style={[styles.paymentMethodTitle, { marginBottom: 25 }]}>
+                Assign to Project (Optional)
+              </Text>
+              <FormField
+                label=""
+                placeholder={projects.length > 0 ? "Select a project" : "No projects to select"}
+                value={selectedProjectName}
+                onChangeText={() => { }}
+                isDropdown={true}
+                onPress={() => projects.length > 0 && setProjectModalVisible(true)}
+                style={{ marginBottom: 0, marginTop: -10 }}
+              />
+            </View>
+          </View>}
 
           {/* Section 2: Location */}
           <View style={styles.formSection}>
