@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -508,6 +509,20 @@ const SupplierCreateOrderScreen: React.FC = () => {
     }
   };
 
+  const compressImage = async (uri: string): Promise<string> => {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      return result.uri;
+    } catch (error) {
+      console.error('Image compression error:', error);
+      return uri;
+    }
+  };
+
   const takePhoto = async () => {
     setAttachmentModalVisible(false);
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -518,10 +533,15 @@ const SupplierCreateOrderScreen: React.FC = () => {
 
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: false,
-      quality: 0.7,
     });
     if (!result.canceled) {
-      setAttachments(prev => [...prev, ...result.assets]);
+      const compressedAssets = await Promise.all(
+        result.assets.map(async (asset) => ({
+          ...asset,
+          uri: await compressImage(asset.uri),
+        }))
+      );
+      setAttachments(prev => [...prev, ...compressedAssets]);
     }
   };
 

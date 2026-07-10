@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 import AppModal from '../components/AppModal';
@@ -145,6 +146,20 @@ const AccountScreen: React.FC = () => {
     }
   };
 
+  const compressImage = async (uri: string): Promise<string> => {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      return result.uri;
+    } catch (error) {
+      console.error('Image compression error:', error);
+      return uri;
+    }
+  };
+
   const handleUpdateProfilePhoto = async () => {
     Alert.alert(
       'Update Profile Photo',
@@ -161,10 +176,9 @@ const AccountScreen: React.FC = () => {
             const result = await ImagePicker.launchCameraAsync({
               allowsEditing: true,
               aspect: [1, 1],
-              quality: 0.7,
             });
             if (!result.canceled && result.assets.length > 0) {
-              const uri = result.assets[0].uri;
+              const uri = await compressImage(result.assets[0].uri);
               setProfilePhoto(uri);
               const uploadResult = await updateProfilePhoto(uri);
               if (uploadResult.success) {
@@ -186,10 +200,9 @@ const AccountScreen: React.FC = () => {
             const result = await ImagePicker.launchImageLibraryAsync({
               allowsEditing: true,
               aspect: [1, 1],
-              quality: 0.7,
             });
             if (!result.canceled && result.assets.length > 0) {
-              const uri = result.assets[0].uri;
+              const uri = await compressImage(result.assets[0].uri);
               setProfilePhoto(uri);
               const uploadResult = await updateProfilePhoto(uri);
               if (uploadResult.success) {

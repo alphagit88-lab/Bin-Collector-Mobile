@@ -17,6 +17,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Linking } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
@@ -435,6 +436,20 @@ const JobDetailScreen: React.FC = () => {
     }
   };
 
+  const compressImage = async (uri: string): Promise<string> => {
+    try {
+      const result = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      return result.uri;
+    } catch (error) {
+      console.error('Image compression error:', error);
+      return uri;
+    }
+  };
+
   const handleCaptureItemPhoto = async (itemId: number) => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -445,13 +460,13 @@ const JobDetailScreen: React.FC = () => {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
-      quality: 0.8,
     });
 
     if (!result.canceled) {
+      const compressedUri = await compressImage(result.assets[0].uri);
       setItemPhotos(prev => ({
         ...prev,
-        [itemId]: result.assets[0].uri
+        [itemId]: compressedUri
       }));
     }
   };
@@ -473,24 +488,6 @@ const JobDetailScreen: React.FC = () => {
         android: `geo:0,0?q=${addr}`,
       });
       if (url) Linking.openURL(url);
-    }
-  };
-
-  const handleCapturePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      toast.error('Permission Denied', 'Camera permission is required to capture delivery photo.');
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: false,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setDeliveryPhoto(result.assets[0].uri);
     }
   };
 
