@@ -581,7 +581,7 @@ const AccountScreen: React.FC = () => {
             <Text style={styles.sectionTitle}>Information</Text>
 
             <View style={styles.settingsSection}>
-              {user?.canViewBilling && (
+              {(user?.role === 'supplier' || user?.canViewBilling) && (
                 <SettingsItem
                   icon={<MaterialCommunityIcons name="receipt" size={28} color={themeColors.primaryLight} style={{ marginRight: 8 }} />}
                   label="Billing & Invoices"

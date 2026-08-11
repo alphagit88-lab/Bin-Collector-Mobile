@@ -225,6 +225,9 @@ const OrderBinScreen: React.FC = () => {
   const [systemSettings, setSystemSettings] = useState<Record<string, string>>({});
   const [fetchingSettings, setFetchingSettings] = useState(true);
   const [calculatedPrice, setCalculatedPrice] = useState<any>(null);
+  const [splitOrders, setSplitOrders] = useState<any[] | null>(null);
+  const [assignedSupplierId, setAssignedSupplierId] = useState<string | null>(null);
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [fetchingCalculatedPrice, setFetchingCalculatedPrice] = useState(false);
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
@@ -471,10 +474,16 @@ const OrderBinScreen: React.FC = () => {
         (serviceType === 'residential' && (!deliveryDate || !pickupDate))
       ) {
         setCalculatedPrice(null);
+        setSplitOrders(null);
+        setPriceError(null);
         return;
       }
 
       setFetchingCalculatedPrice(true);
+      setCalculatedPrice(null);
+      setSplitOrders(null);
+      setAssignedSupplierId(null);
+      setPriceError(null);
 
       const requestBody = {
         service_category: serviceType,
@@ -492,23 +501,23 @@ const OrderBinScreen: React.FC = () => {
 
       const response = await fetch(`${API_URL}/bookings/calculate-price`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody)
-      }); console.log('Calculated price:', JSON.stringify(requestBody));
+      });
 
       const result = await response.json();
 
       if (result.success) {
         setCalculatedPrice(result.data);
+        setSplitOrders(result.data.splits || null);
+        setAssignedSupplierId(result.data.supplier_id || null);
       } else {
         console.error('Calculate price failed:', result.message);
-        setCalculatedPrice(null);
+        setPriceError(result.message || 'No suppliers available for this selection.');
       }
     } catch (error) {
       console.error('Error calculating price:', error);
-      setCalculatedPrice(null);
+      setPriceError('Failed to calculate price. Please try again.');
     } finally {
       setFetchingCalculatedPrice(false);
     }
@@ -985,73 +994,82 @@ const OrderBinScreen: React.FC = () => {
         }
       }
 
-      const formData = new FormData();
-      formData.append('service_category', serviceType);
-      if (serviceType === 'service') {
-        formData.append('selected_services', JSON.stringify(selectedServices));
-        formData.append('estimated_price', customerBudget);
+      const buildFormData = (binItems: any[], supplierId?: string | number) => {
+        const fd = new FormData();
+        if (supplierId) fd.append('supplier_id', supplierId.toString());
+        fd.append('service_category', serviceType);
+        if (serviceType === 'service') {
+          fd.append('selected_services', JSON.stringify(selectedServices));
+          fd.append('estimated_price', customerBudget);
+        } else {
+          fd.append('bins', JSON.stringify(binItems));
+        }
+        fd.append('location', deliveryAddress);
+        if (deliveryDate) fd.append('start_date', deliveryDate);
+        if (pickupDate) fd.append('end_date', pickupDate);
+        if (serviceType !== 'commercial') fd.append('payment_method', paymentMethod);
+        fd.append('contact_number', contactNumber);
+        fd.append('contact_email', additionalContact);
+        fd.append('instructions', notes);
+        if (selectedProjectId && serviceType === 'commercial') fd.append('project_id', selectedProjectId.toString());
+        if (poNumber) fd.append('po_number', poNumber);
+        if (finalLat !== null && finalLat !== undefined) fd.append('latitude', finalLat.toString());
+        if (finalLon !== null && finalLon !== undefined) fd.append('longitude', finalLon.toString());
+        if (attachments.length > 0) {
+          attachments.forEach((att, index) => {
+            const uri = att.uri;
+            const fileType = uri.split('.').pop();
+            fd.append('attachments', {
+              uri,
+              name: `upload_${index}.${fileType}`,
+              type: `image/${fileType === 'jpg' ? 'jpeg' : fileType}`,
+            } as any);
+          });
+        }
+        return fd;
+      };
+
+      if (splitOrders && splitOrders.length > 0) {
+        // Submit each split as a separate order
+        const results = await Promise.all(
+          splitOrders.map(split => {
+            const splitBins = split.items.map((item: any) => ({
+              bin_type_id: item.bin_type_id,
+              bin_size_id: item.bin_size_id,
+              quantity: item.quantity,
+            }));
+            return api.post(ENDPOINTS.BOOKINGS.CREATE, buildFormData(splitBins, split.supplier_id)) as any;
+          })
+        );
+        const anyFailed = results.some(r => !r.success);
+        if (anyFailed) {
+          toast.error('Partial Error', 'Some split orders failed. Please check your bookings.');
+        } else {
+          toast.success('Success', `${splitOrders.length} separated orders placed successfully!`);
+          isOrderPlacedRef.current = true;
+          navigation.navigate('Bookings' as never);
+        }
       } else {
-        formData.append('bins', JSON.stringify(validBins.map(b => ({
+        const mappedBins = validBins.map(b => ({
           bin_type_id: parseInt(b.bin_type_id as string),
           bin_size_id: b.bin_size_id ? parseInt(b.bin_size_id as string) : null,
           quantity: parseInt(b.quantity) || 1,
-        }))));
-      }
-      formData.append('location', deliveryAddress);
-      if (deliveryDate) {
-        formData.append('start_date', deliveryDate);
-      }
-      if (pickupDate) {
-        formData.append('end_date', pickupDate);
-      }
-      if (serviceType !== 'commercial') {
-        formData.append('payment_method', paymentMethod);
-      }
-      formData.append('contact_number', contactNumber);
-      formData.append('contact_email', additionalContact);
-      formData.append('instructions', notes);
-      if (selectedProjectId && serviceType === 'commercial') {
-        formData.append('project_id', selectedProjectId.toString());
-      }
-      if (poNumber) formData.append('po_number', poNumber);
-      if (finalLat !== null && finalLat !== undefined) formData.append('latitude', finalLat.toString());
-      if (finalLon !== null && finalLon !== undefined) formData.append('longitude', finalLon.toString());
+        }));
+        const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, buildFormData(mappedBins, assignedSupplierId || undefined)) as any;
 
-      if (attachments.length > 0) {
-        attachments.forEach((att, index) => {
-          const uri = att.uri;
-          const fileType = uri.split('.').pop();
-          formData.append('attachments', {
-            uri,
-            name: `upload_${index}.${fileType}`,
-            type: `image/${fileType === 'jpg' ? 'jpeg' : fileType}`,
-          } as any);
-        });
-      }
-
-      const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, formData) as any;
-
-      if (response.success) {
-        const bookingData = response.data.booking || response.data.request;
-
-        if (!bookingData) {
-          console.error('Booking data missing from response:', response.data);
-          toast.error('Error', 'Failed to retrieve booking information');
-          setLoading(false);
-          return;
-        }
-
-        if (serviceType === 'commercial') {
-          toast.success('Success', 'Your order has been placed successfully!');
-        } else if (paymentMethod === 'online') {
-          toast.success('Success', 'Order placed. Payment will be requested after a supplier accepts.');
+        if (response.success) {
+          if (serviceType === 'commercial') {
+            toast.success('Success', 'Your order has been placed successfully!');
+          } else if (paymentMethod === 'online') {
+            toast.success('Success', 'Order placed. Payment will be requested after a supplier accepts.');
+          } else {
+            toast.success('Success', 'Your order has been placed successfully!');
+          }
+          isOrderPlacedRef.current = true;
+          navigation.navigate('Bookings' as never);
         } else {
-          toast.success('Success', 'Your order has been placed successfully!');
+          toast.error('Sorry', response.message || 'Failed to place order');
         }
-        isOrderPlacedRef.current = true;
-        navigation.navigate('Bookings' as never);
-      } else {
-        toast.error('Sorry', response.message || 'Failed to place order');
       }
     } catch (error) {
       console.error('Booking error:', error);
@@ -1642,42 +1660,100 @@ const OrderBinScreen: React.FC = () => {
 
                 {fetchingCalculatedPrice ? (
                   <ActivityIndicator size="small" color={themeColors.primary} />
+                ) : priceError ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#FFF5F5', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: '#FC8181' }}>
+                    <Text style={{ color: '#C53030', fontSize: 13, flex: 1 }}>{priceError}</Text>
+                  </View>
                 ) : calculatedPrice ? (
                   <>
-                    <View style={styles.summaryRow}>
-                      <Text style={[styles.summaryLabel, { fontSize: 16 }]}>Subtotal:</Text>
-                      <Text style={[styles.summaryValue, { fontSize: 18 }]}>${calculatedPrice.subtotal.toFixed(2)}</Text>
-                    </View>
-
-                    {serviceType !== 'commercial' && calculatedPrice.duration_days && (
+                    {splitOrders && splitOrders.length > 0 ? (
+                      <>
+                        <View style={{ backgroundColor: '#FFFAF0', borderRadius: 8, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: '#F6AD55' }}>
+                          <Text style={{ color: '#92400E', fontSize: 13 }}>
+                            Notice: Bins are not all available from one supplier. Your request will be placed as <Text style={{ fontWeight: 'bold' }}>{splitOrders.length} separated orders</Text>.
+                          </Text>
+                        </View>
+                        {splitOrders.map((split: any, idx: number) => (
+                          <View key={idx} style={{ backgroundColor: '#F9FAFB', borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB' }}>
+                            <Text style={{ fontWeight: 'bold', color: '#1F2937', marginBottom: 6, borderBottomWidth: 1, borderBottomColor: '#E5E7EB', paddingBottom: 4 }}>Order {idx + 1}</Text>
+                            <View style={styles.summaryRow}>
+                              <Text style={[styles.summaryLabel, { fontSize: 14 }]}>Base Price:</Text>
+                              <Text style={[styles.summaryValue, { fontSize: 14 }]}>${split.base_price?.toFixed(2) || '0.00'}</Text>
+                            </View>
+                            {serviceType !== 'commercial' && calculatedPrice.duration_days && (
+                              <View style={styles.summaryRow}>
+                                <Text style={[styles.summaryLabel, { fontSize: 14 }]}>Duration:</Text>
+                                <Text style={[styles.summaryValue, { fontSize: 14 }]}>{calculatedPrice.duration_days} Day(s)</Text>
+                              </View>
+                            )}
+                            {serviceType !== 'commercial' && split.additional_duration_charge > 0 && (
+                              <View style={styles.summaryRow}>
+                                <Text style={[styles.summaryLabel, { fontSize: 14, color: '#E53E3E' }]}>Extra Days - {calculatedPrice.exceeded_days} day(s):</Text>
+                                <Text style={[styles.summaryValue, { fontSize: 14, color: '#E53E3E' }]}>+${split.additional_duration_charge.toFixed(2)}</Text>
+                              </View>
+                            )}
+                            {serviceType !== 'commercial' && (
+                              <>
+                                <View style={styles.summaryRow}>
+                                  <Text style={[styles.summaryLabel, { fontSize: 14 }]}>Subtotal:</Text>
+                                  <Text style={[styles.summaryValue, { fontSize: 14 }]}>${split.subtotal?.toFixed(2) || '0.00'}</Text>
+                                </View>
+                                <View style={styles.summaryRow}>
+                                  <Text style={[styles.summaryLabel, { fontSize: 14 }]}>GST ({calculatedPrice.gst_rate}%):</Text>
+                                  <Text style={[styles.summaryValue, { fontSize: 14 }]}>${split.gst_amount?.toFixed(2) || '0.00'}</Text>
+                                </View>
+                                <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: '#E5E7EB', marginTop: 4, paddingTop: 4 }]}>
+                                  <Text style={[styles.summaryLabel, { fontWeight: 'bold' }]}>Order Total:</Text>
+                                  <Text style={[styles.summaryValue, { fontWeight: 'bold' }]}>${split.total?.toFixed(2) || '0.00'}</Text>
+                                </View>
+                              </>
+                            )}
+                          </View>
+                        ))}
+                        <View style={[styles.dividerLine, { marginVertical: 8 }]} />
+                        <View style={styles.summaryRow}>
+                          <Text style={styles.summaryLabel}>Grand Total:</Text>
+                          <Text style={[styles.summaryValue, { color: themeColors.primary }]}>${calculatedPrice.total.toFixed(2)}</Text>
+                        </View>
+                      </>
+                    ) : (
                       <>
                         <View style={styles.summaryRow}>
-                          <Text style={[styles.summaryLabel, { fontSize: 16 }]}>Duration:</Text>
-                          <Text style={[styles.summaryValue, { fontSize: 18 }]}>{calculatedPrice.duration_days} Day(s)</Text>
+                          <Text style={[styles.summaryLabel, { fontSize: 16 }]}>Subtotal:</Text>
+                          <Text style={[styles.summaryValue, { fontSize: 18 }]}>${calculatedPrice.subtotal.toFixed(2)}</Text>
                         </View>
 
-                        {calculatedPrice.additional_duration_charge > 0 && (
-                          <View style={styles.summaryRow}>
-                            <Text style={[styles.summaryLabel, { fontSize: 16, color: '#E53E3E' }]}>Extra Days ({calculatedPrice.exceeded_days} day(s)):</Text>
-                            <Text style={[styles.summaryValue, { fontSize: 18, color: '#E53E3E' }]}>+${calculatedPrice.additional_duration_charge.toFixed(2)}</Text>
-                          </View>
+                        {serviceType !== 'commercial' && calculatedPrice.duration_days && (
+                          <>
+                            <View style={styles.summaryRow}>
+                              <Text style={[styles.summaryLabel, { fontSize: 16 }]}>Duration:</Text>
+                              <Text style={[styles.summaryValue, { fontSize: 18 }]}>{calculatedPrice.duration_days} Day(s)</Text>
+                            </View>
+
+                            {calculatedPrice.additional_duration_charge > 0 && (
+                              <View style={styles.summaryRow}>
+                                <Text style={[styles.summaryLabel, { fontSize: 16, color: '#E53E3E' }]}>Extra Days {calculatedPrice.exceeded_days} day(s):</Text>
+                                <Text style={[styles.summaryValue, { fontSize: 18, color: '#E53E3E' }]}>+${calculatedPrice.additional_duration_charge.toFixed(2)}</Text>
+                              </View>
+                            )}
+                          </>
                         )}
+
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { fontSize: 16 }]}>GST ({calculatedPrice.gst_rate}%):</Text>
+                          <Text style={[styles.summaryValue, { fontSize: 18 }]}>${calculatedPrice.gst_amount.toFixed(2)}</Text>
+                        </View>
+
+                        <View style={[styles.dividerLine, { marginVertical: 8 }]} />
+
+                        <View style={styles.summaryRow}>
+                          <Text style={styles.summaryLabel}>Estimated Total:</Text>
+                          <Text style={[styles.summaryValue, { color: themeColors.primary }]}>
+                            ${calculatedPrice.total.toFixed(2)}
+                          </Text>
+                        </View>
                       </>
                     )}
-
-                    <View style={styles.summaryRow}>
-                      <Text style={[styles.summaryLabel, { fontSize: 16 }]}>GST ({calculatedPrice.gst_rate}%):</Text>
-                      <Text style={[styles.summaryValue, { fontSize: 18 }]}>${calculatedPrice.gst_amount.toFixed(2)}</Text>
-                    </View>
-
-                    <View style={[styles.dividerLine, { marginVertical: 8 }]} />
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryLabel}>Estimated Total:</Text>
-                      <Text style={[styles.summaryValue, { color: themeColors.primary }]}>
-                        ${calculatedPrice.total.toFixed(2)}
-                      </Text>
-                    </View>
                   </>
                 ) : (
                   <Text style={{ fontSize: 14, color: themeColors.textPrimary, textAlign: 'center' }}>
@@ -1692,10 +1768,10 @@ const OrderBinScreen: React.FC = () => {
 
           {/* Place Order Button */}
           <TouchableOpacity
-            style={[styles.placeOrderButton, (loading || fetchingSizes || fetchingCalculatedPrice) && { opacity: 0.7 }]}
+            style={[styles.placeOrderButton, (loading || fetchingSizes || fetchingCalculatedPrice || (!!priceError && serviceType !== 'service')) && { opacity: 0.7 }]}
             activeOpacity={0.8}
             onPress={handlePlaceOrder}
-            disabled={loading || fetchingSizes || fetchingCalculatedPrice}>
+            disabled={loading || fetchingSizes || fetchingCalculatedPrice || (!!priceError && serviceType !== 'service')}>
             {loading || fetchingSizes || fetchingCalculatedPrice ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
