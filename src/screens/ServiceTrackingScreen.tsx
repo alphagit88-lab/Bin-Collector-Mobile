@@ -377,7 +377,7 @@ const ServiceTrackingScreen: React.FC = () => {
             } else if (!isService && totalItemsCount > 0) {
               const items = orderItems as any[];
               if (step.key === 'on_delivery') {
-                const targetStatuses = ['loaded', 'cash_collected', 'delivered', 'ready_to_pickup', 'picked_up', 'completed'];
+                const targetStatuses = ['loaded', 'delivered', 'ready_to_pickup', 'picked_up', 'completed'];
                 const reachedCount = items.filter(item => targetStatuses.includes(item.status || '')).length;
                 isCompleted = reachedCount === totalItemsCount;
                 isPartiallyCompleted = reachedCount > 0 && reachedCount < totalItemsCount;

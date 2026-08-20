@@ -749,7 +749,8 @@ const JobDetailScreen: React.FC = () => {
                       {/* Supplier/Driver Action Buttons for individual item */}
                       {showActions && (
                         <View style={styles.itemActionContainer}>
-                          {item.status === 'loaded' && (
+                          {/* Delivery photo — available when loaded or cash_collected (and bin already assigned) */}
+                          {item.bin_code && (item.status === 'loaded' || item.status === 'cash_collected') && (
                             <View style={{ width: '100%', gap: 8 }}>
                               {!itemPhoto ? (
                                 <TouchableOpacity
@@ -782,13 +783,14 @@ const JobDetailScreen: React.FC = () => {
                             </View>
                           )}
 
-                          {(item.status === 'pending' || item.status === 'confirmed' || !item.status) && (
+                          {/* Assign Bin: only if not yet assigned */}
+                          {!item.bin_code && (item.status === 'pending' || item.status === 'confirmed' || item.status === 'cash_collected' || !item.status) && (
                             <TouchableOpacity
                               style={styles.itemLoadButton}
                               onPress={() => setSelectedItemForBinAssignment(item)}
                             >
                               <Ionicons name="cube-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                              <Text style={styles.itemLoadButtonText}>Start Delivery (Assign Bin)</Text>
+                              <Text style={styles.itemLoadButtonText}>Assign Bin & Load</Text>
                             </TouchableOpacity>
                           )}
 

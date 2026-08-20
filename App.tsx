@@ -22,7 +22,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { StripeProvider } from '@stripe/stripe-react-native';
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
-const STRIPE_PUBLISHABLE_KEY = 'pk_live_51IoovXDvLHqiCuhhoMKOjlW8WUkoG7YUa98lCMD8QpST8IS3fxEYkgJN65aul7HpSLTA5GzB6jv92qbRNUav6APw00Q7Qr9klw';
+const STRIPE_PUBLISHABLE_KEY = 'pk_test_51U1fYdGtGlj2QKpWVnVlmGXLCfBE51DeBScHMNlbzVTdwkxuqLgleoILkH6hwbmCpb6n9qjJi5SgfxnMWnmA3dgM00V220tX40';
 
 const App: React.FC = () => {
   const [fontsLoaded] = useFonts({

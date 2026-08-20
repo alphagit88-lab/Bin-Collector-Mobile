@@ -179,29 +179,52 @@ const BinAssignmentModal: React.FC<BinAssignmentModalProps> = ({
                         <ActivityIndicator size="large" color={themeColors.primary} style={{ marginVertical: 20 }} />
                     ) : (
                         <ScrollView style={styles.itemsList}>
-                            {orderItems.map((item, index) => (
-                                <View key={item.id || index} style={styles.itemRow}>
-                                    <View style={styles.itemInfo}>
-                                        <Text style={styles.itemType}>{item.bin_type_name}</Text>
-                                        <Text style={styles.itemSize}>{item.bin_size}</Text>
-                                    </View>
+                            {/* Build per-type counters so we can label each slot (1 of N) */}
+                            {(() => {
+                                const typeCount: Record<string, number> = {};
+                                const typeIndex: Record<number, number> = {};
+                                orderItems.forEach(item => {
+                                    const key = `${item.bin_type_name}__${item.bin_size}`;
+                                    typeCount[key] = (typeCount[key] || 0) + 1;
+                                    typeIndex[item.id] = typeCount[key];
+                                });
 
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.selectButton,
-                                            assignments[item.id] ? styles.selectButtonActive : null
-                                        ]}
-                                        onPress={() => setShowBinPicker(item.id)}
-                                    >
-                                        <Text style={[
-                                            styles.selectButtonText,
-                                            assignments[item.id] ? styles.selectButtonTextActive : null
-                                        ]}>
-                                            {assignments[item.id] || 'Select Bin'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-                            ))}
+                                return orderItems.map((item, index) => {
+                                    const key = `${item.bin_type_name}__${item.bin_size}`;
+                                    const sameTypeItems = orderItems.filter(x => `${x.bin_type_name}__${x.bin_size}` === key);
+                                    const slotLabel = sameTypeItems.length > 1
+                                        ? `${item.bin_type_name} (${item.bin_size}) — Slot ${typeIndex[item.id]} of ${sameTypeItems.length}`
+                                        : `${item.bin_type_name}${item.bin_size ? ` (${item.bin_size})` : ''}`;
+
+                                    return (
+                                        <View key={item.id || index} style={styles.itemRow}>
+                                            <View style={styles.itemInfo}>
+                                                <Text style={styles.itemType}>{slotLabel}</Text>
+                                                {assignments[item.id] && (
+                                                    <Text style={[styles.itemSize, { color: themeColors.primary }]}>
+                                                        ✓ {assignments[item.id]}
+                                                    </Text>
+                                                )}
+                                            </View>
+
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.selectButton,
+                                                    assignments[item.id] ? styles.selectButtonActive : null
+                                                ]}
+                                                onPress={() => setShowBinPicker(item.id)}
+                                            >
+                                                <Text style={[
+                                                    styles.selectButtonText,
+                                                    assignments[item.id] ? styles.selectButtonTextActive : null
+                                                ]}>
+                                                    {assignments[item.id] ? 'Change' : 'Select Bin'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    );
+                                });
+                            })()}
                         </ScrollView>
                     )}
 
