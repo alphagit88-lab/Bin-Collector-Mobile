@@ -117,9 +117,22 @@ interface ServiceCategory {
   name: string;
 }
 
+interface SupplierCustomer {
+  id: number;
+  name: string;
+  phone: string;
+  email: string;
+}
+
 const SupplierCreateOrderScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const [loading, setLoading] = useState(false);
+
+  // Customer selection
+  const [customers, setCustomers] = useState<SupplierCustomer[]>([]);
+  const [customerModalVisible, setCustomerModalVisible] = useState(false);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
+  const [selectedCustomerName, setSelectedCustomerName] = useState('');
 
   // Form State
   const [customerName, setCustomerName] = useState('');
@@ -182,7 +195,21 @@ const SupplierCreateOrderScreen: React.FC = () => {
 
   useEffect(() => {
     fetchInitialData();
+    fetchCustomers();
   }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await api.get('/supplier/customers') as any;
+      if (response.success && response.data) {
+        // data is the array directly from this endpoint
+        const list = Array.isArray(response.data) ? response.data : [];
+        setCustomers(list);
+      }
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
+  };
 
   const fetchBinPrices = async (lat: number, lon: number) => {
     try {
@@ -719,6 +746,22 @@ const SupplierCreateOrderScreen: React.FC = () => {
               end={{ x: 0.66, y: 1 }}
               style={styles.formSectionGradient}>
               <Text style={styles.paymentMethodTitle}>Customer Details*</Text>
+              {customers.length > 0 && (
+                <FormField
+                  label="Select Existing Customer"
+                  placeholder="Choose from your customers"
+                  value={selectedCustomerName}
+                  onChangeText={() => {}}
+                  isDropdown
+                  onPress={() => setCustomerModalVisible(true)}
+                  onClear={() => {
+                    setSelectedCustomerId(null);
+                    setSelectedCustomerName('');
+                    setCustomerName('');
+                    setCustomerPhone('');
+                  }}
+                />
+              )}
               <FormField
                 label="Customer Name"
                 placeholder="Enter customer name"
@@ -1174,6 +1217,32 @@ const SupplierCreateOrderScreen: React.FC = () => {
         onTakePhoto={takePhoto}
         onChooseGallery={pickImage}
       />
+
+      {/* Customer Selection Modal */}
+      <AppModal visible={customerModalVisible} onClose={() => setCustomerModalVisible(false)} title="Select Customer">
+        <ScrollView style={{ maxHeight: 400 }}>
+          {customers.map((customer) => (
+            <TouchableOpacity
+              key={customer.id}
+              style={styles.modalItem}
+              onPress={() => {
+                setSelectedCustomerId(customer.id);
+                setSelectedCustomerName(customer.name);
+                setCustomerName(customer.name);
+                setCustomerPhone(customer.phone || '');
+                setCustomerModalVisible(false);
+              }}
+            >
+              <Text style={styles.modalItemText}>{customer.name}</Text>
+              {customer.phone ? (
+                <Text style={{ fontFamily: 'System', fontSize: 12, color: '#6B7280', marginTop: 2 }}>
+                  {customer.phone}
+                </Text>
+              ) : null}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </AppModal>
     </View>
   );
 };

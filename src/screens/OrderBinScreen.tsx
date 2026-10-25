@@ -131,6 +131,13 @@ interface ServiceCategory {
   description: string;
 }
 
+interface RelatedSupplier {
+  id: number;
+  name: string;
+  phone?: string;
+  email?: string;
+}
+
 const OrderBinScreen: React.FC = () => {
   const { user } = useAuth();
   const navigation = useNavigation<any>();
@@ -237,6 +244,12 @@ const OrderBinScreen: React.FC = () => {
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+
+  // Supplier selection (for filtering bins)
+  const [suppliers, setSuppliers] = useState<RelatedSupplier[]>([]);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<number | null>(null);
+  const [selectedSupplierName, setSelectedSupplierName] = useState('');
+  const [supplierModalVisible, setSupplierModalVisible] = useState(false);
 
   // Date Picker State
   const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
@@ -426,10 +439,11 @@ const OrderBinScreen: React.FC = () => {
     }
   };
 
-  const fetchAvailableBinTypes = async (lat: number, lon: number) => {
+  const fetchAvailableBinTypes = async (lat: number, lon: number, supplierId?: number | null) => {
     setFetchingBinTypes(true);
     try {
-      const response = await api.get<{ binTypes: BinType[] }>(`${ENDPOINTS.BINS.AVAILABLE_TYPES}?lat=${lat}&lon=${lon}`);
+      const supplierParam = supplierId ? `&supplierId=${supplierId}` : '';
+      const response = await api.get<{ binTypes: BinType[] }>(`${ENDPOINTS.BINS.AVAILABLE_TYPES}?lat=${lat}&lon=${lon}${supplierParam}`);
 
       if (response.success && response.data) {
         const binTypes = response.data.binTypes;
@@ -451,10 +465,11 @@ const OrderBinScreen: React.FC = () => {
     }
   };
 
-  const fetchAvailableBinSizes = async (lat: number, lon: number, binTypeId: number) => {
+  const fetchAvailableBinSizes = async (lat: number, lon: number, binTypeId: number, supplierId?: number | null) => {
     setFetchingSizes(true);
     try {
-      const response = await api.get<{ binSizes: BinSize[] }>(`${ENDPOINTS.BINS.AVAILABLE_SIZES}?lat=${lat}&lon=${lon}&binTypeId=${binTypeId}`);
+      const supplierParam = supplierId ? `&supplierId=${supplierId}` : '';
+      const response = await api.get<{ binSizes: BinSize[] }>(`${ENDPOINTS.BINS.AVAILABLE_SIZES}?lat=${lat}&lon=${lon}&binTypeId=${binTypeId}${supplierParam}`);
       if (response.success && response.data) {
         setBinSizesMap((prev) => ({ ...prev, [binTypeId]: response?.data?.binSizes ?? [] }));
       }
@@ -485,7 +500,7 @@ const OrderBinScreen: React.FC = () => {
       setAssignedSupplierId(null);
       setPriceError(null);
 
-      const requestBody = {
+      const requestBody: any = {
         service_category: serviceType,
         bins: bins.filter(b => b.bin_size_id).map(b => ({
           bin_type_id: b.bin_type_id,
@@ -498,6 +513,9 @@ const OrderBinScreen: React.FC = () => {
         latitude: latitude,
         longitude: longitude
       };
+      if (selectedSupplierId) {
+        requestBody.supplier_id = selectedSupplierId;
+      }
 
       const response = await fetch(`${API_URL}/bookings/calculate-price`, {
         method: 'POST',
@@ -544,16 +562,16 @@ const OrderBinScreen: React.FC = () => {
   useEffect(() => {
     if (latitude && longitude) {
       fetchBinPrices(latitude, longitude);
-      fetchAvailableBinTypes(latitude, longitude);
+      fetchAvailableBinTypes(latitude, longitude, selectedSupplierId);
     } else {
       setBinTypes([]);
       setBinSizesMap({});
     }
-  }, [longitude]);
+  }, [longitude, latitude, selectedSupplierId]);
 
   useEffect(() => {
     fetchCalculatedPrice();
-  }, [bins, deliveryAddress, deliveryDate, pickupDate, longitude, serviceType]);
+  }, [bins, deliveryAddress, deliveryDate, pickupDate, longitude, serviceType, selectedSupplierId]);
 
 
   const addBin = () => {
@@ -696,6 +714,28 @@ const OrderBinScreen: React.FC = () => {
     }
   }, []);
 
+  const fetchProjects = React.useCallback(async () => {
+    try {
+      const response = await api.get<{ projects: any[] }>(ENDPOINTS.PROJECTS.MY);
+      if (response.success && response.data) {
+        setProjects(response.data.projects);
+      }
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    }
+  }, []);
+
+  const fetchMySuppliers = React.useCallback(async () => {
+    try {
+      const response = await api.get<{ suppliers: RelatedSupplier[] }>('/bookings/my-suppliers');
+      if (response.success && response.data) {
+        setSuppliers(response.data.suppliers);
+      }
+    } catch (error) {
+      console.error('Error fetching my suppliers:', error);
+    }
+  }, []);
+
   useFocusEffect(
     React.useCallback(() => {
       const routeParams = route.params;
@@ -723,6 +763,9 @@ const OrderBinScreen: React.FC = () => {
       setBinSizesMap({});
       setSelectedServices([]);
       setCustomerBudget('');
+      // Reset supplier selection on re-focus
+      setSelectedSupplierId(null);
+      setSelectedSupplierName('');
 
       // Keep repeat-order location intact; default location should only apply on fresh orders without existing address.
       if (!hasRepeatData && !deliveryAddress.trim()) {
@@ -731,6 +774,7 @@ const OrderBinScreen: React.FC = () => {
       fetchServiceCategories();
       fetchSystemSettings();
       fetchProjects();
+      fetchMySuppliers();
 
       // Handle Repeat Order if repeatData is passed in params
       if (routeParams?.repeatData) {
@@ -775,7 +819,7 @@ const OrderBinScreen: React.FC = () => {
           }]);
         }
       }
-    }, [user, fetchServiceCategories, route.params])
+    }, [user, fetchServiceCategories, fetchMySuppliers, route.params])
   );
 
 
@@ -793,22 +837,11 @@ const OrderBinScreen: React.FC = () => {
     setTypeModalVisible(true);
   };
 
-  const fetchProjects = async () => {
-    try {
-      const response = await api.get<{ projects: any[] }>(ENDPOINTS.PROJECTS.MY);
-      if (response.success && response.data) {
-        setProjects(response.data.projects);
-      }
-    } catch (error) {
-      console.error('Error fetching projects:', error);
-    }
-  };
-
   const openSizeModal = (index: number) => {
     const bin = bins[index];
     if (bin.bin_type_id && latitude && longitude) {
       setActiveBinIndex(index);
-      fetchAvailableBinSizes(latitude, longitude, parseInt(bin.bin_type_id));
+      fetchAvailableBinSizes(latitude, longitude, parseInt(bin.bin_type_id), selectedSupplierId);
       setSizeModalVisible(true);
     }
   };
@@ -820,7 +853,7 @@ const OrderBinScreen: React.FC = () => {
     });
     setTypeModalVisible(false);
     if (latitude && longitude) {
-      fetchAvailableBinSizes(latitude, longitude, type.id);
+      fetchAvailableBinSizes(latitude, longitude, type.id, selectedSupplierId);
     }
   };
 
@@ -828,6 +861,38 @@ const OrderBinScreen: React.FC = () => {
     setSelectedProjectId(project.id);
     setSelectedProjectName(project.name);
     setProjectModalVisible(false);
+  };
+
+  const handleSupplierSelect = (supplier: RelatedSupplier | null) => {
+    const newId = supplier ? supplier.id : null;
+    const newName = supplier ? supplier.name : '';
+    setSelectedSupplierId(newId);
+    setSelectedSupplierName(newName);
+    setSupplierModalVisible(false);
+
+    // Reset bins and price on supplier change
+    setBins([
+      {
+        bin_type_id: '',
+        bin_type_name: '',
+        bin_size_id: '',
+        bin_size_name: '',
+        quantity: '1',
+      },
+    ]);
+    setBinSizesMap({});
+    setCalculatedPrice(null);
+    setSplitOrders(null);
+    setAssignedSupplierId(null);
+    setPriceError(null);
+
+    if (latitude && longitude) {
+      fetchAvailableBinTypes(latitude, longitude, newId);
+    }
+  };
+
+  const handleClearSupplier = () => {
+    handleSupplierSelect(null);
   };
 
   const selectBinSize = (size: BinSize) => {
@@ -1055,7 +1120,7 @@ const OrderBinScreen: React.FC = () => {
           bin_size_id: b.bin_size_id ? parseInt(b.bin_size_id as string) : null,
           quantity: parseInt(b.quantity) || 1,
         }));
-        const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, buildFormData(mappedBins, assignedSupplierId || undefined)) as any;
+        const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, buildFormData(mappedBins, selectedSupplierId || assignedSupplierId || undefined)) as any;
 
         if (response.success) {
           if (serviceType === 'commercial') {
@@ -1239,6 +1304,25 @@ const OrderBinScreen: React.FC = () => {
               />
             </View>
           </View>}
+
+          {/* Section: Preferred Supplier (Optional) - Available for any type of service */}
+          <View style={styles.formSection}>
+            <View style={styles.formSectionGradient}>
+              <Text style={[styles.paymentMethodTitle, { marginBottom: 25 }]}>
+                Select Preferred Supplier (Optional)
+              </Text>
+              <FormField
+                label=""
+                placeholder={suppliers.length > 0 ? (selectedSupplierName || "All Suppliers (Default)") : "No linked suppliers available"}
+                value={selectedSupplierName}
+                onChangeText={() => { }}
+                isDropdown={true}
+                onPress={() => suppliers.length > 0 && setSupplierModalVisible(true)}
+                onClear={selectedSupplierId ? handleClearSupplier : undefined}
+                style={{ marginBottom: 0, marginTop: -10 }}
+              />
+            </View>
+          </View>
 
           {/* Section 2: Location */}
           <View style={styles.formSection}>
@@ -1943,6 +2027,33 @@ const OrderBinScreen: React.FC = () => {
               setProjectModalVisible(false);
             }}>
             <Text style={[styles.modalItemText, { color: '#FF3B30' }]}>None / Clear Selection</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </AppModal>
+
+      {/* Supplier Selection Modal */}
+      <AppModal
+        visible={supplierModalVisible}
+        onClose={() => setSupplierModalVisible(false)}
+        title="Select Supplier">
+        <ScrollView style={{ maxHeight: 400 }}>
+          {suppliers.map((supplier) => (
+            <TouchableOpacity
+              key={supplier.id}
+              style={styles.modalItem}
+              onPress={() => handleSupplierSelect(supplier)}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalItemText}>{supplier.name}</Text>
+              </View>
+              {selectedSupplierId === supplier.id && (
+                <Ionicons name="checkmark-circle" size={20} color={themeColors.primaryLight} />
+              )}
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity
+            style={[styles.modalItem, { borderBottomWidth: 0, marginTop: 10 }]}
+            onPress={() => handleSupplierSelect(null)}>
+            <Text style={[styles.modalItemText, { color: '#FF3B30' }]}>All Suppliers (Clear Selection)</Text>
           </TouchableOpacity>
         </ScrollView>
       </AppModal>
