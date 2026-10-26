@@ -17,6 +17,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { Linking } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { requestCameraAccess } from '../utils/cameraPermission';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
@@ -451,9 +452,7 @@ const JobDetailScreen: React.FC = () => {
   };
 
   const handleCaptureItemPhoto = async (itemId: number) => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      toast.error('Permission Denied', 'Camera permission is required to capture delivery photo.');
+    if (!(await requestCameraAccess())) {
       return;
     }
 

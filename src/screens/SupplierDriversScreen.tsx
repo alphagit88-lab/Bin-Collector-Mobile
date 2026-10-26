@@ -22,6 +22,9 @@ import AppModal from '../components/AppModal';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import toast from '../utils/toast';
+import { normalizePassword, validatePassword } from '../utils/passwordValidation';
+import PasswordRequirements from '../components/PasswordRequirements';
+import PasswordInput from '../components/PasswordInput';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -76,6 +79,11 @@ const SupplierDriversScreen: React.FC = () => {
       toast.error('Missing Info', 'Please fill in all required fields');
       return;
     }
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      toast.error('Error', passwordError);
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -83,7 +91,7 @@ const SupplierDriversScreen: React.FC = () => {
         name,
         phone,
         email,
-        password,
+        password: normalizePassword(password),
         role: 'driver'
       });
 
@@ -228,10 +236,11 @@ const SupplierDriversScreen: React.FC = () => {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Initial Password *</Text>
-                <TextInput
+                <PasswordRequirements password={password} />
+                <PasswordInput
+                  containerStyle={{ width: '100%' }}
                   style={styles.input}
-                  placeholder="Min 6 characters"
-                  secureTextEntry
+                  placeholder="Enter password"
                   value={password}
                   onChangeText={setPassword}
                 />

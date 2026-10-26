@@ -16,6 +16,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import toast from '../utils/toast';
+import PasswordInput from '../components/PasswordInput';
+import ForgotPasswordModal from '../components/ForgotPasswordModal';
 
 const LoginScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -24,6 +26,7 @@ const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(!!rememberedPhone);
   const [loading, setLoading] = useState(false);
+  const [forgotPasswordVisible, setForgotPasswordVisible] = useState(false);
 
   React.useEffect(() => {
     if (rememberedPhone) {
@@ -122,28 +125,30 @@ const LoginScreen: React.FC = () => {
               style={styles.inputIcon2}
               resizeMode="contain"
             />
-            <TextInput
+            <PasswordInput
+              containerStyle={{ flex: 1 }}
               style={styles.input2}
               placeholder="Password"
               placeholderTextColor="#979897"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
               autoCapitalize="none"
             />
           </View>
 
           {/* Checkbox and Remember me */}
           <View style={styles.rememberMeContainer}>
-            <TouchableOpacity
-              style={styles.checkboxContainer}
-              onPress={() => setRememberMe(!rememberMe)}
-            >
-              <View style={[styles.checkboxBox, rememberMe && styles.checkboxChecked]}>
-                {rememberMe && <View style={styles.checkmark} />}
+            <TouchableOpacity style={styles.rememberMeControl} onPress={() => setRememberMe(!rememberMe)}>
+              <View style={styles.checkboxContainer}>
+                <View style={[styles.checkboxBox, rememberMe && styles.checkboxChecked]}>
+                  {rememberMe && <View style={styles.checkmark} />}
+                </View>
               </View>
+              <Text style={styles.rememberMeText}>Remember me</Text>
             </TouchableOpacity>
-            <Text style={styles.rememberMeText}>Remember me</Text>
+            <TouchableOpacity onPress={() => setForgotPasswordVisible(true)}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Login button */}
@@ -168,6 +173,12 @@ const LoginScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+      <ForgotPasswordModal
+        visible={forgotPasswordVisible}
+        initialIdentifier={identifier}
+        onClose={() => setForgotPasswordVisible(false)}
+        onSuccess={message => toast.success('Success', message)}
+      />
     </KeyboardAvoidingView>
   );
 };
@@ -335,7 +346,17 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 31,
+  },
+  rememberMeControl: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  forgotPasswordText: {
+    fontFamily: fonts.family.semiBold,
+    fontSize: 14,
+    color: themeColors.primary,
   },
   checkboxContainer: {
     width: 23,

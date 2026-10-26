@@ -32,6 +32,10 @@ import BottomNavBar from '../components/BottomNavBar';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 import HeaderActionIcons from '../components/HeaderActionIcons';
 import toast from '../utils/toast';
+import { normalizePassword, validatePassword } from '../utils/passwordValidation';
+import PasswordRequirements from '../components/PasswordRequirements';
+import PasswordInput from '../components/PasswordInput';
+import { requestCameraAccess } from '../utils/cameraPermission';
 import { api } from '../config/api';
 import { geocodeAddress, reverseGeocode } from '../utils/geocode';
 
@@ -88,6 +92,7 @@ const AccountScreen: React.FC = () => {
   // Input state
   const [newEmail, setNewEmail] = React.useState('');
   const [defaultLocation, setDefaultLocation] = React.useState('');
+  const [currentPassword, setCurrentPassword] = React.useState('');
   const [newPassword, setNewPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
   const [loading, setLoading] = React.useState(false);
@@ -117,7 +122,7 @@ const AccountScreen: React.FC = () => {
   });
   const [locationSuggestions, setLocationSuggestions] = React.useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = React.useState(false);
-  const [debounceTimer, setDebounceTimer] = React.useState<NodeJS.Timeout | null>(null);
+  const [debounceTimer, setDebounceTimer] = React.useState<ReturnType<typeof setTimeout> | null>(null);
 
   // Load default location + profile photo on mount
   React.useEffect(() => {
@@ -168,9 +173,7 @@ const AccountScreen: React.FC = () => {
         {
           text: 'Camera',
           onPress: async () => {
-            const { status } = await ImagePicker.requestCameraPermissionsAsync();
-            if (status !== 'granted') {
-              toast.error('Permission Denied', 'Camera permission is required.');
+            if (!(await requestCameraAccess())) {
               return;
             }
             const result = await ImagePicker.launchCameraAsync({
@@ -192,11 +195,6 @@ const AccountScreen: React.FC = () => {
         {
           text: 'Gallery',
           onPress: async () => {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted') {
-              toast.error('Permission Denied', 'Gallery permission is required.');
-              return;
-            }
             const result = await ImagePicker.launchImageLibraryAsync({
               allowsEditing: true,
               aspect: [1, 1],
@@ -412,28 +410,38 @@ const AccountScreen: React.FC = () => {
   };
 
   const handleChangePassword = async () => {
-    if (!newPassword || !confirmPassword) {
-      toast.error('Error', 'Please fill in all fields');
+    if (!currentPassword.trim()) {
+      toast.error('Error', 'Current password is required');
       return;
     }
-    if (newPassword.length < 6) {
-      toast.error('Error', 'Password must be at least 6 characters');
+    const normalizedPassword = normalizePassword(newPassword);
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      toast.error('Error', passwordError);
       return;
     }
-    if (newPassword !== confirmPassword) {
+    if (normalizedPassword !== normalizePassword(confirmPassword)) {
       toast.error('Error', 'Passwords do not match');
       return;
     }
     setLoading(true);
-    const result = await changePassword(newPassword);
-    setLoading(false);
-    if (result.success) {
-      setPasswordModalVisible(false);
-      toast.success('Success', 'Password changed successfully');
-      setNewPassword('');
-      setConfirmPassword('');
-    } else {
-      toast.error('Error', result.message || 'Failed to change password');
+    try {
+      const result = await changePassword(currentPassword, normalizedPassword);
+      if (result.success) {
+        setPasswordModalVisible(false);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setTimeout(() => {
+          toast.success('Success', 'Password changed successfully');
+        }, 250);
+      } else {
+        toast.error('Error', result.message || 'Failed to change password');
+      }
+    } catch (error) {
+      toast.error('Error', 'Failed to change password');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -700,7 +708,8 @@ const AccountScreen: React.FC = () => {
               <Ionicons name="close" size={24} color="#373934" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>{user?.email ? 'Change Email' : 'Add Email'}</Text>
-            <TextInput
+            <PasswordInput
+              containerStyle={{ width: '100%' }}
               style={styles.modalInput}
               placeholder="Enter email"
               value={newEmail}
@@ -840,19 +849,27 @@ const AccountScreen: React.FC = () => {
               <Ionicons name="close" size={24} color="#373934" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Change Password</Text>
-            <TextInput
-              style={styles.modalInput}
+            <PasswordInput
+              containerStyle={styles.modalPasswordInputContainer}
+              style={[styles.modalInput, styles.modalPasswordInput]}
+              placeholder="Current Password"
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+            />
+            <PasswordRequirements password={newPassword} />
+            <PasswordInput
+              containerStyle={styles.modalPasswordInputContainer}
+              style={[styles.modalInput, styles.modalPasswordInput]}
               placeholder="New Password"
               value={newPassword}
               onChangeText={setNewPassword}
-              secureTextEntry
             />
-            <TextInput
-              style={styles.modalInput}
+            <PasswordInput
+              containerStyle={styles.modalPasswordInputContainer}
+              style={[styles.modalInput, styles.modalPasswordInput]}
               placeholder="Confirm New Password"
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              secureTextEntry
             />
             <TouchableOpacity
               style={[styles.modalButton, loading && { opacity: 0.7 }]}
@@ -1303,6 +1320,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+  },
+  modalPasswordInputContainer: {
+    width: '100%',
+    marginBottom: 15,
+  },
+  modalPasswordInput: {
+    marginBottom: 0,
   },
   modalButton: {
     width: '100%',

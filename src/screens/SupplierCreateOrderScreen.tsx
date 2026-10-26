@@ -30,6 +30,7 @@ import toast from '../utils/toast';
 import AppModal from '../components/AppModal';
 import AttachmentOptionModal from '../components/AttachmentOptionModal';
 import { geocodeAddress, reverseGeocode } from '../utils/geocode';
+import { requestCameraAccess } from '../utils/cameraPermission';
 
 // Import SVG images
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
@@ -520,12 +521,6 @@ const SupplierCreateOrderScreen: React.FC = () => {
 
   const pickImage = async () => {
     setAttachmentModalVisible(false);
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      toast.error('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
-      return;
-    }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
@@ -552,9 +547,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
 
   const takePhoto = async () => {
     setAttachmentModalVisible(false);
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      toast.error('Permission Denied', 'Sorry, we need camera permissions to make this work!');
+    if (!(await requestCameraAccess())) {
       return;
     }
 

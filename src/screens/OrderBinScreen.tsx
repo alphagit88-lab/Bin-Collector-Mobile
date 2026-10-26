@@ -33,6 +33,7 @@ import { Ionicons } from '@expo/vector-icons';
 import toast from '../utils/toast';
 import AppModal from '../components/AppModal';
 import AppConfirmModal from '../components/AppConfirmModal';
+import { requestCameraAccess } from '../utils/cameraPermission';
 import AttachmentOptionModal from '../components/AttachmentOptionModal';
 import { geocodeAddress, reverseGeocode } from '../utils/geocode';
 
@@ -243,7 +244,7 @@ const OrderBinScreen: React.FC = () => {
   const [loadingDefaultLocation, setLoadingDefaultLocation] = useState(false);
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   // Supplier selection (for filtering bins)
   const [suppliers, setSuppliers] = useState<RelatedSupplier[]>([]);
@@ -926,12 +927,6 @@ const OrderBinScreen: React.FC = () => {
   };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      toast.error('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
-      return;
-    }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
@@ -951,9 +946,7 @@ const OrderBinScreen: React.FC = () => {
   };
 
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      toast.error('Permission Denied', 'Sorry, we need camera permissions to make this work!');
+    if (!(await requestCameraAccess())) {
       return;
     }
 
@@ -1076,7 +1069,7 @@ const OrderBinScreen: React.FC = () => {
         fd.append('contact_number', contactNumber);
         fd.append('contact_email', additionalContact);
         fd.append('instructions', notes);
-        if (selectedProjectId && serviceType === 'commercial') fd.append('project_id', selectedProjectId.toString());
+        if (selectedProjectId) fd.append('project_id', selectedProjectId.toString());
         if (poNumber) fd.append('po_number', poNumber);
         if (finalLat !== null && finalLat !== undefined) fd.append('latitude', finalLat.toString());
         if (finalLon !== null && finalLon !== undefined) fd.append('longitude', finalLon.toString());
@@ -1194,7 +1187,11 @@ const OrderBinScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[styles.paymentOption, { width: (width - 70) / 3 }]}
                   activeOpacity={0.8}
-                  onPress={() => { setServiceType('residential'); setCalculatedPrice(null); }}>
+                  onPress={() => {
+                    setServiceType('residential');
+                    handleClearSupplier();
+                    setCalculatedPrice(null);
+                  }}>
                   <View
                     style={[
                       styles.paymentOptionGradient,
@@ -1256,7 +1253,11 @@ const OrderBinScreen: React.FC = () => {
                 <TouchableOpacity
                   style={[styles.paymentOption, { width: (width - 70) / 3 }]}
                   activeOpacity={0.8}
-                  onPress={() => { setServiceType('service'); setCalculatedPrice(null); }}>
+                  onPress={() => {
+                    setServiceType('service');
+                    handleClearSupplier();
+                    setCalculatedPrice(null);
+                  }}>
                   <View
                     style={[
                       styles.paymentOptionGradient,
@@ -1287,7 +1288,7 @@ const OrderBinScreen: React.FC = () => {
           </View>
 
           {/* Section 1: Project Assignment (Optional) */}
-          {serviceType === 'commercial' && <View style={styles.formSection}>
+          <View style={styles.formSection}>
             <View
               style={styles.formSectionGradient}>
               <Text style={[styles.paymentMethodTitle, { marginBottom: 25 }]}>
@@ -1303,10 +1304,10 @@ const OrderBinScreen: React.FC = () => {
                 style={{ marginBottom: 0, marginTop: -10 }}
               />
             </View>
-          </View>}
+          </View>
 
-          {/* Section: Preferred Supplier (Optional) - Available for any type of service */}
-          <View style={styles.formSection}>
+          {/* Section: Preferred Supplier (Optional) - Commercial only */}
+          {serviceType === 'commercial' && <View style={styles.formSection}>
             <View style={styles.formSectionGradient}>
               <Text style={[styles.paymentMethodTitle, { marginBottom: 25 }]}>
                 Select Preferred Supplier (Optional)
@@ -1322,7 +1323,7 @@ const OrderBinScreen: React.FC = () => {
                 style={{ marginBottom: 0, marginTop: -10 }}
               />
             </View>
-          </View>
+          </View>}
 
           {/* Section 2: Location */}
           <View style={styles.formSection}>

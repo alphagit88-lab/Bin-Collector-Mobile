@@ -6,6 +6,8 @@ export const ENDPOINTS = {
         UPDATE_PROFILE: '/auth/profile',
         UPDATE_PASSWORD: '/auth/password',
         UPDATE_PUSH_TOKEN: '/auth/push-token',
+        FORGOT_PASSWORD_REQUEST: '/auth/forgot-password/request',
+        FORGOT_PASSWORD_RESET: '/auth/forgot-password/reset',
     },
     BINS: {
         TYPES: '/bins/types',

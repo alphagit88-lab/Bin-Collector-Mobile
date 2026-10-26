@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -17,11 +17,16 @@ import { themeColors } from '../theme/colors';
 import SvgImage from '../assets/images/14.svg';
 import { useAuth } from '../contexts/AuthContext';
 import toast from '../utils/toast';
+import { normalizePassword, validatePassword } from '../utils/passwordValidation';
+import PasswordRequirements from '../components/PasswordRequirements';
+import { normalizeCanadianPhone, validateCanadianPhone } from '../utils/phoneValidation';
+import PasswordInput from '../components/PasswordInput';
 
 type SupplierType = 'Commercial' | 'Residential' | 'Commercial/Residential';
 
 const SignUpScreen: React.FC = () => {
   const navigation = useNavigation();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [userType, setUserType] = useState<'Customer' | 'Supplier'>('Supplier');
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -37,20 +42,18 @@ const SignUpScreen: React.FC = () => {
       toast.error('Error', 'Please enter your full name');
       return;
     }
-    if (!phoneNumber.trim()) {
-      toast.error('Error', 'Please enter your phone number');
-      return;
-    }
-    if (!email.trim()) {
-      toast.error('Error', 'Please enter your email address');
+    const phoneError = validateCanadianPhone(phoneNumber);
+    if (phoneError) {
+      toast.error('Error', phoneError);
       return;
     }
     if (userType === 'Supplier' && !supplierType) {
       toast.error('Error', 'Please select a supplier type');
       return;
     }
-    if (!password.trim()) {
-      toast.error('Error', 'Please enter a password');
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      toast.error('Error', passwordError);
       return;
     }
     if (!acceptTerms) {
@@ -70,9 +73,9 @@ const SignUpScreen: React.FC = () => {
 
     const result = await signup({
       name: fullName,
-      phone: phoneNumber,
-      email: email.trim(),
-      password: password,
+      phone: normalizeCanadianPhone(phoneNumber),
+      email: email.trim() || undefined,
+      password: normalizePassword(password),
       role: userType.toLowerCase() as 'customer' | 'supplier',
       supplierType: userType === 'Supplier' ? backendSupplierType : undefined,
     });
@@ -92,6 +95,7 @@ const SignUpScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
@@ -171,7 +175,8 @@ const SignUpScreen: React.FC = () => {
               style={styles.inputIcon}
               resizeMode="contain"
             />
-            <TextInput
+            <PasswordInput
+              containerStyle={{ flex: 1 }}
               style={styles.input}
               placeholder="Full Name"
               placeholderTextColor="#979897"
@@ -190,7 +195,7 @@ const SignUpScreen: React.FC = () => {
             />
             <TextInput
               style={styles.input}
-              placeholder="Phone Number"
+              placeholder="Phone Number (e.g., +14165550123)"
               placeholderTextColor="#979897"
               value={phoneNumber}
               onChangeText={setPhoneNumber}
@@ -208,7 +213,7 @@ const SignUpScreen: React.FC = () => {
             />
             <TextInput
               style={styles.input}
-              placeholder="Email Address"
+              placeholder="Email Address (Optional)"
               placeholderTextColor="#979897"
               value={email}
               onChangeText={setEmail}
@@ -275,6 +280,7 @@ const SignUpScreen: React.FC = () => {
           )}
 
           {/* Password Input */}
+          <PasswordRequirements password={password} />
           <View style={styles.inputField}>
             <Image
               source={require('../assets/images/image3_25_2.png')}
@@ -287,7 +293,7 @@ const SignUpScreen: React.FC = () => {
               placeholderTextColor="#979897"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              onFocus={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150)}
               autoCapitalize="none"
             />
           </View>
@@ -338,7 +344,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
   },
   topSection: {
     width: '100%',

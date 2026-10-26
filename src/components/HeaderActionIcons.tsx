@@ -7,6 +7,7 @@ import { ENDPOINTS } from '../config/endpoints';
 import { fonts } from '../theme/fonts';
 import { themeColors } from '../theme/colors';
 import { useAuth } from '../contexts/AuthContext';
+import { useSocket } from '../contexts/SocketContext';
 
 interface HeaderActionIconsProps {
   useWhiteWrapper?: boolean;
@@ -16,6 +17,7 @@ interface HeaderActionIconsProps {
 const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper = false, onNavigateAction }) => {
   const navigation = useNavigation<any>();
   const { user, refreshUser } = useAuth();
+  const { socket } = useSocket();
   const [notificationCount, setNotificationCount] = React.useState(0);
   const [messageCount, setMessageCount] = React.useState(0);
 
@@ -40,7 +42,15 @@ const HeaderActionIcons: React.FC<HeaderActionIconsProps> = ({ useWhiteWrapper =
   useFocusEffect(
     React.useCallback(() => {
       fetchCounts();
-    }, [fetchCounts])
+
+      if (!socket) return;
+      const refreshCounts = () => fetchCounts();
+      socket.on('new_message', refreshCounts);
+
+      return () => {
+        socket.off('new_message', refreshCounts);
+      };
+    }, [fetchCounts, socket])
   );
 
   const handleNavigation = (screen: string) => {

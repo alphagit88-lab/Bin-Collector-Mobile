@@ -4,12 +4,13 @@ import { DeviceEventEmitter } from 'react-native';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { requestUserPermission, getFcmToken, updatePushToken, registerAppWithFCM } from '../utils/fcmNotifications';
+import { normalizePassword, validatePassword } from '../utils/passwordValidation';
 
 export interface User {
   id: number;
   name: string;
   phone: string;
-  email: string;
+  email?: string;
   role: 'customer' | 'supplier' | 'admin' | 'driver';
   supplierType?: string;
   supplierId?: number;
@@ -20,7 +21,7 @@ export interface User {
 export interface SignupData {
   name: string;
   phone: string;
-  email: string;
+  email?: string;
   password: string;
   role: 'customer' | 'supplier';
   supplierType?: string;
@@ -34,7 +35,7 @@ interface AuthContextType {
   signup: (data: SignupData) => Promise<{ success: boolean; message?: string }>;
   updateProfile: (email: string) => Promise<{ success: boolean; message?: string }>;
   updateProfilePhoto: (uri: string) => Promise<{ success: boolean; message?: string }>;
-  changePassword: (newPassword: string) => Promise<{ success: boolean; message?: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
@@ -105,7 +106,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Check if identifier is email or phone
       const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier);
       
-      const requestData: any = { password };
+      const requestData: any = { password: password.trim() };
       if (isEmail) {
         requestData.email = identifier;
       } else {
@@ -157,7 +158,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const signup = async (data: SignupData) => {
     try {
-      const response = await api.post<{ user: User; token: string }>(ENDPOINTS.AUTH.SIGNUP, data);
+      const passwordError = validatePassword(data.password);
+      if (passwordError) return { success: false, message: passwordError };
+
+      const response = await api.post<{ user: User; token: string }>(ENDPOINTS.AUTH.SIGNUP, {
+        ...data,
+        password: normalizePassword(data.password),
+      });
 
       if (response.success && response.data) {
         const { user, token } = response.data;
@@ -238,9 +245,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const changePassword = async (newPassword: string) => {
+  const changePassword = async (currentPassword: string, newPassword: string) => {
     try {
-      const response = await api.put(ENDPOINTS.AUTH.UPDATE_PASSWORD, { newPassword });
+      if (!currentPassword.trim()) {
+        return { success: false, message: 'Current password is required' };
+      }
+      const passwordError = validatePassword(newPassword);
+      if (passwordError) return { success: false, message: passwordError };
+
+      const response = await api.put(ENDPOINTS.AUTH.UPDATE_PASSWORD, {
+        currentPassword: currentPassword.trim(),
+        newPassword: normalizePassword(newPassword),
+      });
 
       if (response.success) {
         return { success: true };
