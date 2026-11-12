@@ -31,6 +31,7 @@ import AppModal from '../components/AppModal';
 import AttachmentOptionModal from '../components/AttachmentOptionModal';
 import { geocodeAddress, reverseGeocode } from '../utils/geocode';
 import { requestCameraAccess } from '../utils/cameraPermission';
+import { normalizeCanadianPhone, validateCanadianPhone } from '../utils/phoneValidation';
 
 // Import SVG images
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
@@ -138,6 +139,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
   // Form State
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [serviceType, setServiceType] = useState('residential'); // 'residential', 'commercial', 'service'
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -192,7 +194,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
   const [fetchingSettings, setFetchingSettings] = useState(true);
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     fetchInitialData();
@@ -613,12 +615,22 @@ const SupplierCreateOrderScreen: React.FC = () => {
       toast.error('Validation Error', 'Please fill in all required fields');
       return;
     }
+    const phoneError = validateCanadianPhone(customerPhone);
+    if (phoneError) {
+      toast.error('Validation Error', phoneError);
+      return;
+    }
+    if (customerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) {
+      toast.error('Validation Error', 'Enter a valid customer email address');
+      return;
+    }
 
     setLoading(true);
     try {
       const formData = new FormData();
       formData.append('customer_name', customerName);
-      formData.append('customer_phone', customerPhone);
+      formData.append('customer_phone', normalizeCanadianPhone(customerPhone));
+      if (customerEmail.trim()) formData.append('customer_email', customerEmail.trim().toLowerCase());
       formData.append('service_category', serviceType);
 
       if (serviceType === 'service') {
@@ -752,6 +764,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                     setSelectedCustomerName('');
                     setCustomerName('');
                     setCustomerPhone('');
+                    setCustomerEmail('');
                   }}
                 />
               )}
@@ -763,10 +776,17 @@ const SupplierCreateOrderScreen: React.FC = () => {
               />
               <FormField
                 label="Mobile Number"
-                placeholder="Enter mobile number"
+                placeholder="Enter mobile number (e.g., +14165550123)"
                 value={customerPhone}
                 onChangeText={setCustomerPhone}
                 keyboardType="phone-pad"
+              />
+              <FormField
+                label="Email Address (Optional)"
+                placeholder="customer@example.com"
+                value={customerEmail}
+                onChangeText={setCustomerEmail}
+                keyboardType="email-address"
               />
               <Text style={styles.helperText}>Order will be assigned to this customer.</Text>
             </LinearGradient>
@@ -1223,6 +1243,7 @@ const SupplierCreateOrderScreen: React.FC = () => {
                 setSelectedCustomerName(customer.name);
                 setCustomerName(customer.name);
                 setCustomerPhone(customer.phone || '');
+                setCustomerEmail(customer.email || '');
                 setCustomerModalVisible(false);
               }}
             >

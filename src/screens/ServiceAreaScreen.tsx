@@ -68,7 +68,7 @@ const ServiceAreaScreen: React.FC = () => {
   });
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const mapRef = useRef<MapView>(null);
 
   const [confirmVisible, setConfirmVisible] = useState(false);

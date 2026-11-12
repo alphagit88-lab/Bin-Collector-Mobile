@@ -9,6 +9,7 @@ import {
   FlatList,
   RefreshControl,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -21,6 +22,9 @@ import BottomNavBar from '../components/BottomNavBar';
 import toast from '../utils/toast';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import ListFilterPagination from '../components/ListFilterPagination';
+import { useListPagination } from '../hooks/useListPagination';
 
 const { width } = Dimensions.get('window');
 
@@ -38,13 +42,23 @@ const BillingScreen: React.FC = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [summary, setSummary] = useState({ total: 0, total_paid: '0' });
+  const [serverTotalPages, setServerTotalPages] = useState(1);
+  const invoicePagination = useListPagination(invoices, invoice => invoice.created_at, 10, serverTotalPages);
 
   const fetchInvoices = async () => {
     try {
-      const response = await api.get<any>(ENDPOINTS.BILLING.INVOICES);
+      const formatDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const params = new URLSearchParams({ page: invoicePagination.page.toString(), limit: '10' });
+      if (invoicePagination.startDate) params.set('startDate', formatDate(invoicePagination.startDate));
+      if (invoicePagination.endDate) params.set('endDate', formatDate(invoicePagination.endDate));
+      const response = await api.get<any>(`${ENDPOINTS.BILLING.INVOICES}?${params.toString()}`);
       if (response.success) {
         const invoiceList = (response as any).invoices || response.data?.invoices || [];
         setInvoices(invoiceList);
+        setServerTotalPages(Math.max(1, response.pagination?.totalPages || response.data?.pagination?.totalPages || 1));
+        const responseSummary = response.summary || response.data?.summary;
+        if (responseSummary) setSummary(responseSummary);
       }
     } catch (error) {
       console.error('Error fetching invoices:', error);
@@ -61,16 +75,15 @@ const BillingScreen: React.FC = () => {
     } else {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, invoicePagination.page, invoicePagination.startDate, invoicePagination.endDate]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchInvoices();
   };
 
-  const handleDownloadPDF = async (item: Invoice) => {
-    try {
-      const html = `
+  const generatePDF = async (item: Invoice) => {
+    const html = `
         <!DOCTYPE html>
         <html>
           <head>
@@ -138,11 +151,62 @@ const BillingScreen: React.FC = () => {
           </body>
         </html>
       `;
-      const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Share Bill' });
+    const { uri } = await Print.printToFileAsync({ html });
+    return uri;
+  };
+
+  const getInvoiceFileName = (item: Invoice) =>
+    `${(item.invoice_number || `invoice-${item.id}`).replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+
+  const handleDownloadPDF = async (item: Invoice) => {
+    try {
+      const uri = await generatePDF(item);
+      const fileName = getInvoiceFileName(item);
+
+      if (Platform.OS === 'android') {
+        const permission = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (!permission.granted) {
+          toast.info('Cancelled', 'Choose a folder to save the PDF');
+          return;
+        }
+
+        const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
+          permission.directoryUri,
+          fileName,
+          'application/pdf'
+        );
+        const pdfBase64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        await FileSystem.writeAsStringAsync(destinationUri, pdfBase64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        toast.success('Downloaded', `${fileName} saved successfully`);
+        return;
+      }
+
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        UTI: 'com.adobe.pdf',
+        dialogTitle: 'Save Bill PDF',
+      });
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Error', 'Failed to generate PDF');
+      console.error('Error saving PDF:', error);
+      toast.error('Error', 'Failed to save PDF');
+    }
+  };
+
+  const handleSharePDF = async (item: Invoice) => {
+    try {
+      const uri = await generatePDF(item);
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        UTI: 'com.adobe.pdf',
+        dialogTitle: 'Share Bill',
+      });
+    } catch (error) {
+      console.error('Error sharing PDF:', error);
+      toast.error('Error', 'Failed to share PDF');
     }
   };
 
@@ -153,9 +217,14 @@ const BillingScreen: React.FC = () => {
           <Text style={styles.invoiceNumber}>{item.invoice_number}</Text>
           <Text style={styles.invoiceDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
         </View>
-        <TouchableOpacity onPress={() => handleDownloadPDF(item)} activeOpacity={0.7} style={styles.downloadIconBtn}>
-          <Ionicons name="download-outline" size={22} color={themeColors.primary} />
-        </TouchableOpacity>
+        <View style={styles.invoiceActions}>
+          <TouchableOpacity onPress={() => handleSharePDF(item)} activeOpacity={0.7} style={styles.downloadIconBtn} accessibilityLabel="Share bill PDF">
+            <Ionicons name="share-social-outline" size={21} color={themeColors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDownloadPDF(item)} activeOpacity={0.7} style={styles.downloadIconBtn} accessibilityLabel="Download bill PDF">
+            <Ionicons name="download-outline" size={22} color={themeColors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
       <View style={styles.invoiceDivider} />
       <View style={styles.invoiceFooter}>
@@ -214,13 +283,13 @@ const BillingScreen: React.FC = () => {
           </View>
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>{invoices.length}</Text>
+              <Text style={styles.statValue}>{summary.total}</Text>
               <Text style={styles.statLabel}>Total</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statValue}>
-                ${invoices.reduce((acc, inv) => acc + (inv.status === 'paid' ? parseFloat(inv.amount) : 0), 0).toFixed(0)}
+                ${parseFloat(summary.total_paid || '0').toFixed(0)}
               </Text>
               <Text style={styles.statLabel}>Paid</Text>
             </View>
@@ -234,13 +303,15 @@ const BillingScreen: React.FC = () => {
         </View>
       ) : (
         <FlatList
-          data={invoices}
+          data={invoicePagination.pagedItems}
           renderItem={renderInvoiceItem}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[themeColors.primaryLight2]} />
           }
+          ListHeaderComponent={<ListFilterPagination {...invoicePagination} onPageChange={invoicePagination.setPage} onStartDateChange={invoicePagination.setStartDate} onEndDateChange={invoicePagination.setEndDate} showPagination={false} />}
+          ListFooterComponent={<ListFilterPagination {...invoicePagination} onPageChange={invoicePagination.setPage} onStartDateChange={invoicePagination.setStartDate} onEndDateChange={invoicePagination.setEndDate} showDates={false} />}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="file-document-outline" size={80} color="#E5E7EB" />
@@ -406,6 +477,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0FDF4',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  invoiceActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   loadingContainer: {
     flex: 1,

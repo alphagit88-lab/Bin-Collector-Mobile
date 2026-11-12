@@ -36,6 +36,7 @@ import AppConfirmModal from '../components/AppConfirmModal';
 import { requestCameraAccess } from '../utils/cameraPermission';
 import AttachmentOptionModal from '../components/AttachmentOptionModal';
 import { geocodeAddress, reverseGeocode } from '../utils/geocode';
+import { normalizeCanadianPhone, validateCanadianPhone } from '../utils/phoneValidation';
 
 // Import SVG images
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
@@ -240,6 +241,7 @@ const OrderBinScreen: React.FC = () => {
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [selectedProjectName, setSelectedProjectName] = useState('');
+  const selectedProjectIdRef = React.useRef<number | null>(null);
   const [projectModalVisible, setProjectModalVisible] = useState(false);
   const [loadingDefaultLocation, setLoadingDefaultLocation] = useState(false);
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([]);
@@ -622,6 +624,9 @@ const OrderBinScreen: React.FC = () => {
       //const raw = await AsyncStorage.getItem('defaultLocation');
       const raw = false;
 
+      // A selected project's location always has priority over default/GPS location.
+      if (selectedProjectIdRef.current !== null) return;
+
       if (raw) {
         // ── Has a saved default location ──────────────────────────────
         try {
@@ -629,6 +634,8 @@ const OrderBinScreen: React.FC = () => {
           const addr = parsed.address || raw;
           const defLat = parsed.latitude ? parseFloat(String(parsed.latitude)) : null;
           const defLon = parsed.longitude ? parseFloat(String(parsed.longitude)) : null;
+
+          if (selectedProjectIdRef.current !== null) return;
 
           setDeliveryAddress(addr);
 
@@ -651,6 +658,8 @@ const OrderBinScreen: React.FC = () => {
             });
             const { latitude: gpsLat, longitude: gpsLon } = pos.coords;
 
+            if (selectedProjectIdRef.current !== null) return;
+
             setLatitude(gpsLat);
             setLongitude(gpsLon);
             setMapRegion(prev => ({ ...prev, latitude: gpsLat, longitude: gpsLon }));
@@ -658,7 +667,7 @@ const OrderBinScreen: React.FC = () => {
             // Reverse-geocode to get a human-readable address
             try {
               const geoData = await reverseGeocode(gpsLat, gpsLon);
-              if (geoData && geoData.display_name) {
+              if (selectedProjectIdRef.current === null && geoData?.display_name) {
                 setDeliveryAddress(geoData.display_name);
               }
             } catch {
@@ -767,6 +776,9 @@ const OrderBinScreen: React.FC = () => {
       // Reset supplier selection on re-focus
       setSelectedSupplierId(null);
       setSelectedSupplierName('');
+      setSelectedProjectId(null);
+      setSelectedProjectName('');
+      selectedProjectIdRef.current = null;
 
       // Keep repeat-order location intact; default location should only apply on fresh orders without existing address.
       if (!hasRepeatData && !deliveryAddress.trim()) {
@@ -858,10 +870,43 @@ const OrderBinScreen: React.FC = () => {
     }
   };
 
-  const selectProject = (project: any) => {
+  const selectProject = async (project: any) => {
+    selectedProjectIdRef.current = project.id;
     setSelectedProjectId(project.id);
     setSelectedProjectName(project.name);
     setProjectModalVisible(false);
+
+    const projectLocation = typeof project.location === 'string' ? project.location.trim() : '';
+    let projectLatitude = project.latitude !== null && project.latitude !== undefined && project.latitude !== ''
+      ? Number(project.latitude)
+      : Number.NaN;
+    let projectLongitude = project.longitude !== null && project.longitude !== undefined && project.longitude !== ''
+      ? Number(project.longitude)
+      : Number.NaN;
+
+    if ((!Number.isFinite(projectLatitude) || !Number.isFinite(projectLongitude)) && projectLocation) {
+      try {
+        const results = await geocodeAddress(projectLocation);
+        if (selectedProjectIdRef.current !== project.id || !results?.length) return;
+        projectLatitude = Number(results[0].lat);
+        projectLongitude = Number(results[0].lon);
+      } catch (error) {
+        console.error('Project location geocode error:', error);
+      }
+    }
+
+    if (selectedProjectIdRef.current !== project.id) return;
+    if (projectLocation) setDeliveryAddress(projectLocation);
+
+    if (Number.isFinite(projectLatitude) && Number.isFinite(projectLongitude)) {
+      setLatitude(projectLatitude);
+      setLongitude(projectLongitude);
+      setMapRegion(prev => ({
+        ...prev,
+        latitude: projectLatitude,
+        longitude: projectLongitude,
+      }));
+    }
   };
 
   const handleSupplierSelect = (supplier: RelatedSupplier | null) => {
@@ -989,6 +1034,11 @@ const OrderBinScreen: React.FC = () => {
   };
 
   const handlePlaceOrder = async () => {
+    const phoneError = validateCanadianPhone(contactNumber);
+    if (phoneError) {
+      toast.error('Validation Error', phoneError);
+      return;
+    }
     // Basic validation
     if (!deliveryAddress.trim()) {
       toast.error('Error', 'Please enter a delivery address');
@@ -1066,7 +1116,7 @@ const OrderBinScreen: React.FC = () => {
         if (deliveryDate) fd.append('start_date', deliveryDate);
         if (pickupDate) fd.append('end_date', pickupDate);
         if (serviceType !== 'commercial') fd.append('payment_method', paymentMethod);
-        fd.append('contact_number', contactNumber);
+        fd.append('contact_number', normalizeCanadianPhone(contactNumber));
         fd.append('contact_email', additionalContact);
         fd.append('instructions', notes);
         if (selectedProjectId) fd.append('project_id', selectedProjectId.toString());
@@ -1588,7 +1638,7 @@ const OrderBinScreen: React.FC = () => {
               style={styles.formSectionGradient}>
               <FormField
                 label="Mobile Number"
-                placeholder="Enter Mobile number"
+                placeholder="Enter Mobile number (e.g., +14165550123)"
                 value={contactNumber}
                 onChangeText={setContactNumber}
                 keyboardType="phone-pad"
@@ -2023,9 +2073,11 @@ const OrderBinScreen: React.FC = () => {
           <TouchableOpacity
             style={[styles.modalItem, { borderBottomWidth: 0, marginTop: 10 }]}
             onPress={() => {
+              selectedProjectIdRef.current = null;
               setSelectedProjectId(null);
               setSelectedProjectName('None');
               setProjectModalVisible(false);
+              loadDefaultLocation();
             }}>
             <Text style={[styles.modalItemText, { color: '#FF3B30' }]}>None / Clear Selection</Text>
           </TouchableOpacity>

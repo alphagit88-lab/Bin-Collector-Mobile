@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import ListFilterPagination from '../components/ListFilterPagination';
+import { useListPagination } from '../hooks/useListPagination';
 import {
   View,
   Text,
@@ -87,10 +89,12 @@ const SupplierJobsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const [selectedCategory, setSelectedCategory] = useState<JobCategory>('all');
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [serverTotalPages, setServerTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [searchQuery, setSearchQuery] = useState('');
+  const jobPagination = useListPagination(jobs, job => job.start_date, 10, serverTotalPages);
   const mapRef = useRef<MapView>(null);
   
   // Full text modal state
@@ -99,23 +103,18 @@ const SupplierJobsScreen: React.FC = () => {
 
   const fetchJobs = useCallback(async () => {
     try {
-      const [myJobsRes, pendingRes] = await Promise.all([
-        api.get<{ requests: Job[] }>(ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS),
-        api.get<{ requests: Job[] }>(ENDPOINTS.BOOKINGS.PENDING)
-      ]);
+      const formatDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const params = new URLSearchParams({ page: jobPagination.page.toString(), limit: '10', includePending: 'true' });
+      if (selectedCategory !== 'all') params.set('status', selectedCategory);
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      if (jobPagination.startDate) params.set('startDate', formatDate(jobPagination.startDate));
+      if (jobPagination.endDate) params.set('endDate', formatDate(jobPagination.endDate));
+      const myJobsRes = await api.get<{ requests: Job[]; pagination?: { totalPages: number } }>(`${ENDPOINTS.BOOKINGS.SUPPLIER_REQUESTS}?${params.toString()}`);
 
-      let allJobs: Job[] = [];
       if (myJobsRes.success && myJobsRes.data) {
-        allJobs = [...myJobsRes.data.requests];
+        setJobs(myJobsRes.data.requests);
+        setServerTotalPages(Math.max(1, myJobsRes.data.pagination?.totalPages || 1));
       }
-      if (pendingRes.success && pendingRes.data) {
-        // Mark pending requests to distinguish them if needed, 
-        // though status 'pending' should be enough
-        const pendingJobs = pendingRes.data.requests.map(j => ({ ...j, status: 'pending' }));
-        allJobs = [...allJobs, ...pendingJobs];
-      }
-      
-      setJobs(allJobs);
     } catch (error) {
       console.error('Error fetching jobs:', error);
       toast.error('Error', 'Failed to fetch jobs');
@@ -123,7 +122,9 @@ const SupplierJobsScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [selectedCategory, searchQuery, jobPagination.page, jobPagination.startDate, jobPagination.endDate]);
+
+  useEffect(() => jobPagination.setPage(1), [selectedCategory, searchQuery]);
 
   const route = useRoute<any>();
 
@@ -504,6 +505,7 @@ const SupplierJobsScreen: React.FC = () => {
                   </TouchableOpacity>
                 )}
               </View>
+              <ListFilterPagination {...jobPagination} onPageChange={jobPagination.setPage} onStartDateChange={jobPagination.setStartDate} onEndDateChange={jobPagination.setEndDate} showPagination={false} />
 
               <View style={styles.jobsListContainer}>
                 {loading && !refreshing ? (
@@ -511,8 +513,8 @@ const SupplierJobsScreen: React.FC = () => {
                     <ActivityIndicator size="small" color="#37B112" />
                   </View>
                 ) : viewMode === 'list' ? (
-                  getFilteredJobs().length > 0 ? (
-                    getFilteredJobs().map((job: Job, index: number) => renderJobItem(job, index))
+                   jobPagination.filteredItems.length > 0 ? (
+                     jobPagination.pagedItems.map((job: Job, index: number) => renderJobItem(job, index))
                   ) : (
                     <Text style={styles.emptyText}>No jobs found</Text>
                   )
@@ -529,7 +531,7 @@ const SupplierJobsScreen: React.FC = () => {
                         longitudeDelta: 0.1,
                       }}
                     >
-                      {getFilteredJobs().filter(j => j.latitude && j.longitude).map(job => (
+                      {jobPagination.filteredItems.filter(j => j.latitude && j.longitude).map(job => (
                         <Marker
                           key={job.id}
                           coordinate={{
@@ -551,6 +553,7 @@ const SupplierJobsScreen: React.FC = () => {
                   </View>
                 )}
               </View>
+              {viewMode === 'list' && <ListFilterPagination {...jobPagination} onPageChange={jobPagination.setPage} onStartDateChange={jobPagination.setStartDate} onEndDateChange={jobPagination.setEndDate} showDates={false} />}
             </LinearGradient>
           </View>
         </View>

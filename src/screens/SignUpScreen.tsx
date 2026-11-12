@@ -33,6 +33,7 @@ const SignUpScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [supplierType, setSupplierType] = useState<SupplierType | ''>('Commercial');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signup } = useAuth();
@@ -54,6 +55,10 @@ const SignUpScreen: React.FC = () => {
     const passwordError = validatePassword(password);
     if (passwordError) {
       toast.error('Error', passwordError);
+      return;
+    }
+    if (normalizePassword(password) !== normalizePassword(confirmPassword)) {
+      toast.error('Error', 'Passwords do not match');
       return;
     }
     if (!acceptTerms) {
@@ -83,7 +88,10 @@ const SignUpScreen: React.FC = () => {
     setLoading(false);
 
     if (result.success) {
-      toast.success('Success', 'Account created successfully!');
+      toast.success('Success', result.message || 'Account created successfully!');
+      if (userType === 'Supplier') {
+        navigation.goBack();
+      }
     } else {
       toast.error('Sign Up Failed', result.message || 'Please try again later.');
     }
@@ -175,8 +183,7 @@ const SignUpScreen: React.FC = () => {
               style={styles.inputIcon}
               resizeMode="contain"
             />
-            <PasswordInput
-              containerStyle={{ flex: 1 }}
+            <TextInput
               style={styles.input}
               placeholder="Full Name"
               placeholderTextColor="#979897"
@@ -287,12 +294,31 @@ const SignUpScreen: React.FC = () => {
               style={styles.inputIcon}
               resizeMode="contain"
             />
-            <TextInput
+            <PasswordInput
+              containerStyle={{ flex: 1 }}
               style={styles.input}
               placeholder="Password"
               placeholderTextColor="#979897"
               value={password}
               onChangeText={setPassword}
+              onFocus={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150)}
+              autoCapitalize="none"
+            />
+          </View>
+
+          <View style={styles.inputField}>
+            <Image
+              source={require('../assets/images/image3_25_2.png')}
+              style={styles.inputIcon}
+              resizeMode="contain"
+            />
+            <PasswordInput
+              containerStyle={{ flex: 1 }}
+              style={styles.input}
+              placeholder="Confirm Password"
+              placeholderTextColor="#979897"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
               onFocus={() => setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 150)}
               autoCapitalize="none"
             />

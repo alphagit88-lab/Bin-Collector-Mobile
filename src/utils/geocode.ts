@@ -2,6 +2,29 @@ import Constants from 'expo-constants';
 
 const GOOGLE_API_KEY = Constants.expoConfig?.android?.config?.googleMaps?.apiKey || Constants.expoConfig?.extra?.googleMapsApiKey || 'AIzaSyCr6d4xZw6apWLl0VRVgDLytC8VDhLMdEI';
 
+type GeocodeAddress = {
+  country?: string;
+  city?: string;
+  town?: string;
+  village?: string;
+  suburb?: string;
+  state?: string;
+};
+
+const getAddress = (components: any[] = []): GeocodeAddress => {
+  const find = (...types: string[]) =>
+    components.find(component => types.some(type => component.types?.includes(type)))?.long_name;
+
+  return {
+    country: find('country'),
+    city: find('locality', 'postal_town'),
+    town: find('administrative_area_level_2'),
+    village: find('administrative_area_level_3'),
+    suburb: find('sublocality', 'sublocality_level_1', 'neighborhood'),
+    state: find('administrative_area_level_1'),
+  };
+};
+
 export const geocodeAddress = async (address: string) => {
   if (!GOOGLE_API_KEY) {
     console.error('Google Maps API key is missing');
@@ -16,7 +39,8 @@ export const geocodeAddress = async (address: string) => {
       return data.results.map((res: any) => ({
         lat: res.geometry.location.lat,
         lon: res.geometry.location.lng,
-        display_name: res.formatted_address
+        display_name: res.formatted_address,
+        address: getAddress(res.address_components),
       }));
     }
   } catch (error) {
@@ -40,7 +64,8 @@ export const reverseGeocode = async (lat: number, lon: number) => {
       return {
         lat,
         lon,
-        display_name: data.results[0].formatted_address
+        display_name: data.results[0].formatted_address,
+        address: getAddress(data.results[0].address_components),
       };
     }
   } catch (error) {

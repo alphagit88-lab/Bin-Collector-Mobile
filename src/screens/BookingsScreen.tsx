@@ -79,6 +79,8 @@ const BookingsScreen: React.FC = () => {
   const userName = user?.name || 'User';
 
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [serverTotalPages, setServerTotalPages] = useState(1);
+  const [bookingSummary, setBookingSummary] = useState({ active: 0, completed: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -109,12 +111,20 @@ const BookingsScreen: React.FC = () => {
 
     return requestIdMatch || binTypeMatch || locationMatch || serviceMatch;
   });
+  const bookingPagination = useListPagination(filteredBookings, booking => booking.start_date, 10, serverTotalPages);
 
   const fetchBookings = useCallback(async () => {
     try {
-      const response = await api.get<{ requests: Booking[] }>(ENDPOINTS.BOOKINGS.MY_REQUESTS);
+      const formatDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const params = new URLSearchParams({ page: bookingPagination.page.toString(), limit: '10' });
+      if (bookingPagination.startDate) params.set('startDate', formatDate(bookingPagination.startDate));
+      if (bookingPagination.endDate) params.set('endDate', formatDate(bookingPagination.endDate));
+      if (searchQuery.trim()) params.set('search', searchQuery.trim());
+      const response = await api.get<{ requests: Booking[]; pagination?: { totalPages: number }; summary?: { active: number; completed: number } }>(`${ENDPOINTS.BOOKINGS.MY_REQUESTS}?${params.toString()}`);
       if (response.success && response.data) {
         setBookings(response.data.requests);
+        setServerTotalPages(Math.max(1, response.data.pagination?.totalPages || 1));
+        if (response.data.summary) setBookingSummary(response.data.summary);
       }
     } catch (error) {
       console.error('Error fetching bookings:', error);
@@ -122,7 +132,9 @@ const BookingsScreen: React.FC = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [bookingPagination.page, bookingPagination.startDate, bookingPagination.endDate, searchQuery]);
+
+  useEffect(() => bookingPagination.setPage(1), [searchQuery]);
 
   useEffect(() => {
     fetchBookings();
@@ -203,13 +215,9 @@ const BookingsScreen: React.FC = () => {
     }
   };
 
-  const activeBookingsCount = bookings.filter(b =>
-    !['completed', 'cancelled'].includes(b.status.toLowerCase())
-  ).length;
+  const activeBookingsCount = bookingSummary.active;
 
-  const completedServicesCount = bookings.filter(b =>
-    b.status.toLowerCase() === 'completed'
-  ).length;
+  const completedServicesCount = bookingSummary.completed;
 
   const formatPrice = (price: string | number) => {
     const num = typeof price === 'string' ? parseFloat(price) : price;
@@ -491,13 +499,15 @@ const BookingsScreen: React.FC = () => {
               )}
             </View>
 
+            <ListFilterPagination {...bookingPagination} onPageChange={bookingPagination.setPage} onStartDateChange={bookingPagination.setStartDate} onEndDateChange={bookingPagination.setEndDate} showPagination={false} />
+
             {loading && !refreshing ? (
               <View style={{ paddingVertical: 40 }}>
                 <ActivityIndicator size="large" color={themeColors.primaryLight} />
               </View>
             ) : viewMode === 'list' ? (
-              filteredBookings.length > 0 ? (
-                (showAll ? filteredBookings : filteredBookings.slice(0, 5)).map((booking, index) => {
+               bookingPagination.filteredItems.length > 0 ? (
+                 bookingPagination.pagedItems.map((booking, index) => {
                   const colors = getCardColors(index);
                   return (
                     <View key={booking.id} style={styles.bookingCardItem}>
@@ -647,7 +657,7 @@ const BookingsScreen: React.FC = () => {
                     longitudeDelta: 0.1,
                   }}
                 >
-                  {filteredBookings.filter(b => b.latitude && b.longitude).map((booking) => (
+                  {bookingPagination.filteredItems.filter(b => b.latitude && b.longitude).map((booking) => (
                     <Marker
                       key={booking.id}
                       coordinate={{
@@ -684,20 +694,7 @@ const BookingsScreen: React.FC = () => {
               </View>
             )}
 
-            {bookings.length > 5 && viewMode === 'list' && (
-              <TouchableOpacity
-                style={styles.viewAllLink}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setSearchQuery('');
-                  setShowAll(!showAll);
-                }}
-              >
-                <Text style={styles.viewAllLinkText}>
-                  {showAll ? 'View less' : `View all (${bookings.length})`}
-                </Text>
-              </TouchableOpacity>
-            )}
+            {viewMode === 'list' && <ListFilterPagination {...bookingPagination} onPageChange={bookingPagination.setPage} onStartDateChange={bookingPagination.setStartDate} onEndDateChange={bookingPagination.setEndDate} showDates={false} />}
           </LinearGradient>
         </View>
       </ScrollView>
@@ -1645,3 +1642,5 @@ const styles = StyleSheet.create({
 });
 
 export default BookingsScreen;
+import ListFilterPagination from '../components/ListFilterPagination';
+import { useListPagination } from '../hooks/useListPagination';

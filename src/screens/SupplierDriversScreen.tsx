@@ -25,6 +25,7 @@ import toast from '../utils/toast';
 import { normalizePassword, validatePassword } from '../utils/passwordValidation';
 import PasswordRequirements from '../components/PasswordRequirements';
 import PasswordInput from '../components/PasswordInput';
+import { normalizeCanadianPhone, validateCanadianPhone } from '../utils/phoneValidation';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -79,6 +80,11 @@ const SupplierDriversScreen: React.FC = () => {
       toast.error('Missing Info', 'Please fill in all required fields');
       return;
     }
+    const phoneError = validateCanadianPhone(phone);
+    if (phoneError) {
+      toast.error('Error', phoneError);
+      return;
+    }
     const passwordError = validatePassword(password);
     if (passwordError) {
       toast.error('Error', passwordError);
@@ -89,7 +95,7 @@ const SupplierDriversScreen: React.FC = () => {
       setSubmitting(true);
       const response = await api.post(ENDPOINTS.SUPPLIER.DRIVERS, {
         name,
-        phone,
+        phone: normalizeCanadianPhone(phone),
         email,
         password: normalizePassword(password),
         role: 'driver'
@@ -215,7 +221,7 @@ const SupplierDriversScreen: React.FC = () => {
                 <Text style={styles.label}>Phone Number *</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g. 0771234567"
+                  placeholder="Phone Number (e.g., +14165550123)"
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={setPhone}

@@ -16,6 +16,7 @@ export interface User {
   supplierId?: number;
   canViewBilling?: boolean;
   profilePhoto?: string;
+  isActive?: boolean;
 }
 
 export interface SignupData {
@@ -161,13 +162,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const passwordError = validatePassword(data.password);
       if (passwordError) return { success: false, message: passwordError };
 
-      const response = await api.post<{ user: User; token: string }>(ENDPOINTS.AUTH.SIGNUP, {
+      const response = await api.post<{ user: User; token?: string; pendingApproval?: boolean }>(ENDPOINTS.AUTH.SIGNUP, {
         ...data,
         password: normalizePassword(data.password),
       });
 
       if (response.success && response.data) {
         const { user, token } = response.data;
+        if (!token) {
+          return { success: true, message: response.message };
+        }
         await AsyncStorage.setItem('token', token);
         await AsyncStorage.setItem('user', JSON.stringify(user));
         setToken(token);
