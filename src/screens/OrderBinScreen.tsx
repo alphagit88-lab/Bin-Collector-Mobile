@@ -487,7 +487,13 @@ const OrderBinScreen: React.FC = () => {
     try {
       if (
         serviceType === 'service' ||
-        !bins.some(b => b.bin_size_id) ||
+        !bins.some(b => {
+          if (!b.bin_type_id) return false;
+          const typeIdNum = parseInt(b.bin_type_id as string);
+          const possibleSizes = binSizesMap[typeIdNum] || [];
+          const sizeRequired = possibleSizes.length > 0;
+          return !sizeRequired || b.bin_size_id;
+        }) ||
         !deliveryAddress ||
         (serviceType === 'residential' && (!deliveryDate || !pickupDate))
       ) {
@@ -505,7 +511,13 @@ const OrderBinScreen: React.FC = () => {
 
       const requestBody: any = {
         service_category: serviceType,
-        bins: bins.filter(b => b.bin_size_id).map(b => ({
+        bins: bins.filter(b => {
+          if (!b.bin_type_id) return false;
+          const typeIdNum = parseInt(b.bin_type_id as string);
+          const possibleSizes = binSizesMap[typeIdNum] || [];
+          const sizeRequired = possibleSizes.length > 0;
+          return !sizeRequired || b.bin_size_id;
+        }).map(b => ({
           bin_type_id: b.bin_type_id,
           bin_size_id: b.bin_size_id,
           quantity: b.quantity
@@ -1787,7 +1799,13 @@ const OrderBinScreen: React.FC = () => {
           )}
 
           {/* Order Summary / Estimated Total */}
-          {serviceType !== 'service' && bins.some(b => b.bin_size_id) && deliveryAddress && (serviceType === 'commercial' || (deliveryDate && pickupDate)) && (
+          {serviceType !== 'service' && bins.some(b => {
+            if (!b.bin_type_id) return false;
+            const typeIdNum = parseInt(b.bin_type_id as string);
+            const possibleSizes = binSizesMap[typeIdNum] || [];
+            const sizeRequired = possibleSizes.length > 0;
+            return !sizeRequired || b.bin_size_id;
+          }) && deliveryAddress && (serviceType === 'commercial' || (deliveryDate && pickupDate)) && (
             <View style={styles.formSection}>
               <View
 

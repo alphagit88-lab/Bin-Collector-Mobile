@@ -61,6 +61,14 @@ const SignUpScreen: React.FC = () => {
       toast.error('Error', 'Passwords do not match');
       return;
     }
+    if (!email.trim()) {
+      toast.error('Error', 'Email address is required');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error('Error', 'Please enter a valid email address');
+      return;
+    }
     if (!acceptTerms) {
       toast.error('Error', 'Please accept the Terms & Conditions');
       return;
@@ -79,7 +87,7 @@ const SignUpScreen: React.FC = () => {
     const result = await signup({
       name: fullName,
       phone: normalizeCanadianPhone(phoneNumber),
-      email: email.trim() || undefined,
+      email: email.trim().toLowerCase(),
       password: normalizePassword(password),
       role: userType.toLowerCase() as 'customer' | 'supplier',
       supplierType: userType === 'Supplier' ? backendSupplierType : undefined,
@@ -220,7 +228,7 @@ const SignUpScreen: React.FC = () => {
             />
             <TextInput
               style={styles.input}
-              placeholder="Email Address (Optional)"
+              placeholder="Email Address *"
               placeholderTextColor="#979897"
               value={email}
               onChangeText={setEmail}
