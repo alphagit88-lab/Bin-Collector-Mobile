@@ -75,9 +75,16 @@ class ApiClient {
       }
 
       if (!response.ok) {
-        if (response.status === 401) {
-          DeviceEventEmitter.emit('auth_error');
+        const isInactive = response.status === 403 && typeof data?.message === 'string' && data.message.toLowerCase().includes('inactive');
+        const isUnauthorized = response.status === 401;
+
+        if (token && (isUnauthorized || isInactive) && !url.includes('/auth/login')) {
+          DeviceEventEmitter.emit('auth_error', {
+            message: data?.message || (isInactive ? 'Your account is inactive. Please contact support.' : 'Session expired. Please log in again.'),
+            status: response.status,
+          });
         }
+
         return {
           success: false,
           message: data.message || `Request failed with status ${response.status}`,

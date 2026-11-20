@@ -5,6 +5,7 @@ import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { requestUserPermission, getFcmToken, updatePushToken, registerAppWithFCM } from '../utils/fcmNotifications';
 import { normalizePassword, validatePassword } from '../utils/passwordValidation';
+import toast from '../utils/toast';
 
 export interface User {
   id: number;
@@ -54,8 +55,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     loadStoredAuth();
 
-    const authErrorSubscription = DeviceEventEmitter.addListener('auth_error', () => {
+    const authErrorSubscription = DeviceEventEmitter.addListener('auth_error', (payload?: any) => {
       logout();
+      const message = typeof payload === 'string' ? payload : payload?.message;
+      if (message) {
+        toast.error('Account Notice', message);
+      }
     });
 
     return () => {
