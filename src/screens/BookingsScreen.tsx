@@ -26,6 +26,8 @@ import AppConfirmModal from '../components/AppConfirmModal';
 import { Image } from 'react-native';
 import { useStripe } from '@stripe/stripe-react-native';
 import toast from '../utils/toast';
+import ImageViewerModal from '../components/ImageViewerModal';
+import { parseAllImages, getFullImageUrl } from '../utils/imageUrl';
 
 // Import SVG images
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
@@ -86,6 +88,9 @@ const BookingsScreen: React.FC = () => {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
 
   const [paying, setPaying] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
@@ -911,58 +916,73 @@ const BookingsScreen: React.FC = () => {
                   </View>
 
                   {(() => {
-                    let allImages: string[] = [];
-                    if (selectedBooking.attachment_url) {
-                      allImages.push(selectedBooking.attachment_url);
-                    }
-                    if ((selectedBooking as any).additional_images) {
-                      const imgs = (selectedBooking as any).additional_images;
-                      let parsed: string[] = [];
-                      if (Array.isArray(imgs)) parsed = imgs;
-                      else if (typeof imgs === 'string') {
-                        try { parsed = JSON.parse(imgs); } catch (e) { }
-                      }
-                      if (Array.isArray(parsed)) {
-                        allImages = [...allImages, ...parsed];
-                      }
-                    }
+                    const allImages = parseAllImages(
+                      selectedBooking.attachment_url,
+                      (selectedBooking as any).additional_images
+                    );
 
                     if (allImages.length > 0 || selectedBooking.delivery_photo_url) {
+                      const deliveryPhotoFull = selectedBooking.delivery_photo_url
+                        ? getFullImageUrl(selectedBooking.delivery_photo_url)
+                        : null;
+                      const combinedList = [...allImages];
+                      if (deliveryPhotoFull && !combinedList.includes(deliveryPhotoFull)) {
+                        combinedList.push(deliveryPhotoFull);
+                      }
+
                       return (
                         <View style={styles.modalAttachmentSection}>
-                          <Text style={styles.modalSectionTitle}>Attachments</Text>
+                          <Text style={styles.modalSectionTitle}>Attachments ({combinedList.length})</Text>
                           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
                             {allImages.map((img, idx) => (
-                              <Image
+                              <TouchableOpacity
                                 key={`img_${idx}`}
-                                source={{ uri: `${BASE_URL}${img}` }}
-                                style={[styles.modalAttachmentPreview, { aspectRatio: imageAspectRatios[`all_${idx}`] || 1.5 }]}
-                                resizeMode="contain"
-                                onLoad={(event) => {
-                                  const { width, height } = event.nativeEvent.source;
-
-                                  setImageAspectRatios(prev => ({
-                                    ...prev,
-                                    [`all_${idx}`]: width / height
-                                  }));
+                                activeOpacity={0.8}
+                                onPress={() => {
+                                  setViewerImages(combinedList);
+                                  setViewerIndex(idx);
+                                  setViewerVisible(true);
                                 }}
-                              />
+                              >
+                                <Image
+                                  source={{ uri: img }}
+                                  style={[styles.modalAttachmentPreview, { aspectRatio: imageAspectRatios[`all_${idx}`] || 1.5 }]}
+                                  resizeMode="contain"
+                                  onLoad={(event) => {
+                                    const { width, height } = event.nativeEvent.source;
+
+                                    setImageAspectRatios(prev => ({
+                                      ...prev,
+                                      [`all_${idx}`]: width / height
+                                    }));
+                                  }}
+                                />
+                              </TouchableOpacity>
                             ))}
-                            {selectedBooking.delivery_photo_url && (
-                              <Image
+                            {deliveryPhotoFull && (
+                              <TouchableOpacity
                                 key="delivery_photo"
-                                source={{ uri: `${BASE_URL}${selectedBooking.delivery_photo_url}` }}
-                                style={[styles.modalAttachmentPreview, { aspectRatio: imageAspectRatios['delivery_photo'] || 1.5 }]}
-                                resizeMode="contain"
-                                onLoad={(event) => {
-                                  const { width, height } = event.nativeEvent.source;
-
-                                  setImageAspectRatios(prev => ({
-                                    ...prev,
-                                    delivery_photo: width / height
-                                  }));
+                                activeOpacity={0.8}
+                                onPress={() => {
+                                  setViewerImages(combinedList);
+                                  setViewerIndex(allImages.length);
+                                  setViewerVisible(true);
                                 }}
-                              />
+                              >
+                                <Image
+                                  source={{ uri: deliveryPhotoFull }}
+                                  style={[styles.modalAttachmentPreview, { aspectRatio: imageAspectRatios['delivery_photo'] || 1.5 }]}
+                                  resizeMode="contain"
+                                  onLoad={(event) => {
+                                    const { width, height } = event.nativeEvent.source;
+
+                                    setImageAspectRatios(prev => ({
+                                      ...prev,
+                                      delivery_photo: width / height
+                                    }));
+                                  }}
+                                />
+                              </TouchableOpacity>
                             )}
                           </ScrollView>
                         </View>
@@ -1045,6 +1065,14 @@ const BookingsScreen: React.FC = () => {
           </View>
         </View>
       </AppModal>
+
+      <ImageViewerModal
+        visible={viewerVisible}
+        images={viewerImages}
+        initialIndex={viewerIndex}
+        title={selectedBooking ? `Booking #${selectedBooking.request_id} Attachments` : 'Attachments'}
+        onClose={() => setViewerVisible(false)}
+      />
 
       <AppConfirmModal
         visible={confirmModal.visible}

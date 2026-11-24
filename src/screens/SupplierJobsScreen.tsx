@@ -65,6 +65,7 @@ interface Job {
   customer_name: string;
   customer_phone: string;
   attachment_url?: string;
+  additional_images?: string[] | string;
   payment_method?: string;
   latitude?: number | string;
   longitude?: number | string;
@@ -259,6 +260,7 @@ const SupplierJobsScreen: React.FC = () => {
         customerId: job.id.toString(), // or job.customer_id if you want the user id
         customerPhone: job.customer_phone,
         attachment_url: job.attachment_url,
+        additional_images: job.additional_images,
         payment_method: job.payment_method,
         latitude: job.latitude,
         longitude: job.longitude,

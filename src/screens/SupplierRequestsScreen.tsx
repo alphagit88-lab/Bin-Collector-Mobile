@@ -50,6 +50,7 @@ interface Job {
   start_date: string;
   end_date: string;
   attachment_url?: string;
+  additional_images?: string[] | string;
   customer_name?: string;
   customer_phone?: string;
   payment_method?: string;
@@ -176,6 +177,7 @@ const SupplierRequestsScreen: React.FC = () => {
         customerId: job.id.toString(),
         customerPhone: job.customer_phone,
         attachment_url: job.attachment_url,
+        additional_images: job.additional_images,
         payment_method: job.payment_method,
         latitude: job.latitude,
         longitude: job.longitude,

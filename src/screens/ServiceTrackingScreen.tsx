@@ -26,6 +26,8 @@ import { ENDPOINTS } from '../config/endpoints';
 import AppConfirmModal from '../components/AppConfirmModal';
 import toast from '../utils/toast';
 import { useStripe } from '@stripe/stripe-react-native';
+import ImageViewerModal from '../components/ImageViewerModal';
+import { parseAllImages, getFullImageUrl } from '../utils/imageUrl';
 
 // Import SVG images
 import BinCollect2 from '../assets/images/Bin.Collect_2.svg';
@@ -74,6 +76,9 @@ const ServiceTrackingScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [cancelModal, setCancelModal] = useState({
@@ -801,58 +806,73 @@ const ServiceTrackingScreen: React.FC = () => {
                     {renderTimeline(selectedRequest)}
 
                     {(() => {
-                      let allImages: string[] = [];
-                      if (selectedRequest.attachment_url) {
-                        allImages.push(selectedRequest.attachment_url);
-                      }
-                      if (selectedRequest.additional_images) {
-                        let parsed = [];
-                        try {
-                          parsed = typeof selectedRequest.additional_images === 'string'
-                            ? JSON.parse(selectedRequest.additional_images)
-                            : selectedRequest.additional_images;
-                        } catch (e) { }
-                        if (Array.isArray(parsed)) {
-                          allImages = [...allImages, ...parsed];
-                        }
-                      }
-                      
+                      const allImages = parseAllImages(
+                        selectedRequest.attachment_url,
+                        selectedRequest.additional_images
+                      );
+
                       if (allImages.length > 0 || selectedRequest.delivery_photo_url) {
+                        const deliveryPhotoFull = selectedRequest.delivery_photo_url
+                          ? getFullImageUrl(selectedRequest.delivery_photo_url)
+                          : null;
+                        const combinedList = [...allImages];
+                        if (deliveryPhotoFull && !combinedList.includes(deliveryPhotoFull)) {
+                          combinedList.push(deliveryPhotoFull);
+                        }
+
                         return (
                           <View style={styles.attachmentsSection}>
-                            <Text style={styles.sectionTitle}>Attachments</Text>
+                            <Text style={styles.sectionTitle}>Attachments ({combinedList.length})</Text>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
                               {allImages.map((img, i) => (
-                                <Image
+                                <TouchableOpacity
                                   key={`img_${i}`}
-                                  source={{ uri: `${BASE_URL}${img}` }}
-                                  style={[styles.attachmentPreview, { aspectRatio: imageAspectRatios[`all_${i}`] || 1.5 }]}
-                                  resizeMode="contain"
-                                  onLoad={(event) => {
-                                    const { width, height } = event.nativeEvent.source;
+                                  activeOpacity={0.8}
+                                  onPress={() => {
+                                    setViewerImages(combinedList);
+                                    setViewerIndex(i);
+                                    setViewerVisible(true);
+                                  }}
+                                >
+                                  <Image
+                                    source={{ uri: img }}
+                                    style={[styles.attachmentPreview, { aspectRatio: imageAspectRatios[`all_${i}`] || 1.5 }]}
+                                    resizeMode="contain"
+                                    onLoad={(event) => {
+                                      const { width, height } = event.nativeEvent.source;
 
-                                    setImageAspectRatios(prev => ({
-                                      ...prev,
-                                      [`all_${i}`]: width / height
-                                    }));
-                                  }}
-                                />
+                                      setImageAspectRatios(prev => ({
+                                        ...prev,
+                                        [`all_${i}`]: width / height
+                                      }));
+                                    }}
+                                  />
+                                </TouchableOpacity>
                               ))}
-                              {selectedRequest.delivery_photo_url && (
-                                <Image
+                              {deliveryPhotoFull && (
+                                <TouchableOpacity
                                   key="delivery_photo"
-                                  source={{ uri: `${BASE_URL}${selectedRequest.delivery_photo_url}` }}
-                                  style={[styles.attachmentPreview, { aspectRatio: imageAspectRatios['delivery_photo'] || 1.5 }]}
-                                  resizeMode="contain"
-                                  onLoad={(event) => {
-                                    const { width, height } = event.nativeEvent.source;
-                                    console.log('ServiceTracking: Image onLoad for delivery_photo:', width, height, 'ratio:', width / height);
-                                    setImageAspectRatios(prev => ({
-                                      ...prev,
-                                      delivery_photo: width / height
-                                    }));
+                                  activeOpacity={0.8}
+                                  onPress={() => {
+                                    setViewerImages(combinedList);
+                                    setViewerIndex(allImages.length);
+                                    setViewerVisible(true);
                                   }}
-                                />
+                                >
+                                  <Image
+                                    source={{ uri: deliveryPhotoFull }}
+                                    style={[styles.attachmentPreview, { aspectRatio: imageAspectRatios['delivery_photo'] || 1.5 }]}
+                                    resizeMode="contain"
+                                    onLoad={(event) => {
+                                      const { width, height } = event.nativeEvent.source;
+                                      console.log('ServiceTracking: Image onLoad for delivery_photo:', width, height, 'ratio:', width / height);
+                                      setImageAspectRatios(prev => ({
+                                        ...prev,
+                                        delivery_photo: width / height
+                                      }));
+                                    }}
+                                  />
+                                </TouchableOpacity>
                               )}
                             </ScrollView>
                           </View>
@@ -887,6 +907,14 @@ const ServiceTrackingScreen: React.FC = () => {
         onConfirm={cancelModal.onConfirm}
         onCancel={() => setCancelModal(prev => ({ ...prev, visible: false }))}
         singleButton={cancelModal.singleButton}
+      />
+
+      <ImageViewerModal
+        visible={viewerVisible}
+        images={viewerImages}
+        initialIndex={viewerIndex}
+        title={selectedRequest ? `Order #${selectedRequest.request_id} Attachments` : 'Attachments'}
+        onClose={() => setViewerVisible(false)}
       />
 
       <BottomNavBar activeTab="tracking" />

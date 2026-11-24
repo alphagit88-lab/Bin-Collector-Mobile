@@ -31,6 +31,8 @@ import BinAssignmentModal from '../components/BinAssignmentModal';
 import AppConfirmModal from '../components/AppConfirmModal';
 import toast from '../utils/toast';
 import { BASE_URL } from '../config/api';
+import ImageViewerModal from '../components/ImageViewerModal';
+import { parseAllImages, getFullImageUrl } from '../utils/imageUrl';
 
 // Import SVG icons
 import BannerImage from '../assets/images/4 1.svg';
@@ -190,6 +192,10 @@ const JobDetailScreen: React.FC = () => {
   const [jobDetail, setJobDetail] = useState<JobDetail>(mapBackendToJobDetail(initialData));
   const [fetching, setFetching] = useState(false);
   const [imageAspectRatios, setImageAspectRatios] = useState<Record<string, number>>({});
+  const [viewerVisible, setViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<string[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const [viewerTitle, setViewerTitle] = useState('');
 
   const [showAcceptModal, setShowAcceptModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -737,11 +743,22 @@ const JobDetailScreen: React.FC = () => {
                       {item.delivery_photo_url && (
                         <View style={{ marginTop: 8 }}>
                           <Text style={styles.detailLabel}>Delivery Photo:</Text>
-                          <Image
-                            source={{ uri: `${BASE_URL}${item.delivery_photo_url}` }}
-                            style={styles.itemPhotoPreview}
-                            resizeMode="contain"
-                          />
+                          <TouchableOpacity
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              const full = getFullImageUrl(item.delivery_photo_url);
+                              setViewerImages([full]);
+                              setViewerIndex(0);
+                              setViewerTitle(`Bin #${item.bin_code || ''} Delivery Photo`);
+                              setViewerVisible(true);
+                            }}
+                          >
+                            <Image
+                              source={{ uri: getFullImageUrl(item.delivery_photo_url) }}
+                              style={styles.itemPhotoPreview}
+                              resizeMode="contain"
+                            />
+                          </TouchableOpacity>
                         </View>
                       )}
 
@@ -864,13 +881,7 @@ const JobDetailScreen: React.FC = () => {
 
             {/* Attachments Section (All Images) */}
             {(() => {
-              let allImages: string[] = [];
-              if (jobDetail.attachment_url) {
-                allImages.push(jobDetail.attachment_url);
-              }
-              if (jobDetail.additional_images && jobDetail.additional_images.length > 0) {
-                allImages = [...allImages, ...jobDetail.additional_images];
-              }
+              const allImages = parseAllImages(jobDetail.attachment_url, jobDetail.additional_images);
 
               if (allImages.length > 0) {
                 return (
@@ -883,9 +894,19 @@ const JobDetailScreen: React.FC = () => {
                     <Text style={styles.detailLabel}>Attachments ({allImages.length})</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.attachmentsHorizontalScroll}>
                       {allImages.map((img, idx) => (
-                        <TouchableOpacity key={idx} style={styles.attachmentThumbnailWrapper}>
+                        <TouchableOpacity
+                          key={idx}
+                          style={styles.attachmentThumbnailWrapper}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            setViewerImages(allImages);
+                            setViewerIndex(idx);
+                            setViewerTitle(`Attachments (${idx + 1}/${allImages.length})`);
+                            setViewerVisible(true);
+                          }}
+                        >
                           <Image
-                            source={{ uri: `${BASE_URL}${img}` }}
+                            source={{ uri: img }}
                             style={[styles.attachmentThumbnail, { aspectRatio: imageAspectRatios[`all_${idx}`] || 1.5 }]}
                             resizeMode="contain"
                             onLoad={(event) => {
@@ -916,11 +937,16 @@ const JobDetailScreen: React.FC = () => {
                 style={styles.detailCardFull}>
                 <Text style={styles.detailLabel}>Delivery Confirmation</Text>
                 <TouchableOpacity
+                  activeOpacity={0.8}
                   onPress={() => {
-                    // Logic to view full image could go here
+                    const full = getFullImageUrl(jobDetail.delivery_photo_url);
+                    setViewerImages([full]);
+                    setViewerIndex(0);
+                    setViewerTitle('Delivery Confirmation');
+                    setViewerVisible(true);
                   }}>
                   <Image
-                    source={{ uri: `${BASE_URL}${jobDetail.delivery_photo_url}` }}
+                    source={{ uri: getFullImageUrl(jobDetail.delivery_photo_url) }}
                     style={[styles.attachmentPreview, { aspectRatio: imageAspectRatios['delivery_photo'] || 1.5 }]}
                     resizeMode="contain"
                     onLoad={(event) => {
@@ -1407,6 +1433,14 @@ const JobDetailScreen: React.FC = () => {
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal(prev => ({ ...prev, visible: false }))}
         singleButton={confirmModal.singleButton}
+      />
+
+      <ImageViewerModal
+        visible={viewerVisible}
+        images={viewerImages}
+        initialIndex={viewerIndex}
+        title={viewerTitle}
+        onClose={() => setViewerVisible(false)}
       />
 
       {user?.role === 'customer' ? (

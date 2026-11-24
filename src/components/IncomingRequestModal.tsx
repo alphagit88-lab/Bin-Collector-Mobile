@@ -18,6 +18,8 @@ import AppModal from './AppModal';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fonts } from '../theme/fonts';
 import { BASE_URL } from '../config/api';
+import ImageViewerModal from './ImageViewerModal';
+import { parseAllImages, getFullImageUrl } from '../utils/imageUrl';
 
 const MiddleImage = require('../assets/images/image1_25_2.png');
 
@@ -37,10 +39,13 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
     onDecline,
 }) => {
     const [imageAspectRatios, setImageAspectRatios] = React.useState<Record<string, number>>({});
+    const [viewerVisible, setViewerVisible] = React.useState(false);
+    const [viewerIndex, setViewerIndex] = React.useState(0);
     
     if (!requestData) return null;
 
     const request = requestData.request || {};
+    const allAttachments = parseAllImages(request.attachment_url, request.additional_images);
     
 
 
@@ -230,22 +235,40 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                                     </View>
                                 ) : null}
 
-                                {request.attachment_url ? (
-                                    <View style={styles.infoRow}>
-                                        <Text style={styles.infoLabel}>Attachment:</Text>
-                                        <Image
-                                            source={{ uri: `${BASE_URL}${request.attachment_url}` }}
-                                            style={[styles.attachmentPreview, { aspectRatio: imageAspectRatios['attachment'] || 1.5 }]}
-                                            resizeMode="contain"
-                                            onLoad={(event) => {
-                                                const { width, height } = event.nativeEvent.source;
-
-                                                setImageAspectRatios(prev => ({
-                                                    ...prev,
-                                                    attachment: width / height
-                                                }));
-                                            }}
-                                        />
+                                {allAttachments.length > 0 ? (
+                                    <View style={styles.attachmentSection}>
+                                        <Text style={styles.infoLabel}>
+                                            Attachments ({allAttachments.length}):
+                                        </Text>
+                                        <ScrollView
+                                            horizontal
+                                            showsHorizontalScrollIndicator={false}
+                                            contentContainerStyle={styles.attachmentScrollContent}
+                                        >
+                                            {allAttachments.map((imgUri, idx) => (
+                                                <TouchableOpacity
+                                                    key={idx}
+                                                    activeOpacity={0.8}
+                                                    onPress={() => {
+                                                        setViewerIndex(idx);
+                                                        setViewerVisible(true);
+                                                    }}
+                                                    style={styles.attachmentWrapper}
+                                                >
+                                                    <Image
+                                                        source={{ uri: imgUri }}
+                                                        style={styles.attachmentThumb}
+                                                        resizeMode="cover"
+                                                    />
+                                                    <View style={styles.zoomHintBadge}>
+                                                        <Ionicons name="expand" size={13} color="#FFFFFF" />
+                                                    </View>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </ScrollView>
+                                        <Text style={styles.attachmentHintText}>
+                                            Tap any photo to view full size
+                                        </Text>
                                     </View>
                                 ) : null}
 
@@ -280,6 +303,13 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                     </View>
                 </LinearGradient>
             </KeyboardAvoidingView>
+            <ImageViewerModal
+                visible={viewerVisible}
+                images={allAttachments}
+                initialIndex={viewerIndex}
+                title={`Order #${request.request_id || ''} Attachments`}
+                onClose={() => setViewerVisible(false)}
+            />
         </AppModal>
     );
 };
@@ -418,6 +448,42 @@ const styles = StyleSheet.create({
         color: '#333',
         borderWidth: 1,
         borderColor: '#DDDDDD',
+    },
+    attachmentSection: {
+        marginTop: 10,
+        marginBottom: 6,
+    },
+    attachmentScrollContent: {
+        gap: 10,
+        paddingVertical: 6,
+    },
+    attachmentWrapper: {
+        width: 100,
+        height: 80,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        position: 'relative',
+    },
+    attachmentThumb: {
+        width: '100%',
+        height: '100%',
+    },
+    zoomHintBadge: {
+        position: 'absolute',
+        bottom: 5,
+        right: 5,
+        backgroundColor: 'rgba(0, 0, 0, 0.55)',
+        borderRadius: 6,
+        padding: 3,
+    },
+    attachmentHintText: {
+        fontSize: 11,
+        color: '#888888',
+        marginTop: 4,
+        fontFamily: fonts.family.regular,
     },
     attachmentPreview: {
         width: '100%',
