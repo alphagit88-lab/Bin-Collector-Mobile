@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 import BottomNavBar from '../components/BottomNavBar';
 import AppModal from '../components/AppModal';
 import HeaderActionIcons from '../components/HeaderActionIcons';
+import { useSocket } from '../contexts/SocketContext';
 import { api } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import BinAssignmentModal from '../components/BinAssignmentModal';
@@ -219,6 +220,30 @@ const JobDetailScreen: React.FC = () => {
   const { user } = require('../contexts/AuthContext').useAuth();
 
   const isPending = jobDetail.status === 'pending';
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (socket && isPending) {
+      const handleRemoved = (data: any) => {
+        const targetDbId = data?.id !== undefined ? data.id : data?.requestId;
+        const targetCode = data?.requestId || data?.request_id;
+        const isMatch = (targetDbId && !isNaN(Number(targetDbId)) && Number(targetDbId) === Number(jobDetail.id)) ||
+                        (targetCode && String(targetCode).toLowerCase() === String(jobDetail.orderId).toLowerCase());
+        if (isMatch) {
+          toast.info('Request Unavailable', data?.message || 'This request has already been claimed by another supplier.');
+          navigation.goBack();
+        }
+      };
+
+      socket.on('request_removed', handleRemoved);
+      socket.on('order_claimed', handleRemoved);
+
+      return () => {
+        socket.off('request_removed', handleRemoved);
+        socket.off('order_claimed', handleRemoved);
+      };
+    }
+  }, [socket, isPending, jobDetail.id, jobDetail.orderId, navigation]);
 
 
 
@@ -304,7 +329,10 @@ const JobDetailScreen: React.FC = () => {
           },
         });
       } else {
-        toast.error('Error', response.message || 'Failed to accept order');
+        toast.error('Unable to Accept', response.message || 'Failed to accept order');
+        if (response.message && (response.message.toLowerCase().includes('already') || response.message.toLowerCase().includes('claimed'))) {
+          navigation.goBack();
+        }
       }
     } catch (error) {
       toast.error('Error', 'An error occurred while accepting the order');
@@ -322,8 +350,19 @@ const JobDetailScreen: React.FC = () => {
       confirmText: 'Decline',
       isDestructive: true,
       singleButton: false,
-      onConfirm: () => {
+      onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, visible: false }));
+        try {
+          const response = await api.delete(ENDPOINTS.BOOKINGS.CANCEL(jobDetail.id.toString()));
+          if (response.success) {
+            toast.success('Success', 'Order declined successfully');
+          } else {
+            toast.error('Error', response.message || 'Failed to decline order');
+          }
+        } catch (error) {
+          console.error('Decline error:', error);
+          toast.error('Error', 'Failed to decline order');
+        }
         navigation.goBack();
       },
     });

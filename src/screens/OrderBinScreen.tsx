@@ -1175,7 +1175,7 @@ const OrderBinScreen: React.FC = () => {
           bin_size_id: b.bin_size_id ? parseInt(b.bin_size_id as string) : null,
           quantity: parseInt(b.quantity) || 1,
         }));
-        const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, buildFormData(mappedBins, selectedSupplierId || assignedSupplierId || undefined)) as any;
+        const response = await api.post(ENDPOINTS.BOOKINGS.CREATE, buildFormData(mappedBins, selectedSupplierId || undefined)) as any;
 
         if (response.success) {
           if (serviceType === 'commercial') {
@@ -1906,6 +1906,16 @@ const OrderBinScreen: React.FC = () => {
                           </Text>
                         </View>
                       </>
+                    )}
+
+                    {calculatedPrice.supplier_select_price_range !== undefined && Number(calculatedPrice.supplier_select_price_range) > 0 && (
+                      <View style={styles.priceNoticeContainer}>
+                        <Ionicons name="information-circle-outline" size={18} color="#B45309" style={{ marginRight: 6, marginTop: 1 }} />
+                        <Text style={styles.priceNoticeText}>
+                          <Text style={{ fontFamily: fonts.family.bold, color: '#92400E' }}>Notice: </Text>
+                          Estimated price is based on competitive supplier rates in your area and may vary within ${calculatedPrice.supplier_select_price_range} upon supplier acceptance.
+                        </Text>
+                      </View>
                     )}
                   </>
                 ) : (
@@ -2720,6 +2730,23 @@ const styles = StyleSheet.create({
   serviceCheckboxLabelActive: {
     color: '#373934',
     fontFamily: fonts.family.bold,
+  },
+  priceNoticeContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FCD34D',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 12,
+  },
+  priceNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: fonts.family.regular,
+    color: '#92400E',
+    lineHeight: 16,
   },
 });
 

@@ -28,6 +28,7 @@ const { width, height } = Dimensions.get('window');
 interface IncomingRequestModalProps {
     visible: boolean;
     requestData: any;
+    queueCount?: number;
     onAccept: () => void;
     onDecline: () => void;
 }
@@ -35,6 +36,7 @@ interface IncomingRequestModalProps {
 const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
     visible,
     requestData,
+    queueCount,
     onAccept,
     onDecline,
 }) => {
@@ -107,7 +109,14 @@ const IncomingRequestModal: React.FC<IncomingRequestModalProps> = ({
                             colors={[themeColors.primaryLight2, themeColors.primaryLight]}
                             style={styles.headerGradient}
                         >
-                            <Text style={styles.headerTitle}>New Service Request!</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                                <Text style={styles.headerTitle}>New Service Request!</Text>
+                                {queueCount !== undefined && queueCount > 1 && (
+                                    <View style={styles.queueBadge}>
+                                        <Text style={styles.queueBadgeText}>1 of {queueCount}</Text>
+                                    </View>
+                                )}
+                            </View>
                             <Text style={styles.headerSubtitle}>
                                 {request.items && request.items.length > 0
                                     ? `${request.items.length} Bin${request.items.length > 1 ? 's' : ''} Requested`
@@ -342,6 +351,17 @@ const styles = StyleSheet.create({
     headerTitle: {
         fontFamily: fonts.family.bold,
         fontSize: 24,
+        color: '#FFFFFF',
+    },
+    queueBadge: {
+        backgroundColor: 'rgba(0, 0, 0, 0.25)',
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 12,
+    },
+    queueBadgeText: {
+        fontFamily: fonts.family.bold,
+        fontSize: 12,
         color: '#FFFFFF',
     },
     headerSubtitle: {

@@ -151,10 +151,14 @@ const SupplierJobsScreen: React.FC = () => {
       };
 
       socket.on('new_request', handleRefresh);
+      socket.on('request_removed', handleRefresh);
+      socket.on('order_claimed', handleRefresh);
       socket.on('status_update', handleRefresh);
 
       return () => {
         socket.off('new_request', handleRefresh);
+        socket.off('request_removed', handleRefresh);
+        socket.off('order_claimed', handleRefresh);
         socket.off('status_update', handleRefresh);
       };
     }

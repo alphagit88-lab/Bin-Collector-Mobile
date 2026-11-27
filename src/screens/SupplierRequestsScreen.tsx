@@ -19,6 +19,7 @@ import { themeColors } from '../theme/colors';
 import { fonts } from '../theme/fonts';
 import SupplierBottomNavBar from '../components/SupplierBottomNavBar';
 import HeaderActionIcons from '../components/HeaderActionIcons';
+import { useSocket } from '../contexts/SocketContext';
 import { api, BASE_URL } from '../config/api';
 import { ENDPOINTS } from '../config/endpoints';
 import { Image } from 'react-native';
@@ -63,6 +64,7 @@ interface Job {
 }
 
 const SupplierRequestsScreen: React.FC = () => {
+  const { socket } = useSocket();
   const navigation = useNavigation<any>();
   const [pendingJobs, setPendingJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,6 +101,46 @@ const SupplierRequestsScreen: React.FC = () => {
       fetchPendingRequests();
     }, [fetchPendingRequests])
   );
+
+  useEffect(() => {
+    if (socket) {
+      const isJobMatched = (job: Job, data: any) => {
+        if (!job || !data) return false;
+        const targetDbId = data.id !== undefined ? data.id : data.requestId;
+        const targetCode = data.requestId || data.request_id;
+        if (targetDbId && !isNaN(Number(targetDbId)) && job.id === Number(targetDbId)) return true;
+        if (targetCode && String(job.request_id).toLowerCase() === String(targetCode).toLowerCase()) return true;
+        return false;
+      };
+
+      const handleNewRequest = () => {
+        fetchPendingRequests();
+      };
+
+      const handleRequestRemoved = (data: any) => {
+        setPendingJobs(prev => prev.filter(j => !isJobMatched(j, data)));
+        if (data?.message) {
+          toast.info('Request Update', data.message);
+        }
+      };
+
+      const handleOrderClaimed = (data: any) => {
+        setPendingJobs(prev => prev.filter(j => !isJobMatched(j, data)));
+      };
+
+      socket.on('new_request', handleNewRequest);
+      socket.on('request_removed', handleRequestRemoved);
+      socket.on('order_claimed', handleOrderClaimed);
+      socket.on('status_update', handleNewRequest);
+
+      return () => {
+        socket.off('new_request', handleNewRequest);
+        socket.off('request_removed', handleRequestRemoved);
+        socket.off('order_claimed', handleOrderClaimed);
+        socket.off('status_update', handleNewRequest);
+      };
+    }
+  }, [socket, fetchPendingRequests]);
 
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);

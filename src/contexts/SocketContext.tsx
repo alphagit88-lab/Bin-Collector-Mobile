@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { showMessage } from 'react-native-flash-message';
 import { useAuth } from './AuthContext';
@@ -15,14 +15,41 @@ interface SocketContextType {
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
+// Helper to robustly match whether a socket event (removal/claim) matches a request
+const matchesRequest = (item: any, eventData: any) => {
+    if (!item || !eventData) return false;
+    const itemDbId = item.request?.id || item.requestId || item.id;
+    const itemCode = item.request?.request_id || item.request_id;
+
+    const eventDbId = eventData.id !== undefined ? eventData.id : eventData.requestId;
+    const eventCode = eventData.requestId || eventData.request_id;
+
+    // Check database ID match (e.g. 121)
+    if (itemDbId && eventDbId && !isNaN(Number(itemDbId)) && !isNaN(Number(eventDbId))) {
+        if (Number(itemDbId) === Number(eventDbId)) return true;
+    }
+    // Check formatted string code match (e.g. "IE8DS")
+    if (itemCode && eventCode && String(itemCode).trim().toLowerCase() === String(eventCode).trim().toLowerCase()) {
+        return true;
+    }
+    // Cross match if eventDbId is code or eventCode is number
+    if (itemCode && eventDbId && String(itemCode).trim().toLowerCase() === String(eventDbId).trim().toLowerCase()) {
+        return true;
+    }
+    if (itemDbId && eventCode && String(itemDbId) === String(eventCode)) {
+        return true;
+    }
+    return false;
+};
+
 export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const { user, token } = useAuth();
     const [socket, setSocket] = useState<Socket | null>(null);
     const [connected, setConnected] = useState(false);
 
-    // Modal state
-    const [requestModalVisible, setRequestModalVisible] = useState(false);
-    const [incomingRequest, setIncomingRequest] = useState<any>(null);
+    const [requestQueue, setRequestQueue] = useState<any[]>([]);
+    // Track IDs of requests the supplier declined locally (to suppress "accepted by other" toast)
+    const dismissedIdsRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         if (token && user) {
@@ -45,8 +72,11 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             newSocket.on('new_request', (data) => {
                 console.log('Global Socket: New request received', data);
                 if (user.role === 'supplier') {
-                    setIncomingRequest(data);
-                    setRequestModalVisible(true);
+                    setRequestQueue(prev => {
+                        const exists = prev.some(item => matchesRequest(item, data));
+                        if (exists) return prev;
+                        return [...prev, data];
+                    });
                 } else {
                     showMessage({
                         message: "New Service Request",
@@ -71,6 +101,43 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                 });
             });
 
+            // Handle real-time removal when accepted by another supplier or cancelled
+            const removeOrderFromQueue = (data: any) => {
+                setRequestQueue(prev => {
+                    const matchedItem = prev.find(item => matchesRequest(item, data));
+                    if (matchedItem) {
+                        const dbId = String(matchedItem.request?.id || matchedItem.id || '');
+                        const code = matchedItem.request?.request_id || matchedItem.requestId || '';
+                        // Only show toast if the supplier didn't locally dismiss this request themselves
+                        const wasDismissedByUser = dismissedIdsRef.current.has(dbId) || (code && dismissedIdsRef.current.has(code));
+                        if (!wasDismissedByUser) {
+                            showMessage({
+                                message: "Request No Longer Available",
+                                description: data?.message || `Request ${code ? '#' + code : ''} has been accepted by another supplier.`,
+                                type: "info",
+                                backgroundColor: "#DC2626",
+                                duration: 4000,
+                            });
+                        }
+                        // Clean up from dismissed set
+                        if (dbId) dismissedIdsRef.current.delete(dbId);
+                        if (code) dismissedIdsRef.current.delete(code);
+                        return prev.filter(item => !matchesRequest(item, data));
+                    }
+                    return prev;
+                });
+            };
+
+            newSocket.on('request_removed', (data) => {
+                console.log('Global Socket: Request removed', data);
+                removeOrderFromQueue(data);
+            });
+
+            newSocket.on('order_claimed', (data) => {
+                console.log('Global Socket: Order claimed', data);
+                removeOrderFromQueue(data);
+            });
+
             setSocket(newSocket);
 
             return () => {
@@ -79,21 +146,25 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         } else {
             setSocket(null);
             setConnected(false);
+            setRequestQueue([]);
         }
     }, [token, user]);
 
+    const currentRequest = requestQueue[0] || null;
+
     const handleAccept = async () => {
-        if (incomingRequest && incomingRequest.request) {
-            const request = incomingRequest.request;
+        if (currentRequest && currentRequest.request) {
+            const request = currentRequest.request;
+            const acceptedId = request.id;
+
+            // Remove current request from queue immediately so UI advances (match by DB id directly)
+            setRequestQueue(prev => prev.filter(item => Number(item.request?.id ?? item.id) !== Number(acceptedId)));
 
             try {
                 // Call acception endpoint
                 const response = await api.post(ENDPOINTS.BOOKINGS.ACCEPT(request.id), {});
 
                 if (response.success) {
-                    setRequestModalVisible(false);
-                    setIncomingRequest(null);
-
                     showMessage({
                         message: "Success",
                         description: "Request accepted successfully!",
@@ -105,9 +176,10 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
                     navigate('SupplierJobs');
                 } else {
                     showMessage({
-                        message: "Error",
-                        description: response.message || "Failed to accept request",
+                        message: "Unable to Accept Request",
+                        description: response.message || "This request may have already been accepted by another supplier.",
                         type: "danger",
+                        duration: 5000,
                     });
                 }
             } catch (error) {
@@ -121,9 +193,35 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         }
     };
 
-    const handleDecline = () => {
-        setRequestModalVisible(false);
-        setIncomingRequest(null);
+    const handleDecline = async () => {
+        if (currentRequest && currentRequest.request) {
+            // Capture data BEFORE any async or state changes
+            const reqId = currentRequest.request.id;
+            const reqCode = currentRequest.request.request_id;
+            const capturedRequest = currentRequest;
+
+            // Mark as dismissed by user so we suppress any "No Longer Available" toast
+            if (reqId) dismissedIdsRef.current.add(String(reqId));
+            if (reqCode) dismissedIdsRef.current.add(String(reqCode));
+
+            // Pop from queue immediately so modal closes (match by DB id directly — not by queue item shape)
+            setRequestQueue(prev => prev.filter(item => Number(item.request?.id ?? item.id) !== Number(reqId)));
+
+            // Show confirmation toast immediately (don't wait for API)
+            showMessage({
+                message: "Request Declined",
+                description: `Request ${reqCode ? '#' + reqCode : ''} has been declined.`,
+                type: "warning",
+                backgroundColor: "#F59E0B",
+                duration: 3000,
+            });
+
+            try {
+                await api.delete(ENDPOINTS.BOOKINGS.CANCEL(String(reqId)));
+            } catch (err) {
+                console.error('Error declining request:', err);
+            }
+        }
     };
 
     return (
@@ -131,8 +229,9 @@ export const SocketProvider: React.FC<{ children: ReactNode }> = ({ children }) 
             {children}
             {user?.role === 'supplier' && (
                 <IncomingRequestModal
-                    visible={requestModalVisible}
-                    requestData={incomingRequest}
+                    visible={requestQueue.length > 0}
+                    requestData={currentRequest}
+                    queueCount={requestQueue.length}
                     onAccept={handleAccept}
                     onDecline={handleDecline}
                 />
